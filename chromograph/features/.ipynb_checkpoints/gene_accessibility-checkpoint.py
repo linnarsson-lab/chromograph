@@ -90,4 +90,4 @@ if __name__ == '__main__':
         
     import pickle
     logging.info('save as pickle')
-    pickle.dump(res, 'res_GAM.pkl')
+    pickle.dump(res, open('res_GAM.pkl', 'wb'))
