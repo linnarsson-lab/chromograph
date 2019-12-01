@@ -36,6 +36,7 @@ logger.setLevel(logging.INFO)
 ref = '/data/ref/cellranger-atac/refdata-cellranger-atac-mm10-1.2.0'
 indir = '/data/proj/scATAC/chromograph/mouse_test2/'
 f = os.path.join(indir, '10X_test_10kb.loom')
+pad = 1000
 
 ## Connect to loompy session
 ds = loompy.connect(f)
@@ -43,15 +44,14 @@ ds = loompy.connect(f)
 logging.info('Connected to loom file')
 
 ## Load transcripts
-genes = BedTool(os.path.join(ref, 'regions', 'transcripts.bed'))
+tss = BedTool(os.path.join(ref, 'regions', 'tss.bed'))
 
 ## Extract unique protein coding transcripts
 coding = []
-for x in genes:
+for x in tss:
     if x[6] == 'protein_coding':
         coding.append(x)
 coding = BedTool(coding)
-coding = coding.groupby(g = [4,1], c = [2,3,4], o = ['min', 'max', 'count'], full=True)
 
 ## Generate row features
 rows = {'Gene': [], 'Chromosome': [], 'Start': [], 'End': []}
@@ -76,18 +76,50 @@ if __name__ == '__main__':
     
     i = 0
     for chunk in chunks:
-        p = mp.Process(target=count_genes, args=(chunk, rows, res,))
+        p = mp.Process(target=feature_count, args=(chunk, coding, res,))
         jobs.append(p)
         p.start()
         
         i += 1
         
-        if i%100 == 0:
+        if i%500 == 0:
             logging.info(f"processed {i} cells")
         
     for proc in jobs:
         proc.join()
+       
+    g_ref = {}
+    for x,k in enumerate(rows['Gene']):
+        g_ref[k] = x
         
+    ## Create sparse matrix
+    col = []
+    row = []
+    v = []
+
+    cix = 0
+    for cell in res:
+
+        for key in res[cell]:
+            col.append(cix)
+            row.append(g_ref[key])
+            v.append(res[cell][key])
+        cix+=1
+
+    matrix = sparse.coo_matrix((v, (row,col)), shape=(len(short['Gene']), len(ds.ca['cell_id'])))
+    
+    f_genes = f.split('_')[:-1]
+    f_genes = '_'.join(f_genes) + '_genes.loom'
+
+    col_attrs = dict(ds.ca)
+    f_attrs = dict(ds.attrs)
+
+    loompy.create(filename=f_genes, 
+                  layers=matrix, 
+                  row_attrs=short, 
+                  col_attrs=col_attrs,
+                  file_attrs=f_attrs)
+    
     import pickle
     logging.info('save as pickle')
     pickle.dump(res, open('res_GAM.pkl', 'wb'))
