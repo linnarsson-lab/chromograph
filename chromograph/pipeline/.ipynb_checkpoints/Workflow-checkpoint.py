@@ -23,8 +23,10 @@ class Workflow:
     def __init__(self, name: str) -> None:
 
         self.config = load_config()
+#         self.deck = deck
         self.name = name
         self.loom_file = os.path.join(self.config.paths.build, "data", name + ".loom")
+#         self.agg_file = os.path.join(self.config.paths.build, "data", name + ".agg.loom")
         self.export_dir = os.path.join(self.config.paths.build, "exported", name)
 
     def collect_samples(self) -> None:

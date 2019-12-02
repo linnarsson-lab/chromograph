@@ -91,6 +91,8 @@ def count_fragments(frag_dict, barcodes, bsize):
     
     Count_dict = collections.OrderedDict()
 
+    i = 0
+    
     for bar in barcodes:    
         if bar in frag_dict:
             frags = frag_dict[bar]
@@ -98,7 +100,7 @@ def count_fragments(frag_dict, barcodes, bsize):
             for _frag in frags:
 
                 # If a fragment spans two bins we count it twice
-                for x in set([int(_frag[1]/bsize)*bsize+1, int(_frag[2]/bsize)*bsize+1]):
+                for x in set([int(int(_frag[1])/bsize)*bsize+1, int(int(_frag[2])/bsize)*bsize+1]):
                     k = (_frag[0], x, x + bsize - 1)
                     if k not in counts.keys():
                         counts[k] = 1
@@ -107,6 +109,11 @@ def count_fragments(frag_dict, barcodes, bsize):
             Count_dict[bar] = counts
         else:
             continue
+        
+        i += 1
+        
+        if i%500 == 0:
+            logging.info(f"Finished counting {i} cells")
     
     return Count_dict;
 
