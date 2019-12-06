@@ -117,3 +117,9 @@ def count_fragments(frag_dict, barcodes, bsize):
     
     return Count_dict;
 
+def down_sample(vals, level:int=5000):
+    '''
+    '''
+    dist = [i for i,j in enumerate(vals) for _ in range(j)]
+    sample = Counter(random.sample(dist, level))
+    return [sample[i] for i in range(len(vals))]

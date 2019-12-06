@@ -38,7 +38,7 @@ class Chrombin:
         logging.info("Chrombin initialised")
     
     
-    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_frag: int = 500) -> None:
+    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, level: int = 5000) -> None:
         ''''
         Create a .loom file from 10X Genomics cellranger output with reads binned
         Args:
@@ -47,6 +47,7 @@ class Chrombin:
             outdir (str):	output folder wher the new loom file should be saved (default to indir)
             genome_size (str):	path to file containing chromosome sizes, usually derived from encode (i.e. 'hg19.chrom.sizes.tsv')
             blacklist (str):	path to bedfile containing blacklisted region (i.e. 'blacklist_hg19.bed')
+            level (int):    the minimum number of fragments
         Returns:
             path (str):		Full path to the created loom file.
         Remarks:
@@ -69,6 +70,7 @@ class Chrombin:
             for k,v in summary.items():
                 summary[k] = str(v)
         summary['bin_size'] = bsize
+        summary['level'] = level
         
         barcodes = np.genfromtxt(fb, delimiter=',', skip_header=2,
                                  dtype={'names':('barcode','total','duplicate','chimeric','unmapped','lowmapq','mitochondrial','passed_filters','cell_id','is__cell_barcode',
@@ -78,8 +80,8 @@ class Chrombin:
 
         ## Transfer metadata to dict format
         meta = {}
+        passed = np.logical_and.reduce((barcodes['is__cell_barcode'] == 1, barcodes['passed_filters'] > level, barcodes['passed_filters'] < 1000000))
         for key in barcodes.dtype.names:
-            passed = np.logical_and(barcodes['is__cell_barcode'] == 1, barcodes['passed_filters'] > min_frag)
             meta[key] = barcodes[key][passed]
         meta['sample'] = np.repeat(sample, len(meta['barcode']))
         logging.info("Total of {} valid cells".format(len(meta['barcode'])))
@@ -111,8 +113,8 @@ class Chrombin:
 #         meta['fragments'] = [np.array(frag_dict[k]) for k in meta['barcode']] ## Save as part of column attributes
 #         meta['fragments'] = [frag_dict[k] for k in meta['barcode']] ## Save as part of column attributes
 #         logging.info("Saved fragments as meta data")
-        logging.info("Doing cleanup")
-        del frag_dict
+#         logging.info("Doing cleanup")
+#         del frag_dict
 
         logging.info("Loading blacklist")
         # Load Blacklist

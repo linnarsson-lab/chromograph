@@ -11,6 +11,7 @@ path = '/data/proj/scATAC/chromograph/'
 
 samples = ['232_3', '232_4']
 tissue = 'Midbrain'
+bsize = '5kb'
 d = datetime.today().strftime('%Y%m%d')
 outdir = os.path.join(path, 'build_' + d)
 
@@ -24,9 +25,14 @@ if not os.path.isdir(outdir):
     os.mkdir(outdir)
 
 outfile = os.path.join(outdir, tissue + '.loom')
-inputfiles = [os.path.join(path, '10X' + sample, '10X' + sample + '_10kb.loom') for sample in samples]
+inputfiles = [os.path.join(path, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
+
+for x in inputfiles:
+    with loompy.connect(x) as ds:
+        logging.info(f"{x} has shape{ds.shape}")
 loompy.combine(inputfiles, outfile)
 
 with loompy.connect(outfile) as ds:
+    ds.attrs['tissue'] = tissue
     bin_analysis = bin_analysis()
     bin_analysis.fit(ds, outdir=outdir)

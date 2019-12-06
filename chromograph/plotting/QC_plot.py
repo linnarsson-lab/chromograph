@@ -4,7 +4,7 @@ import loompy
 from sklearn.neighbors import NearestNeighbors
 from matplotlib.collections import LineCollection
 
-def UMI_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -> None:
+def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -> None:
     '''
     Generates a multi-panel plot to inspect UMI and Bin counts.
     
@@ -56,13 +56,15 @@ def UMI_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") 
     
     cax = fig.add_axes([0.45, 0.05, 0.005, 0.4])
     fig.colorbar(im, cax=cax, orientation='vertical')
-    ax.set_title('Log10 UMIs')
+    ax.set_title('Log10 fragments')
     ax.axis("off")
     
     ## Histogram of Bin Coverage
     ax2 = fig.add_axes([0, 0.5, 0.45, 0.2])
 
-    ax2.hist(np.log10(ds.ra['NCells'][ds.ra['NCells'] > 0]), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))
+    ax2.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))
+    ax2.axvline(x=np.log10(ds.attrs['bin_max_cutoff']))
+    ax2.axvline(x=np.log10(ds.attrs['bin_min_cutoff']))
     ax2.set_title("Bin Coverage")
     ax2.set_ylabel("Number of Bins")
     ax2.set_xlabel("Log10 Coverage")
@@ -79,6 +81,6 @@ def UMI_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") 
     ax4.scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']), s=1)
     ax4.set_title("Fragments per cell v. positive bins per cell")
     ax4.set_ylabel("Log10 Positive Bins")
-    ax4.set_xlabel("Log10 UMIs")
+    ax4.set_xlabel("Log10 fragmentss")
     
     fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
