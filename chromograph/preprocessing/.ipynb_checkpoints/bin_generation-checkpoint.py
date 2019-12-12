@@ -14,6 +14,7 @@ import scipy.sparse as sparse
 import json
 import urllib.request
 import logging
+import pickle
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline.config import Config
@@ -36,7 +37,6 @@ class Chrombin:
         """
 #         self.config = config
         logging.info("Chrombin initialised")
-    
     
     def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, level: int = 5000) -> None:
         ''''
@@ -102,6 +102,10 @@ class Chrombin:
         logging.info("Read fragments into dict")
         frag_dict = read_fragments(ff)
         
+        logging.info("Saving fragments to dict")
+        fpick = outdir + '/' + sampleid + '_frags.pkl'
+        pickle.dump(frag_dict, fpick)
+        
         logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
         chrom_bins = generate_bins(chrom_size, bsize)
 
@@ -127,7 +131,7 @@ class Chrombin:
         intervals = pybedtools.BedTool(bins)
         cleaned = intervals.subtract(black_list, A=True)
 
-        keep = [(row['chrom'], int(row['start']), int(row['end'])) for row in cleaned]
+        keep = [(row['chrom'], int(row['start']), int(row['end'])) for row in cleaned.sort()] # Sort the bins to make downstream alignment with features easier
         retain = [chrom_bins[x] for x in keep]
         clean_bin = [bins[x] for x in retain]
 
@@ -166,7 +170,7 @@ class Chrombin:
         start = [x[1] for x in clean_bin]
         end = [x[2] for x in clean_bin]
 
-        row_attrs = {'chrom': np.array(chrom), 'start': np.array(start), 'end': np.array(end)}
+        row_attrs = {'ID': np.array(range(len(chrom))), 'chrom': np.array(chrom), 'start': np.array(start), 'end': np.array(end)}
 
         ## Create loomfile
         logging.info("Constructing loomfile")

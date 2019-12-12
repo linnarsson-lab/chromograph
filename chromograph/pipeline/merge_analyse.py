@@ -9,8 +9,8 @@ from chromograph.pipeline.Bin_analysis import *
 
 path = '/data/proj/scATAC/chromograph/'
 
-samples = ['232_3', '232_4']
-tissue = 'Midbrain'
+samples = ['232_1', '232_2']
+tissue = 'Cerebellum'
 bsize = '5kb'
 d = datetime.today().strftime('%Y%m%d')
 outdir = os.path.join(path, 'build_' + d)

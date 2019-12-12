@@ -21,6 +21,7 @@ from cytograph.plotting import manifold
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
+from chromograph.features.bin_annotation import Bin_annotation
 
 from umap import UMAP
 import sklearn.metrics
@@ -45,6 +46,7 @@ class bin_analysis:
     #   self.config = config
         logging.info("Bin_Analysis initialised")
         self.factorization = 'HPF'
+        self.ref = '/data/ref/cellranger-atac/refdata-cellranger-atac-GRCh38-1.2.0/'
     
     def fit(self, ds: loompy.LoomConnection, outdir) -> None:
         blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
@@ -53,7 +55,6 @@ class bin_analysis:
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
         
-        ## Bin selection  --RIGHT NOW WE FITLER THE ABSOLUTE TOP 1% BINS and bottom 80%--
         ## nonzero (nnz) counts per bin
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['NBins'] = ds.map([np.count_nonzero], axis=1)[0]
@@ -64,13 +65,11 @@ class bin_analysis:
         sd = np.std(cov)
         ds.ra['Coverage'] = (cov - mu) / sd
         
-#         bins = np.logical_and(ds.ra['NCells'] > 100, ds.ra['NCells'] < bin_cutoff)
-        bins = np.logical_and(ds.ra['NCells'] > ds.attrs['bin_min_cutoff'], ds.ra['NCells'] < ds.attrs['bin_max_cutoff'])
-        logging.info("Using {} out of {} bins for manifold learning".format(sum(bins), ds.shape[0]))
-        
         ## Create binary layer
         logging.info("Binarizing the matrix")
-        ds.layers[blayer] = np.clip(ds[:,:], 0, 1)
+        nnz = ds[:,:] > 0
+        nnz.dtype = 'int8'
+        ds.layers[blayer] = nnz
 
         if self.factorization == 'PCA':
             ## NEEDS WORK
@@ -78,9 +77,12 @@ class bin_analysis:
             ds.attrs['bin_min_cutoff'] = np.max(ds.ra['NCells'][cov<-1.5])
         
         elif self.factorization == 'HPF':
-            ## Select bins
+            logging.info("Performing HPF")
+            ## Bin selection  --RIGHT NOW WE FITLER THE ABSOLUTE TOP 1% BINS and bottom 80%--
             ds.attrs['bin_max_cutoff'] = np.quantile(ds.ra['NCells'], 0.99)
             ds.attrs['bin_min_cutoff'] = np.quantile(ds.ra['NCells'], 0.80)
+            
+            logging.info(f"Selected max cut_off {ds.attrs['bin_max_cutoff']} and min cut_off {ds.attrs['bin_min_cutoff']}")
 
             bins = np.logical_and(ds.ra['NCells'] > ds.attrs['bin_min_cutoff'], ds.ra['NCells'] < ds.attrs['bin_max_cutoff'])
             logging.info("Using {} out of {} bins for manifold learning".format(sum(bins), ds.shape[0]))
@@ -186,10 +188,14 @@ class bin_analysis:
         ds.ca.OutliersSurprise = (labels == -1).astype('int')
         logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
         
+        ## Annotate bins
+        logging.info(f"Annotating Bins")
+        Bin_annotation(ds, self.ref)
+        
         ## Plot results on manifold
         logging.info("Plotting UMAP")
         manifold(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_UMI.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_QC.png"), embedding = 'TSNE')
