@@ -22,7 +22,7 @@ from chromograph.preprocessing.utils import *
 
 pybedtools.helpers.set_bedtools_path('/data/bin/bedtools2/bin/')
 
-class Chrombin:
+class Chromgen:
     def __init__(self) -> None:
         """
         Generate a binned loom file from scATAC-seq data
@@ -36,6 +36,7 @@ class Chrombin:
             # and can be overridden by the config in the current punchcard
         """
 #         self.config = config
+        self.steps = ['binning', 'TSS', 'enhancers', ]
         logging.info("Chrombin initialised")
     
     def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, level: int = 5000) -> None:
@@ -103,8 +104,8 @@ class Chrombin:
         frag_dict = read_fragments(ff)
         
         logging.info("Saving fragments to dict")
-        fpick = outdir + '/' + sampleid + '_frags.pkl'
-        pickle.dump(frag_dict, fpick)
+        fpick = outdir + '/' + sample + '_frags.pkl'
+        pickle.dump(frag_dict, open(fpick, "wb"))
         
         logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
         chrom_bins = generate_bins(chrom_size, bsize)
