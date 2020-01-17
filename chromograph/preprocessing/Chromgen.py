@@ -15,12 +15,17 @@ import json
 import urllib.request
 import logging
 import pickle
+import importlib
 
 sys.path.append('/home/camiel/chromograph/')
+sys.path.append('/data/bin/bedtools2/bin/')
 from chromograph.pipeline.config import Config
 from chromograph.preprocessing.utils import *
+from chromograph.features.feature_count import *
 
 pybedtools.helpers.set_bedtools_path('/data/bin/bedtools2/bin/')
+# pybedtools.helpers.set_bedtools_path('/home/camiel/anaconda3/envs/chromograph/bin/bedtools')
+pybedtools = importlib.reload(pybedtools)
 
 class Chromgen:
     def __init__(self) -> None:
@@ -36,7 +41,7 @@ class Chromgen:
             # and can be overridden by the config in the current punchcard
         """
 #         self.config = config
-        logging.info("Chrombin initialised")
+        logging.info("Chromgen initialised")
     
     def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, level: int = 5000) -> None:
         ''''
@@ -102,23 +107,17 @@ class Chromgen:
         logging.info("Read fragments into dict")
         frag_dict = read_fragments(ff)
         
-        logging.info("Saving fragments to dict")
-        fpick = outdir + '/' + sample + '_frags.pkl'
-        pickle.dump(frag_dict, open(fpick, "wb"))
+#         logging.info("Saving fragments to dict")
+#         fpick = outdir + '/' + sample + '_frags.pkl'
+#         pickle.dump(frag_dict, open(fpick, "wb"))
         
         logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
         chrom_bins = generate_bins(chrom_size, bsize)
 
         ## Count fragments inside bins
         logging.info("Count fragments overlapping with bins")
-        Count_dict = count_fragments(frag_dict, meta['barcode'], bsize)
+        Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
         logging.info("Finished counting fragments")
-        
-#         meta['fragments'] = [np.array(frag_dict[k]) for k in meta['barcode']] ## Save as part of column attributes
-#         meta['fragments'] = [frag_dict[k] for k in meta['barcode']] ## Save as part of column attributes
-#         logging.info("Saved fragments as meta data")
-#         logging.info("Doing cleanup")
-#         del frag_dict
 
         logging.info("Loading blacklist")
         # Load Blacklist
@@ -184,5 +183,62 @@ class Chromgen:
                       file_attrs=small_summary)
         self.loom = floom
         
-        logging.info("Loom file saved as {}".format(f))
+        logging.info("Loom bin file saved as {}".format(f))
+        
+        ######
+        ## Generate Gene Accessibility Scores
+        ######
+        
+        logging.info('Start generating Gene Acessibility Scores')
+        logging.info('Setting up BedTool')
+        fragments = BedTool(ff)
+        
+        ## Saving fragments in cells
+        
+        
+        logging.info('Load Genomic regions from reference')
+        gb = BedTool(os.path.join(chromograph.__path__[0], 'references/GRCh38_genes_2kbprom.bed'))
+        
+        logging.info('Intersecting fragments with Genomic regions')
+        inter = gb.intersect(fragments, wa=True, wb=True)
+        
+        logging.info('Count Gene body overlapping reads per barcode')
+        Count_dict = Count_genes(meta['barcode'], inter)
+        
+        logging.info('Reorder data and generate sparse matrix')
+        r_dict = {k: [] for k in ['Accession', 'Gene']}
+        for x in gb:
+            r_dict['Accession'].append(x.attrs['gene_id'])
+            r_dict['Gene'].append(x.attrs['gene_name'])
+
+        g_dict = {k: v for v,k in enumerate(r_dict['Accession'])}
+        
+        ## Create sparse matrix
+        col = []
+        row = []
+        v = []
+
+        cix = 0
+        for cell in meta['barcode']:
+
+            for key in (Count_dict[cell]):
+                col.append(cix)
+                row.append(g_dict[key])
+                v.append(Count_dict[cell][key])
+            cix+=1
+
+        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(g_dict.keys()), len(meta['barcode'])))
+        
+        ## Create loomfile
+        logging.info("Constructing loomfile")
+        floom = os.path.join(outdir, indir.split('/')[-1] + '_GA.loom')
+
+        loompy.create(filename=floom, 
+                      layers=matrix, 
+                      row_attrs=r_dict, 
+                      col_attrs=meta,
+                      file_attrs=small_summary)
+        self.gloom = floom
+        
+        logging.info("Loom gene file saved as {}".format(f))
     

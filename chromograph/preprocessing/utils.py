@@ -85,7 +85,7 @@ def generate_bins(chrom_size, bsize):
     logging.info('Number of bins: {}'.format(len(chrom_bins.keys())))
     return chrom_bins;
 
-def count_fragments(frag_dict, barcodes, bsize):
+def count_bins(frag_dict, barcodes, bsize):
     '''
     '''
     

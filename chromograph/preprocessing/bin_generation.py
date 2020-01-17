@@ -22,7 +22,7 @@ from chromograph.preprocessing.utils import *
 
 pybedtools.helpers.set_bedtools_path('/data/bin/bedtools2/bin/')
 
-class Chromgen:
+class Chrombin:
     def __init__(self) -> None:
         """
         Generate a binned loom file from scATAC-seq data
@@ -36,7 +36,6 @@ class Chromgen:
             # and can be overridden by the config in the current punchcard
         """
 #         self.config = config
-        self.steps = ['binning', 'TSS', 'enhancers', ]
         logging.info("Chrombin initialised")
     
     def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, level: int = 5000) -> None:
