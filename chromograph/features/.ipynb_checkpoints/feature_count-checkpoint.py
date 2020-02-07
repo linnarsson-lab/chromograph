@@ -16,18 +16,21 @@ def Count_genes(bars, intersections):
     i = 0
 
     for x in intersections:
+        
+        try:
+            bar = str(x[-2])
+            g = x.attrs['gene_id']
 
-        bar = str(x[-2])
-        g = x.attrs['gene_id']
+            if bar in Count_dict:
+                if g not in Count_dict[bar]:
+                    Count_dict[bar][g] = 1
+                else:
+                    Count_dict[bar][g] += 1
+            i += 1
 
-        if bar in Count_dict:
-            if g not in Count_dict[bar]:
-                Count_dict[bar][g] = 1
-            else:
-                Count_dict[bar][g] += 1
-        i += 1
-
-        if i%1000000 == 0:
-            logging.info(f'Counted {i/1000000} million Fragments')
+            if i%1000000 == 0:
+                logging.info(f'Counted {i/1000000} million Fragments')
+        except:
+            continue
             
     return Count_dict

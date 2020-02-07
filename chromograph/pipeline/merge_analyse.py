@@ -21,18 +21,30 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
+## Check if directory exists
 if not os.path.isdir(outdir):
     os.mkdir(outdir)
 
+## Merge Bin files
 outfile = os.path.join(outdir, tissue + '.loom')
 inputfiles = [os.path.join(path, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
-
 for x in inputfiles:
     with loompy.connect(x) as ds:
         logging.info(f"{x} has shape{ds.shape}")
 loompy.combine(inputfiles, outfile)
 
+## Run Clustering and embedding
 with loompy.connect(outfile) as ds:
     ds.attrs['tissue'] = tissue
     bin_analysis = bin_analysis()
     bin_analysis.fit(ds, outdir=outdir)
+    
+## Merge GA files
+GA_file = os.path.join(outdir, tissue + '_GA.loom')
+inputfiles = [os.path.join(path, '10X' + sample, '10X' + sample + f"_GA.loom") for sample in samples]
+for x in inputfiles:
+    with loompy.connect(x) as ds:
+        logging.info(f"{x} has shape{ds.shape}")
+loompy.combine(inputfiles, GAfile)
+
+with loompy.connect(out_file)

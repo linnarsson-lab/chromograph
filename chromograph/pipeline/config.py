@@ -1,10 +1,13 @@
 import os
 from pathlib import Path
-from typing import Union, Optional
 from types import SimpleNamespace
-# from .punchcards import PunchcardSubset, PunchcardView
+from typing import Optional, Union
 
 import yaml
+
+# from cytograph.utils import available_cpu_count
+
+# from .punchcards import PunchcardSubset, PunchcardView
 
 
 def merge_namespaces(a: SimpleNamespace, b: SimpleNamespace) -> None:
@@ -45,34 +48,47 @@ class Config(SimpleNamespace):
 
 # def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = None) -> Config:
 def load_config() -> Config:
-
 	config = Config(**{
 		"paths": Config(**{
 			"build": "",
 			"samples": "",
-            "genome_size": "",
-            "blacklist": "",
+			"cell_ranger": "",
+			"bedtools": "",
+			"ref": "",
 			"autoannotation": "",
 			"metadata": "",
-			"index": ""
+			"fastqs": "",
+			"index": "",
+			"qc": ""
 		}),
 		"params": Config(**{
-			"factorization": "HPF",
-			"n_factors": 96,
-			"min_umis": 1000,
-			"bsize": 5000,
-			"doublets_action": "remove",
-			"doublets_method": "scrublet",
-			"mask": ("cellcycle", "sex", "ieg", "mt"),
+			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
+			"k": 25,
+			"k_pooling": 10,
+			"factorization": "PCA",  # or "HPF" or "both"
+			"n_factors": 50,
+			"min_frags": 5000,
+			"cov": 1.75,
+			# "n_genes": 2000,
+			# "doublets_action": "remove",
+			# "mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
+			"max_fraction_MT_genes": 0.05,
+			# "min_fraction_unspliced_reads": 0.2,
+			# "min_fraction_genes_UMI": 0.3,
+			# "max_doubletFinder_TH": 0.4,
 			"skip_missing_samples": False,
+			"skip_metadata": False,
+			# "features": "enrichment",  # or "variance"
+			"passedQC": False,
 			"clusterer": "louvain",  # or "surprise"
-			"features": "enrichment", # or "variance"
-            "reference_assembly": "hg19"
+			"nn_space": "auto"
 		}),
-		"steps": ("doublets", "poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "skeletonize", "export"),
+		# "steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
+		"steps": ("nn", "embeddings", "clustering"),
 		"execution": Config(**{
-			"n_cpus": 4,
+			# "n_cpus": available_cpu_count(),
+			"n_cpus": 52,
 			"n_gpus": 0,
 			"memory": 128
 		})
@@ -88,13 +104,13 @@ def load_config() -> Config:
 	f = os.path.join(config.paths.build, "config.yaml")
 	if os.path.exists(f):
 		config.merge_with(f)
-# 	# Current subset or view
-# 	if subset_obj is not None:
-# 		if subset_obj.params is not None:
-# 			merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
-# 		if subset_obj.steps != [] and subset_obj.steps is not None:
-# 			config.steps = subset_obj.steps
-# 		if subset_obj.execution is not None:
-# 			merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
+	Current subset or view
+	if subset_obj is not None:
+		if subset_obj.params is not None:
+			merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
+		if subset_obj.steps != [] and subset_obj.steps is not None:
+			config.steps = subset_obj.steps
+		if subset_obj.execution is not None:
+			merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
 
 	return config

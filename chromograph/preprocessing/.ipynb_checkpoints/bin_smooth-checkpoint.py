@@ -5,14 +5,14 @@ import collections
 import matplotlib.pyplot as plt
 import loompy
 # import scipy.sparse as sparse
-import urllib.request
-import pybedtools
-from pybedtools import BedTool
+# import urllib.request
+# import pybedtools
+# from pybedtools import BedTool
 import warnings
 # from sklearn.neighbors import NearestNeighbors
-import statsmodels as sm
-from statsmodels.sandbox.stats.multicomp import multipletests
-from statsmodels.stats.proportion import proportions_ztest
+# import statsmodels as sm
+# from statsmodels.sandbox.stats.multicomp import multipletests
+# from statsmodels.stats.proportion import proportions_ztest
 from numba import jit, njit
 import numba
 
@@ -26,7 +26,7 @@ import cytograph as cg
 from umap import UMAP
 import sklearn.metrics
 from scipy.spatial import distance
-import community
+# import community
 import networkx as nx
 from scipy import sparse
 from typing import *
@@ -72,7 +72,7 @@ for (ix, selection, view) in ds.scan(axis=0, batch_size=batch):
     g = view.col_graphs['KNN'].toarray()
     vals = smooth_bins_jit(view[blayer][:,:], g)
     vals = np.vstack(vals)
-    ds['smooth'][i:vals.shape[1],:] = vals.T
+    ds['smooth'][ix:vals.shape[1],:] = vals.T
     if ix %(batch*5) == 0:
         logging.info(f"finished{ix} rows")
 

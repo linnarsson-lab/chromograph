@@ -18,14 +18,10 @@ import pickle
 import importlib
 
 sys.path.append('/home/camiel/chromograph/')
-sys.path.append('/data/bin/bedtools2/bin/')
-from chromograph.pipeline.config import Config
+# sys.path.append('/data/bin/bedtools2/bin/')
+from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
 from chromograph.features.feature_count import *
-
-pybedtools.helpers.set_bedtools_path('/data/bin/bedtools2/bin/')
-# pybedtools.helpers.set_bedtools_path('/home/camiel/anaconda3/envs/chromograph/bin/bedtools')
-pybedtools = importlib.reload(pybedtools)
 
 class Chromgen:
     def __init__(self) -> None:
@@ -40,10 +36,11 @@ class Chromgen:
             # All parameters are obtained from the config object, which comes from the default config
             # and can be overridden by the config in the current punchcard
         """
-#         self.config = config
+        self.config = config.load_config()
+        pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
     
-    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, level: int = 5000) -> None:
+    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None) -> None:
         ''''
         Create a .loom file from 10X Genomics cellranger output with reads binned
         Args:
@@ -52,7 +49,6 @@ class Chromgen:
             outdir (str):	output folder wher the new loom file should be saved (default to indir)
             genome_size (str):	path to file containing chromosome sizes, usually derived from encode (i.e. 'hg19.chrom.sizes.tsv')
             blacklist (str):	path to bedfile containing blacklisted region (i.e. 'blacklist_hg19.bed')
-            level (int):    the minimum number of fragments
         Returns:
             path (str):		Full path to the created loom file.
         Remarks:
@@ -85,10 +81,17 @@ class Chromgen:
 
         ## Transfer metadata to dict format
         meta = {}
-        passed = np.logical_and.reduce((barcodes['is__cell_barcode'] == 1, barcodes['passed_filters'] > level, barcodes['passed_filters'] < 1000000))
+        passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.min_frags) & (barcodes['passed_filters'] < 1000000)
         for key in barcodes.dtype.names:
             meta[key] = barcodes[key][passed]
-        meta['sample'] = np.repeat(sample, len(meta['barcode']))
+        meta['CellID'] = [f'{sample}_{x}' for x in meta['barcode']]
+    
+        ## Retrieve sample metadata from SangerDB
+        m =  load_sample_metadata(self.config.path.metadata, sample)
+        for k,v in m.items():
+            meta[k] = np.array([v] * len(meta['barcode']))
+
+
         logging.info("Total of {} valid cells".format(len(meta['barcode'])))
         
         logging.info("Ref. assembly {}".format(summary['reference_assembly']))
@@ -107,9 +110,21 @@ class Chromgen:
         logging.info("Read fragments into dict")
         frag_dict = read_fragments(ff)
         
-#         logging.info("Saving fragments to dict")
-#         fpick = outdir + '/' + sample + '_frags.pkl'
-#         pickle.dump(frag_dict, open(fpick, "wb"))
+        ## Split fragments to seperate files for fast indexing
+        logging.info(f"Saving fragments to separate folder for fast indexing")
+        fdir = os.path.join(outdir, 'fragments')
+        if not os.path.isdir(fdir):
+            os.mkdir(fdir)
+            
+        i = 0
+        for x in meta['barcode']:
+            f = os.path.join(fdir, f'{x}.tsv.gz')
+            frags = BedTool(frag_dict[x]).saveas(f)
+            i += 1
+            if i%1000 == 0:
+                logging.info(f'Finished separating fragments for {i} cells')
+                
+            del frags
         
         logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
         chrom_bins = generate_bins(chrom_size, bsize)
@@ -125,19 +140,22 @@ class Chromgen:
             blacklist = get_blacklist(summary['reference_assembly'])    
 
         logging.info("Remove bins that overlap with the ENCODE blacklist")
+        logging.info(f'*** VARs: {dir()}')
         black_list = BedTool(blacklist)
         bins = [(k[0], str(k[1]), str(k[2])) for k in chrom_bins.keys()]
-        intervals = pybedtools.BedTool(bins)
+        intervals = BedTool(bins)
         cleaned = intervals.subtract(black_list, A=True)
 
         keep = [(row['chrom'], int(row['start']), int(row['end'])) for row in cleaned.sort()] # Sort the bins to make downstream alignment with features easier
         retain = [chrom_bins[x] for x in keep]
         clean_bin = [bins[x] for x in retain]
-
+        
         logging.info("Number of bins after cleaning: {}".format(len(clean_bin)))
 
+        ######
         ## Construct loom file
-
+        ######
+        
         ## Create sparse matrix
         
         logging.info("Generating Sparse matrix")
@@ -182,8 +200,12 @@ class Chromgen:
                       col_attrs=meta,
                       file_attrs=small_summary)
         self.loom = floom
+        logging.info("Loom bin file saved as {}".format(floom))
         
-        logging.info("Loom bin file saved as {}".format(f))
+        ## Cleanup
+        del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin
+        
+        logging.info(f'*** VARs after cleanup: {dir()}')
         
         ######
         ## Generate Gene Accessibility Scores
@@ -195,7 +217,6 @@ class Chromgen:
         
         ## Saving fragments in cells
         
-        
         logging.info('Load Genomic regions from reference')
         gb = BedTool(os.path.join(chromograph.__path__[0], 'references/GRCh38_genes_2kbprom.bed'))
         
@@ -206,11 +227,12 @@ class Chromgen:
         Count_dict = Count_genes(meta['barcode'], inter)
         
         logging.info('Reorder data and generate sparse matrix')
-        r_dict = {k: [] for k in ['Accession', 'Gene']}
+        r_dict = {k: [] for k in ['Accession', 'Gene', 'loc']}
         for x in gb:
             r_dict['Accession'].append(x.attrs['gene_id'])
             r_dict['Gene'].append(x.attrs['gene_name'])
-
+            r_dict['loc'].append(f'{x[0]}:{x[3]}-{x[4]}')
+        
         g_dict = {k: v for v,k in enumerate(r_dict['Accession'])}
         
         ## Create sparse matrix
@@ -240,5 +262,4 @@ class Chromgen:
                       file_attrs=small_summary)
         self.gloom = floom
         
-        logging.info("Loom gene file saved as {}".format(f))
-    
+        logging.info("Loom gene file saved as {}".format(floom))

@@ -19,9 +19,10 @@ from cytograph.embedding import tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold
 
-sys.path.append('/home/camiel/chromograph/')
+# sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
+from chromograph.pipeline import config
 
 from umap import UMAP
 import sklearn.metrics
@@ -30,6 +31,8 @@ import community
 import networkx as nx
 from scipy import sparse
 from typing import *
+
+from sklearn.decomposition import IncrementalPCA
 
 class bin_analysis:
     def __init__(self) -> None:
@@ -43,14 +46,23 @@ class bin_analysis:
             # All parameters are obtained from the config object, which comes from the default config
             # and can be overridden by the config in the current punchcard
         """
-    #   self.config = config
+        self.config = config.load_config()
         logging.info("Bin_Analysis initialised")
-        self.factorization = 'HPF'
-        self.ref = '/data/ref/cellranger-atac/refdata-cellranger-atac-GRCh38-1.2.0/'
     
     def fit(self, ds: loompy.LoomConnection, outdir) -> None:
-        blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
-        logging.info("Running Bin-analysis on {} cells with {}".format(ds.shape[1], blayer))
+        logging.info(f"Running Chromograph on {ds.shape[1]} cells")
+        if self.config.params.factorization not in ["PCA", "HPF", "both"]:
+            raise ValueError("params.factorization must be either 'PCA' or 'HPF' or 'both'")
+        if self.config.params.features not in ["enrichment", "variance"]:
+            raise ValueError("params.features must be either 'enrichment' or 'variance'")
+        if self.config.params.nn_space not in ["PCA", "HPF", "auto"]:
+            raise ValueError("params.nn_space must be either 'PCA' or 'HPF' or 'auto'")
+        if not ((self.config.params.nn_space in ["PCA", "auto"] and self.config.params.factorization in ["PCA", "both"]) or (self.config.params.nn_space in ["HPF", "auto"] and self.config.params.factorization in ["HPF", "both"])):
+            raise ValueError(f"config.params.nn_space = '{self.config.params.nn_space}' is incompatible with config.params.factorization = '{self.config.params.factorization}'")
+
+        
+        self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
+        logging.info("Running Bin-analysis on {} cells with {}".format(ds.shape[1], self.blayer))
         
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
@@ -71,13 +83,24 @@ class bin_analysis:
         nnz.dtype = 'int8'
         ds.layers[blayer] = nnz
 
-        if self.factorization == 'PCA':
-            ## NEEDS WORK
-            ds.attrs['bin_max_cutoff'] = np.min(ds.ra['NCells'][cov>1.5])
-            ds.attrs['bin_min_cutoff'] = np.max(ds.ra['NCells'][cov<-1.5])
+        if 'PCA' in self.factorization:
+                
+            ## Select bins for PCA fitting
+            bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
+            PCA = IncrementalPCA(n_components=sef.config.params.n_factors)
+            logging.info(f'Fitting {sum(bins)} bins to {self.config.params.n_factors} components')
+            for (ix, selection, view) in ds.scan(axis=1):
+                PCA.partial_fit(view[blayer][bins, :].T)
+                logging.info(f'Fitted {ix} cells to PCA')
+                
+            logging.info(f'Transforming data')
+            X = PCA.transform(ds[blayer][bins,:].T)
+            ds.ca.PCA = X
+            logging.info(f'Finished fitting')
         
-        elif self.factorization == 'HPF':
+        if 'HPF' in self.factorization:
             logging.info("Performing HPF")
+            
             ## Bin selection  --RIGHT NOW WE FITLER THE ABSOLUTE TOP 1% BINS and bottom 80%--
             ds.attrs['bin_max_cutoff'] = np.quantile(ds.ra['NCells'], 0.99)
             ds.attrs['bin_min_cutoff'] = np.quantile(ds.ra['NCells'], 0.80)
@@ -194,8 +217,8 @@ class bin_analysis:
         
         ## Plot results on manifold
         logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_UMAP.png"), embedding = 'UMAP')
+        manifold(ds, os.path.join(outdir, 'plots', f"{ds.attrs['tissue']}_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_TSNE.png"), embedding = 'TSNE')
+        manifold(ds, os.path.join(outdir, 'plots', f"{ds.attrs['tissue']}_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(outdir, f"{ds.attrs['tissue']}_manifold_QC.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(outdir, 'plots', f"{ds.attrs['tissue']}_manifold_QC.png"), embedding = 'TSNE')

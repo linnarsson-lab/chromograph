@@ -14,6 +14,8 @@ import scipy.sparse as sparse
 import json
 import urllib.request
 import logging
+from typing import Dict
+import sqlite3 as sqlite
 
 import chromograph
 
@@ -29,7 +31,7 @@ def get_chrom_sizes(ref: str):
             for line in f:
                 x = line.split()
                 chrom_size[x[0].decode()] = int(x[1].decode())
-        logging.info('Loaded chromatin sizes for {}'.format(ref))
+        logging.info('Loaded chromosome sizes for {}'.format(ref))
         return chrom_size;
     else:
         logging.info('Genome not recognized')
@@ -85,7 +87,7 @@ def generate_bins(chrom_size, bsize):
     logging.info('Number of bins: {}'.format(len(chrom_bins.keys())))
     return chrom_bins;
 
-def count_fragments(frag_dict, barcodes, bsize):
+def count_bins(frag_dict, barcodes, bsize):
     '''
     '''
     
@@ -112,14 +114,48 @@ def count_fragments(frag_dict, barcodes, bsize):
         
         i += 1
         
-        if i%500 == 0:
+        if i%1000 == 0:
             logging.info(f"Finished counting {i} cells")
     
     return Count_dict;
 
-def down_sample(vals, level:int=5000):
+def load_sample_metadata(path: str, sample_id: str) -> Dict[str, str]:
     '''
+    From Cytograph.
+    
+    Args:
+            path                    Path to the DB
+            sample_id               Sample ID to retrieve metadata for
     '''
-    dist = [i for i,j in enumerate(vals) for _ in range(j)]
-    sample = Counter(random.sample(dist, level))
-    return [sample[i] for i in range(len(vals))]
+    if not os.path.exists(path):
+        raise ValueError(f"Samples metadata file '{path}' not found.")
+    if path.endswith(".db"):
+        # sqlite3
+        with sqlite.connect(path) as db:
+            cursor = db.cursor()
+            cursor.execute("SELECT * FROM sample WHERE name = ?", (sample_id,))
+            keys = [x[0].capitalize() for x in cursor.description]
+            vals = cursor.fetchone()
+            if vals is not None:
+                return dict(zip(keys, vals))
+            raise ValueError(f"SampleID '{sample_id}' was not found in the samples database.")
+    else:
+        result = {}
+        with open(path) as f:
+            headers = [x.lower() for x in f.readline()[:-1].split("\t")]
+            if "sampleid" not in headers and 'name' not in headers:
+                raise ValueError("Required column 'SampleID' or 'Name' not found in sample metadata file")
+            if "sampleid" in headers:
+                sample_metadata_key_idx = headers.index("sampleid")
+            else:
+                sample_metadata_key_idx = headers.index("name")
+            sample_found = False
+            for line in f:
+                items = line[:-1].split("\t")
+                if len(items) > sample_metadata_key_idx and items[sample_metadata_key_idx] == sample_id:
+                    for i, item in enumerate(items):
+                        result[headers[i]] = item
+                    sample_found = True
+        if not sample_found:
+            raise ValueError(f"SampleID '{sample_id}' not found in sample metadata file")
+        return result
