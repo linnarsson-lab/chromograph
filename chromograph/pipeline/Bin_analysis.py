@@ -47,20 +47,11 @@ class bin_analysis:
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
-        self.outdir = os.path.join(self.paths.build, 'exported')
+        self.outdir = os.path.join(self.config.paths.build, 'exported')
         logging.info("Bin_Analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Chromograph on {ds.shape[1]} cells")
-        if self.config.params.factorization not in ["PCA", "HPF", "both"]:
-            raise ValueError("params.factorization must be either 'PCA' or 'HPF' or 'both'")
-        if self.config.params.features not in ["enrichment", "variance"]:
-            raise ValueError("params.features must be either 'enrichment' or 'variance'")
-        if self.config.params.nn_space not in ["PCA", "HPF", "auto"]:
-            raise ValueError("params.nn_space must be either 'PCA' or 'HPF' or 'auto'")
-        if not ((self.config.params.nn_space in ["PCA", "auto"] and self.config.params.factorization in ["PCA", "both"]) or (self.config.params.nn_space in ["HPF", "auto"] and self.config.params.factorization in ["HPF", "both"])):
-            raise ValueError(f"config.params.nn_space = '{self.config.params.nn_space}' is incompatible with config.params.factorization = '{self.config.params.factorization}'")
-
         
         self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
         logging.info("Running Bin-analysis on {} cells with {}".format(ds.shape[1], self.blayer))
@@ -84,7 +75,7 @@ class bin_analysis:
         nnz.dtype = 'int8'
         ds.layers[blayer] = nnz
 
-        if 'PCA' in self.factorization:
+        if 'PCA' in self.config.params.factorization:
                 
             ## Select bins for PCA fitting
             bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
@@ -160,9 +151,9 @@ class bin_analysis:
             ds.ca.HPF_LogPP = log_posterior_proba
         
         if 'PCA' in self.factorization:
-            decomp = ds.ca.PCA
+            decomp = ds.ca['PCA']
         elif 'HPF' in self.factorization:
-            decomp = ds.ca.HPF
+            decomp = ds.ca['HPF']
 
         ## Construct nearest-neighbor graph
         logging.info("Constructing nearest-neighbor graph")
@@ -219,7 +210,7 @@ class bin_analysis:
         
         ## Annotate bins
         logging.info(f"Annotating Bins")
-        Bin_annotation(ds, self.ref)
+        Bin_annotation(ds, self.config.path.ref)
         
         ## Plot results on manifold
         logging.info("Plotting UMAP")

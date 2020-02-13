@@ -84,7 +84,7 @@ class Chromgen:
         passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.min_frags) & (barcodes['passed_filters'] < 1000000)
         for key in barcodes.dtype.names:
             meta[key] = barcodes[key][passed]
-        meta['CellID'] = [f'{sample}_{x}' for x in meta['barcode']]
+        meta['CellID'] = [f'{sample}:{x}' for x in meta['barcode']]
     
         ## Retrieve sample metadata from SangerDB
         m =  load_sample_metadata(self.config.path.metadata, sample)
@@ -140,7 +140,6 @@ class Chromgen:
             blacklist = get_blacklist(summary['reference_assembly'])    
 
         logging.info("Remove bins that overlap with the ENCODE blacklist")
-        logging.info(f'*** VARs: {dir()}')
         black_list = BedTool(blacklist)
         bins = [(k[0], str(k[1]), str(k[2])) for k in chrom_bins.keys()]
         intervals = BedTool(bins)
@@ -204,9 +203,7 @@ class Chromgen:
         
         ## Cleanup
         del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin
-        
-        logging.info(f'*** VARs after cleanup: {dir()}')
-        
+                
         ######
         ## Generate Gene Accessibility Scores
         ######

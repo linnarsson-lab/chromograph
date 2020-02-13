@@ -54,6 +54,8 @@ def load_config() -> Config:
 			"samples": "",
 			"cell_ranger": "",
 			"bedtools": "",
+			"MACS": "",
+			"HOMER": "",
 			"ref": "",
 			"autoannotation": "",
 			"metadata": "",
@@ -69,6 +71,7 @@ def load_config() -> Config:
 			"n_factors": 50,
 			"min_frags": 5000,
 			"cov": 1.75,
+			"bin_size": 5000,
 			# "n_genes": 2000,
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),
@@ -104,13 +107,13 @@ def load_config() -> Config:
 	f = os.path.join(config.paths.build, "config.yaml")
 	if os.path.exists(f):
 		config.merge_with(f)
-	Current subset or view
-	if subset_obj is not None:
-		if subset_obj.params is not None:
-			merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
-		if subset_obj.steps != [] and subset_obj.steps is not None:
-			config.steps = subset_obj.steps
-		if subset_obj.execution is not None:
-			merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
+	# Current subset or view
+	# if subset_obj is not None:
+	# 	if subset_obj.params is not None:
+	# 		merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
+	# 	if subset_obj.steps != [] and subset_obj.steps is not None:
+	# 		config.steps = subset_obj.steps
+	# 	if subset_obj.execution is not None:
+	# 		merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
 
 	return config

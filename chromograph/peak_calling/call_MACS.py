@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from pybedtools import BedTool
 import MACS2
@@ -6,23 +7,24 @@ import MACS2
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.peak_calling.utils import *
 
-def call_MACS(data, pf):
+def call_MACS(data, pf, macs_path):
+    """
+    Call peaks based on BED aggregate files.
 
+    args:
+        data        list of [clustername, path to BED-file]
+        pf          path to peaks directory
+        macs_path   path to MACS
+
+    return:
+        location of aggregated peaks file
+    """
     clus = data[0]
-    fragments = data[1]
-    frags = [strFrags_to_list(x) for x in fragments]
-    frags = [x for l in frags for x in l]
-    logging.info("Total fragments in cluster {}:  {}".format(clus, len(frags)))
-
-    fbed = os.path.join(pf, "fragments_cluster_{}.bed.gz".format(clus))
+    fbed = data[1]
     fpeaks = os.path.join(pf, "cluster_{}".format(clus))
 
-    logging.info("{},  {}".format(g, fpeaks))
-    bed = BedTool(frags)
-    bed.saveas(fbed)
-
     ## Call Peaks
-    cmd = "{} callpeak -t {} -f BEDPE -g {} --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {}".format(macs_path, fbed, g, fpeaks)
+    cmd = "{} callpeak -t {} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {}".format(macs_path, fbed, fpeaks)
     os.system(cmd)
 
     logging.info('Called peaks for cluster {} out of {}'.format(clus, np.unique(ds.ca['Clusters'])))
@@ -31,5 +33,6 @@ def call_MACS(data, pf):
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
+    os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))
  
     return "Cluster {} completed".format(clus)
