@@ -168,7 +168,7 @@ class Chromgen:
             for key in (Count_dict[cell]):
                 col.append(cix)
                 row.append(chrom_bins[key])
-                v.append(Count_dict[cell][key])
+                v.append(int(Count_dict[cell][key]))
             cix+=1
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])))
 
@@ -186,7 +186,8 @@ class Chromgen:
         start = [x[1] for x in clean_bin]
         end = [x[2] for x in clean_bin]
 
-        row_attrs = {'ID': np.array(range(len(chrom))), 'chrom': np.array(chrom), 'start': np.array(start), 'end': np.array(end)}
+        row_attrs = {'loc': np.array([f'{c}:{s}-{e}' for c,s,e in zip(chrom, start, end)]), 
+                     'chrom': np.array(chrom), 'start': np.array(start), 'end': np.array(end)}
 
         ## Create loomfile
         logging.info("Constructing loomfile")
@@ -243,7 +244,7 @@ class Chromgen:
             for key in (Count_dict[cell]):
                 col.append(cix)
                 row.append(g_dict[key])
-                v.append(Count_dict[cell][key])
+                v.append(float(Count_dict[cell][key]))
             cix+=1
 
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(g_dict.keys()), len(meta['barcode'])))

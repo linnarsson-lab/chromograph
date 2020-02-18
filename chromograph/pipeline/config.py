@@ -67,6 +67,7 @@ def load_config() -> Config:
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
 			"k": 25,
 			"k_pooling": 10,
+			"Normalization": "TF-IDF", 
 			"factorization": "PCA",  # or "HPF" or "both"
 			"n_factors": 50,
 			"min_frags": 5000,
@@ -82,7 +83,6 @@ def load_config() -> Config:
 			# "max_doubletFinder_TH": 0.4,
 			"skip_missing_samples": False,
 			"skip_metadata": False,
-			# "features": "enrichment",  # or "variance"
 			"passedQC": False,
 			"clusterer": "louvain",  # or "surprise"
 			"nn_space": "auto"

@@ -3,6 +3,7 @@ import sys
 import logging
 from pybedtools import BedTool
 import MACS2
+import numpy as np
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.peak_calling.utils import *
@@ -24,10 +25,10 @@ def call_MACS(data, pf, macs_path):
     fpeaks = os.path.join(pf, "cluster_{}".format(clus))
 
     ## Call Peaks
-    cmd = "{} callpeak -t {} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {}".format(macs_path, fbed, fpeaks)
+    cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {fpeaks}'
     os.system(cmd)
 
-    logging.info('Called peaks for cluster {} out of {}'.format(clus, np.unique(ds.ca['Clusters'])))
+    logging.info(f'Called peaks for cluster {clus}')
     
     ## We only need the narrowPeak file, so clean up the rest
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
@@ -35,4 +36,4 @@ def call_MACS(data, pf, macs_path):
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))
  
-    return "Cluster {} completed".format(clus)
+    return f'Cluster {clus} completed'

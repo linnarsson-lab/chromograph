@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import loompy
+import logging
 
 from pybedtools import BedTool
 

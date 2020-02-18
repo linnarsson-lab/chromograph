@@ -15,7 +15,7 @@ from cytograph.decomposition import HPF
 from scipy.stats import poisson
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
-from cytograph.embedding import tsne
+from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold
 
@@ -53,13 +53,19 @@ class bin_analysis:
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Chromograph on {ds.shape[1]} cells")
         
-        self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
+        logging.info('skipping steps')
+        try:
+            self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
+        except:
+            ds.attrs['bin_size'] = int(int(ds.ra.end[0]) - int(ds.ra.start[0]) + 1)
+            self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
         logging.info("Running Bin-analysis on {} cells with {}".format(ds.shape[1], self.blayer))
         
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
         ## nonzero (nnz) counts per bin
+        logging.info('Calculating bin and cell coverage')
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['NBins'] = ds.map([np.count_nonzero], axis=1)[0]
         
@@ -73,24 +79,40 @@ class bin_analysis:
         logging.info("Binarizing the matrix")
         nnz = ds[:,:] > 0
         nnz.dtype = 'int8'
-        ds.layers[blayer] = nnz
+        ds.layers[self.blayer] = nnz
+
+        #### TRY OUT TF-IDF (Term-Frequence Inverse-Data-Frequency####
+        if 'TF-IDF' in self.config.params.Normalization:
+            tf_idf = TF_IDF()
+            tf_idf.fit(ds)
+            X = np.zeros((ds.shape[0], ds.shape[1]))
+            for (ix, selection, view) in ds.scan(axis=1):
+                X[:,selection] = tf_idf.transform(view[:,:], selection)
+                logging.info(f'transformed {max(selection)} cells')
+            ds.layers['TF_IDF'] = X.astype('float16')
+            self.blayer = 'TF_IDF'
 
         if 'PCA' in self.config.params.factorization:
-                
             ## Select bins for PCA fitting
-            bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
-            PCA = IncrementalPCA(n_components=sef.config.params.n_factors)
-            logging.info(f'Fitting {sum(bins)} bins to {self.config.params.n_factors} components')
+            # bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
+
+            ds.ra.Valid = (ds.ra['Coverage'] > 0 & (ds.ra['Coverage'] < self.config.params.cov)
+            ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid])
+            ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid])
+            PCA = IncrementalPCA(n_components=self.config.params.n_factors)
+            logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
             for (ix, selection, view) in ds.scan(axis=1):
-                PCA.partial_fit(view[blayer][bins, :].T)
+                PCA.partial_fit(view[self.blayer][ds.ra.Valid, :].T)
                 logging.info(f'Fitted {ix} cells to PCA')
                 
             logging.info(f'Transforming data')
-            X = PCA.transform(ds[blayer][bins,:].T)
+            X = PCA.transform(ds[self.blayer][ds.ra.Valid,:].T)
+            logging.info(f'Shape X is {X.shape}')
             ds.ca.PCA = X
-            logging.info(f'Finished fitting')
+            logging.info(f'Added PCA components with shape {ds.ca['PCA'].shape}')
+            del X, PCA
         
-        if 'HPF' in self.factorization:
+        if 'HPF' in self.config.params.factorization:
             logging.info("Performing HPF")
             
             ## Bin selection  --RIGHT NOW WE FITLER THE ABSOLUTE TOP 1% BINS and bottom 80%--
@@ -99,11 +121,11 @@ class bin_analysis:
             
             logging.info(f"Selected max cut_off {ds.attrs['bin_max_cutoff']} and min cut_off {ds.attrs['bin_min_cutoff']}")
 
-            bins = np.logical_and(ds.ra['NCells'] > ds.attrs['bin_min_cutoff'], ds.ra['NCells'] < ds.attrs['bin_max_cutoff'])
-            logging.info("Using {} out of {} bins for manifold learning".format(sum(bins), ds.shape[0]))
+            ds.ra.Valid = (ds.ra['NCells'] > ds.attrs['bin_min_cutoff']) & (ds.ra['NCells'] < ds.attrs['bin_max_cutoff'])
+            logging.info("Using {} out of {} bins for manifold learning".format(sum(ds.ra.Valid), ds.shape[0]))
             # Load the data for the selected genes
-            logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(bins)} bins")
-            data = ds[blayer].sparse(rows=bins).T
+            logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} bins")
+            data = ds[self.blayer].sparse(rows=ds.ra.Valid).T
             logging.info(f"Shape data: {data.shape}")
 
             # HPF factorization
@@ -115,7 +137,7 @@ class bin_analysis:
 
             logging.info("Adding Betas and Thetas to loom file")
             beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-            beta_all[bins] = hpf.beta
+            beta_all[ds.ra.Valid] = hpf.beta
             # Save the unnormalized factors
             ds.ra.HPF_beta = beta_all
             ds.ca.HPF_theta = hpf.theta
@@ -123,14 +145,14 @@ class bin_analysis:
             # and because otherwise the components will be exactly proportional to cell size
             theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
             beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
-            beta_all[bins] = beta
+            beta_all[ds.ra.Valid] = beta
             # Save the normalized factors
             ds.ra.HPF = beta_all
             ds.ca.HPF = theta
 
             logging.info("Calculating posterior probabilities")
             # Expected values
-            exp = "{}_expected".format(blayer)
+            exp = "{}_expected".format(self.blayer)
             n_samples = ds.shape[1]
 
             ds[exp] = 'float32'  # Create a layer of floats
@@ -150,59 +172,76 @@ class bin_analysis:
                 start += batch_size
             ds.ca.HPF_LogPP = log_posterior_proba
         
-        if 'PCA' in self.factorization:
+        if 'PCA' in self.config.params.factorization:
             decomp = ds.ca['PCA']
-        elif 'HPF' in self.factorization:
+            metric = "euclidean"
+        elif 'HPF' in self.config.params.factorization:
             decomp = ds.ca['HPF']
+            metric = "js"
 
         ## Construct nearest-neighbor graph
-        logging.info("Constructing nearest-neighbor graph")
-        bnn = BalancedKNN(k=25, metric="js", maxl=2 * 25, sight_k=2 * 25, n_jobs=-1)
+        logging.info(f"Computing balanced KNN (k = {self.config.params.k}) in {self.config.params.nn_space} space using the '{metric}' metric")
+        bnn = BalancedKNN(k=self.config.params.k, metric=metric, maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
         bnn.fit(decomp)
         knn = bnn.kneighbors_graph(mode='distance')
         knn.eliminate_zeros()
         mknn = knn.minimum(knn.transpose())
         # Convert distances to similarities
-        knn.data = 1 - knn.data
-        mknn.data = 1 - mknn.data
+        logging.info(f'Converting distances to similarities knn shape.')
+        max_d = knn.data.max()
+        knn.data = (max_d - knn.data) / max_d
+        mknn.data = (max_d - mknn.data) / max_d
         ds.col_graphs.KNN = knn
         ds.col_graphs.MKNN = mknn
+        mknn = mknn.tocoo()
+        mknn.setdiag(0)
         # Compute the effective resolution
+        logging.info(f'Computing resolution')
         d = 1 - knn.data
-        d = d[d < 1]
         radius = np.percentile(d, 90)
+        logging.info(f"  90th percentile radius: {radius:.02}")
         ds.attrs.radius = radius
-        knn = knn.tocoo()
-        knn.setdiag(0)
-        inside = knn.data > 1 - radius
-        rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
+        inside = mknn.data > 1 - radius
+        rnn = sparse.coo_matrix((mknn.data[inside], (mknn.row[inside], mknn.col[inside])), shape=mknn.shape)
         ds.col_graphs.RNN = rnn
+
+        del knn, mknn, rnn
     
         ## Perform tSNE and UMAP
         logging.info("Generating tSNE from decomposition")
-        ds.ca.TSNE = tsne(decomp, metric="js", radius=radius)
+        # ds.ca.TSNE = tsne(decomp, metric="js", radius=radius)
+
+        logging.info(f"Computing 2D and 3D embeddings from latent space")
+        metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
+        # logging.info(f"  Art of tSNE with {metric} distance metric")
+        # ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+
+        logging.info(f'Using sklearn TSNE for the time being')
+        from sklearn.manifold import TSNE
+        TSNE = TSNE(init='pca') ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info("Generating UMAP from decomposition")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)  # Suppress an annoying UMAP warning about meta-embedding
-            ds.ca.UMAP = UMAP(n_components=2, metric=jensen_shannon_distance, n_neighbors=25 // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
+            ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=25 // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
 
         logging.info("Generating 3D UMAP from decomposition")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
-            ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=25 // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
+            ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=25 // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
-        pl = PolishedLouvain(outliers=False)
-        labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
+        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE")
+        labels = pl.fit_predict(ds)
         ds.ca.ClustersModularity = labels + min(labels)
         ds.ca.OutliersModularity = (labels == -1).astype('int')
         ds.ca.Clusters = labels + min(labels)
         ds.ca.Outliers = (labels == -1).astype('int')
 
         logging.info("Performing Louvain Polished Surprise clustering")
-        ps = PolishedSurprise(embedding="TSNE")
+        ps = PolishedSurprise(graph="RNN", embedding="TSNE")
         labels = ps.fit_predict(ds)
         ds.ca.ClustersSurprise = labels + min(labels)
         ds.ca.OutliersSurprise = (labels == -1).astype('int')
@@ -210,12 +249,12 @@ class bin_analysis:
         
         ## Annotate bins
         logging.info(f"Annotating Bins")
-        Bin_annotation(ds, self.config.path.ref)
+        Bin_annotation(ds, self.config.paths.ref)
         
         ## Plot results on manifold
         logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(outdir, 'plots', f"{ds.attrs['tissue']}_manifold_UMAP.png"), embedding = 'UMAP')
+        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(outdir, 'plots', f"{ds.attrs['tissue']}_manifold_TSNE.png"), embedding = 'TSNE')
+        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(outdir, 'plots', f"{ds.attrs['tissue']}_manifold_QC.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_manifold_QC.png"), embedding = 'TSNE')

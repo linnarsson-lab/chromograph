@@ -50,6 +50,7 @@ class Peak_caller:
         """
         self.config = config.load_config()
         self.peakdir = os.path.join(self.config.paths.build, 'peaks')
+        self.loom = ''
         logging.info("Peak Caller initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -63,7 +64,7 @@ class Peak_caller:
         Remarks:
         
         '''
-        
+        # if __name__ == '__main__':
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
@@ -72,7 +73,7 @@ class Peak_caller:
 
         chunks = []
         for i in np.unique(ds.ca['Clusters']):
-            cells = ds.ca["sample", "barcode"][ds.ca['Clusters'] == i]
+            cells = ds.ca["SampleID", "barcode"][ds.ca['Clusters'] == i]
             files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
             chunks.append([i,files])
 
@@ -91,77 +92,76 @@ class Peak_caller:
                         shutil.copyfileobj(file, out)
             piles.append([ck[0], fmerge])
             logging.info(f'Finished with cluster {ck[0]}')
+
+        jobs = []
+        for pile in piles:
+            p = mp.Process(target=call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
+            jobs.append(p)
+            p.start()
             
-        if __name__ == '__main__':
-            jobs = []
-            for pile in piles:
-                p = mp.Process(target=call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
-                jobs.append(p)
-                p.start()
-                
-            ## Compound the peak lists
-            peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
-            logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
-            peaks_all = peaks[0].cat(*peaks[1:])
+        ## Compound the peak lists
+        peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
+        logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
+        peaks_all = peaks[0].cat(*peaks[1:])
 
-            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
-            peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
-            logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
+        f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+        peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
+        logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
-            ## Annotate peaks
-            homer = os.path.join(self.config.paths.HOMER, 'annotatePeaks.pl')
-            genes = os.path.join(self.config.paths.ref, 'genes', 'genes.gtf')
-            motifs = os.path.join(self.config.paths.ref, 'regions', 'motifs.pfm')
-            f_annot = os.path.join(self.peakdir, 'annotated_peaks.txt')
-            cmd = f'{homer} {f} hg38 -gtf {genes} -m {motifs} > {f_annot}'  ## Command to call HOMER
-            os.system(cmd)  ## Actually call HOMER
+        ## Annotate peaks
+        homer = os.path.join(self.config.paths.HOMER, 'annotatePeaks.pl')
+        genes = os.path.join(self.config.paths.ref, 'genes', 'genes.gtf')
+        motifs = os.path.join(self.config.paths.ref, 'regions', 'motifs.pfm')
+        f_annot = os.path.join(self.peakdir, 'annotated_peaks.txt')
+        cmd = f'{homer} {f} hg38 -gtf {genes} -m {motifs} > {f_annot}'  ## Command to call HOMER
+        os.system(cmd)  ## Actually call HOMER
 
-            ## Load and reorder HOMER output
-            table = read_HOMER_annotation(f_annot)
-            peak_IDs = np.array([x[3] for x in peaks_all])
-            table = reorder_by_IDs(table, peak_IDs)
-            annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
+        ## Load and reorder HOMER output
+        table = read_HOMER_annotation(f_annot)
+        peak_IDs = np.array([x[3] for x in peaks_all])
+        table = reorder_by_IDs(table, peak_IDs)
+        annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
 
-            ## Count peaks and make Peak by Cell matrix
-            chunks = np.array_split(ds.ca['CellID'], 10)
-            jobs = []
-            q = mp.Queue()
-            dicts = []
-            for cells in chunks:
-                p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
-                jobs.append(p)
-                p.start()
-                dicts.append(q.get())
-            
-            ## Unpack results
-            Counts = {k: v for d in dicts for k, v in d.items()}
-            r_dict = {k: v for v,k in enumerate(annot['ID'])} # Order dict for rows
+        ## Count peaks and make Peak by Cell matrix
+        chunks = np.array_split(ds.ca['CellID'], 10)
+        jobs = []
+        q = mp.Queue()
+        dicts = []
+        for cells in chunks:
+            p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
+            jobs.append(p)
+            p.start()
+            dicts.append(q.get())
+        
+        ## Unpack results
+        Counts = {k: v for d in dicts for k, v in d.items()}
+        r_dict = {k: v for v,k in enumerate(annot['ID'])} # Order dict for rows
 
-            logging.info("Generating Sparse matrix")
-            col = []
-            row = []
-            v = []
+        logging.info("Generating Sparse matrix")
+        col = []
+        row = []
+        v = []
 
-            cix = 0
-            for cell in ds.ca['CellID'][:30]:
+        cix = 0
+        for cell in ds.ca['CellID'][:30]:
 
-                for key in (Counts[cell]):
-                    col.append(cix)
-                    row.append(r_dict[key])
-                    v.append(Counts[cell][key])
-                cix+=1
-            matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
+            for key in (Counts[cell]):
+                col.append(cix)
+                row.append(r_dict[key])
+                v.append(Counts[cell][key])
+            cix+=1
+        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
 
-            ## Create loomfile
-            logging.info("Constructing loomfile")
-            self.loom = f'{ds.filename.split(".")[0]}_peaks.loom'
+        ## Create loomfile
+        logging.info("Constructing loomfile")
+        self.loom = f'{ds.filename.split(".")[0]}_peaks.loom'
 
-            loompy.create(filename=self.loom, 
-                        layers=matrix, 
-                        row_attrs=annot, 
-                        col_attrs=dict(ds.ca),
-                        file_attrs=dict(ds.attrs))
-            logging.info("Loom peaks file saved as {}".format(floom))
+        loompy.create(filename=self.loom, 
+                    layers=matrix, 
+                    row_attrs=annot, 
+                    col_attrs=dict(ds.ca),
+                    file_attrs=dict(ds.attrs))
+        logging.info("Loom peaks file saved as {}".format(floom))
 
         return self.loom
             
