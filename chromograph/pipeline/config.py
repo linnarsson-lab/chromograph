@@ -70,7 +70,7 @@ def load_config() -> Config:
 			"Normalization": "TF-IDF", 
 			"factorization": "PCA",  # or "HPF" or "both"
 			"n_factors": 50,
-			"min_frags": 5000,
+			"level": 5000,
 			"cov": 1.75,
 			"bin_size": 5000,
 			# "n_genes": 2000,

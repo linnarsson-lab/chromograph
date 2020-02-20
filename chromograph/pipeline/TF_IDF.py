@@ -29,9 +29,8 @@ class TF_IDF:
             NB = np.sum(view[self.layer][:, :]>0, axis=1)
             self.IDF[selection] = np.log10(div0(N,NB)+1)
             
-        ## Set level to normalize to
+        ## Set level to normalize to as the median
         self.level = np.median(self.totals)
-
 
     def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
         """

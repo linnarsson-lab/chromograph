@@ -29,14 +29,13 @@ class Workflow:
 
     def collect_samples(self) -> None:
         ## WORK ON THIS
-        
+        files = [os.path.join(path, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
         loompy.combine_faster(files, out_file, {}, selections, skip_attrs=["_X", "_Y", "Clusters"])
 
     
     def process(self) -> None:
-        config = load_config()
-        # STEP 1: build the .loom file and perform manifold learning (Cytograph)
-        # Maybe we're already done?
+        
+        # STEP 1: build the .loom file and perform primary manifold learning (Bin Analysis)
         if os.path.exists(self.loom_file):
             logging.info(f"Skipping '{self.name}.loom' because it was already complete.")
         else:

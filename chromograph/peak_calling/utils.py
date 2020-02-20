@@ -1,5 +1,17 @@
+import numpy as np
+import sys
+import os
+import loompy
+import multiprocessing
+import logging
 import pybedtools
 from pybedtools import BedTool
+
+logger = logging.getLogger()
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%H:%M:%S')
 
 def extend_fields(feature, n):
     '''
@@ -35,14 +47,15 @@ def read_HOMER_annotation(file):
             if i == 0:
                 cols = ['ID'] + line.split('\t')[1:]
                 cols = [x.rstrip() for x in cols]
+                cols = [x.replace('/', '-',) for x in cols]
             if i > 0 :
                 table.append([x.rstrip() for x in line.split('\t')])
             i += 1
 
     table = np.array(table)
-    return table
+    return cols, table
 
-def reorder_by_IDs(mat, IDs):
+def reorder_by_IDs(mat: np.ndarray, IDs):
     '''
     Fast way to reorder matrix if a list of IDs with right order is available
     '''
@@ -57,23 +70,28 @@ def reorder_by_IDs(mat, IDs):
     for x in range(table.shape[0]):
         table[idx[mat[x,0]],:] = mat[x,:]
 
-    return np.array(ntable)
+    return np.array(table)
 
 def Count_peaks(cells, sample_dir, f_peaks, q):
     '''
     Count peaks
     '''
+    logging.info(f'Start job')
     Count_dict = {k: {} for k in cells}
-    peaks = BedTool(f_peaks)
+    peaks = BedTool(f_peaks)  # Connect to peaks file
     i = 0
+
+    ## Separate cells and get paths to fragment files
     for x in cells:
+        
+        s, c = x.split(':')
+        f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
         try:
-            s, c = x.split(':')
-            f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
-            cBed = BedTool(f)
-            pks = peaks.intersect(cBed, wa=True)
+            cBed = BedTool(f) # Connect to fragment file
+            pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
 
             cDict = {}
+            ## Extract peak_IDs
             for line in pks:
                 cDict[line[3]] = 1
 
@@ -82,9 +100,43 @@ def Count_peaks(cells, sample_dir, f_peaks, q):
             if i%1000==0:
                 logging.info(f'Finished counting {i} cells')
         except:
+            ## If file can't be found print the path to file
             Count_dict[x] = []
-    logging.info('Finished job')
+            logging.info(f'Cannot find {f}')
     return q.put(Count_dict)
+
+def Count_peaks2(cells, sample_dir, f_peaks):
+    '''
+    Count peaks
+    '''
+    logging.info(f'Start job')
+    Count_dict = {k: {} for k in cells}
+    peaks = BedTool(f_peaks)  # Connect to peaks file
+    i = 0
+
+    ## Separate cells and get paths to fragment files
+    for x in cells:
+        
+        s, c = x.split(':')
+        f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+        try:
+            cBed = BedTool(f) # Connect to fragment file
+            pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+
+            cDict = {}
+            ## Extract peak_IDs
+            for line in pks:
+                cDict[line[3]] = 1
+
+            Count_dict[x] = cDict
+            i += 1
+            if i%1000==0:
+                logging.info(f'Finished counting {i} cells')
+        except:
+            ## If file can't be found print the path to file
+            Count_dict[x] = []
+            logging.info(f'Cannot find {f}')
+    return Count_dict
 
 def strFrags_to_list(frags):
     '''

@@ -22,6 +22,7 @@ from cytograph.plotting import manifold
 # sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
+from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline import config
 
 from umap import UMAP
@@ -83,6 +84,7 @@ class bin_analysis:
 
         #### TRY OUT TF-IDF (Term-Frequence Inverse-Data-Frequency####
         if 'TF-IDF' in self.config.params.Normalization:
+            logging.info(f'Performing TF-IDF')
             tf_idf = TF_IDF()
             tf_idf.fit(ds)
             X = np.zeros((ds.shape[0], ds.shape[1]))
@@ -96,7 +98,7 @@ class bin_analysis:
             ## Select bins for PCA fitting
             # bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
 
-            ds.ra.Valid = (ds.ra['Coverage'] > 0 & (ds.ra['Coverage'] < self.config.params.cov)
+            ds.ra.Valid = (ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)
             ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid])
             ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid])
             PCA = IncrementalPCA(n_components=self.config.params.n_factors)
@@ -109,7 +111,7 @@ class bin_analysis:
             X = PCA.transform(ds[self.blayer][ds.ra.Valid,:].T)
             logging.info(f'Shape X is {X.shape}')
             ds.ca.PCA = X
-            logging.info(f'Added PCA components with shape {ds.ca['PCA'].shape}')
+            logging.info(f'Added PCA components')
             del X, PCA
         
         if 'HPF' in self.config.params.factorization:
@@ -213,13 +215,13 @@ class bin_analysis:
 
         logging.info(f"Computing 2D and 3D embeddings from latent space")
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
-        # logging.info(f"  Art of tSNE with {metric} distance metric")
-        # ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+        logging.info(f"  Art of tSNE with {metric} distance metric")
+        ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
 
         logging.info(f'Using sklearn TSNE for the time being')
         from sklearn.manifold import TSNE
-        TSNE = TSNE(init='pca') ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
-        ds.ca.TSNE = TSNE.fit(decomp).embedding_
+        # TSNE = TSNE(init='pca') ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        # ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info("Generating UMAP from decomposition")
         with warnings.catch_warnings():
@@ -253,8 +255,8 @@ class bin_analysis:
         
         ## Plot results on manifold
         logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_manifold_UMAP.png"), embedding = 'UMAP')
+        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_manifold_TSNE.png"), embedding = 'TSNE')
+        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_manifold_QC.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_QC.png"), embedding = 'TSNE')

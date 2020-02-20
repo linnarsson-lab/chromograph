@@ -4,20 +4,11 @@ import sys
 import collections
 import matplotlib.pyplot as plt
 import loompy
-# import scipy.sparse as sparse
-# import urllib.request
-# import pybedtools
-# from pybedtools import BedTool
 import warnings
-# from sklearn.neighbors import NearestNeighbors
-# import statsmodels as sm
-# from statsmodels.sandbox.stats.multicomp import multipletests
-# from statsmodels.stats.proportion import proportions_ztest
 from numba import jit, njit
 import numba
 
 sys.path.append('/home/camiel/chromograph/')
-# from chromograph.plotting.UMI_plot import UMI_plot
 import chromograph
 from chromograph.peak_calling.utils import *
 

@@ -5,10 +5,25 @@ import numpy as np
 from datetime import datetime
 import logging
 sys.path.append('/home/camiel/chromograph/')
+import chromograph
 from chromograph.pipeline.Bin_analysis import *
-from chromograph.peak_calling.peak_caller import *
-from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.pipeline import config
+from chromograph.features.gene_smooth import GeneSmooth
+from chromograph.peak_calling.peak_caller import *
+from chromograph.peak_calling.utils import *
+from chromograph.peak_calling.call_MACS import call_MACS
+
+import gzip
+import glob
+import pybedtools
+from pybedtools import BedTool
+import MACS2
+import shutil
+import community
+import networkx as nx
+from scipy import sparse
+from typing import *
+import multiprocessing as mp
 
 config = config.load_config()
 
@@ -26,23 +41,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%H:%M:%S')
-
-import gzip
-import glob
-import pybedtools
-from pybedtools import BedTool
-import MACS2
-import shutil
-import community
-import networkx as nx
-from scipy import sparse
-from typing import *
-import multiprocessing as mp
-
-sys.path.append('/home/camiel/chromograph/')
-import chromograph
-from chromograph.peak_calling.utils import *
-from  chromograph.peak_calling.call_MACS import call_MACS
 
 class Peak_caller:
     def __init__(self) -> None:
@@ -71,7 +69,6 @@ class Peak_caller:
         Remarks:
         
         '''
-        # if __name__ == '__main__':
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
@@ -100,14 +97,20 @@ class Peak_caller:
             piles.append([ck[0], fmerge])
             logging.info(f'Finished with cluster {ck[0]}')
 
-        jobs = []
-        for pile in piles:
-            p = mp.Process(target=call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
-            jobs.append(p)
-            p.start()
+        # jobs = []
+        # for pile in piles:
+        #     p = mp.Process(target=call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
+        #     jobs.append(p)
+        #     p.start()
 
-        for p in jobs:
-            p.join()
+        # for p in jobs:
+        #     p.join()
+
+        pool = mp.Pool(10) 
+        for pile in piles:
+            pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
+        pool.close()
+        pool.join()
             
         ## Compound the peak lists
         peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
@@ -116,6 +119,7 @@ class Peak_caller:
 
         f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
         peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
+        # peaks_all = BedTool(f)
         logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
         ## Clean up
@@ -133,25 +137,40 @@ class Peak_caller:
 
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
-        table = read_HOMER_annotation(f_annot)
+        cols, table = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
 
         ## Count peaks and make Peak by Cell matrix
         ## Counting peaks
+        logging.info(f'Start counting peaks')
         chunks = np.array_split(ds.ca['CellID'], 10)
-        jobs = []
-        q = mp.Queue()
-        dicts = []
-        for cells in chunks:
-            p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
-            jobs.append(p)
-            p.start()
-            dicts.append(q.get())
+        # jobs = []
+        # q = mp.Queue()
+        # dicts = []
+        # for cells in chunks:
+        #     p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
+        #     jobs.append(p)
+        #     p.start()
             
-        for p in jobs:
-            p.join()
+        # for i in range(len(chunks))
+        #     dicts.append(q.get())
+            
+        # for p in jobs:
+        #     p.join()
+
+        dicts = []
+        def log_result(result):
+            # This is called whenever foo_pool(i) returns a result.
+            # result_list is modified only by the main process, not the pool workers.
+            dicts.append(result)
+
+        pool = mp.Pool(10)
+        for i in range(10):
+            pool.apply_async(Count_peaks2, args=(cells, self.config.paths.samples, f, ), callback = dicts)
+        pool.close()
+        pool.join()
         
         ## Unpack results
         Counts = {k: v for d in dicts for k, v in d.items()}
@@ -163,14 +182,15 @@ class Peak_caller:
         v = []
 
         cix = 0
-        for cell in ds.ca['CellID'][:30]:
+        for cell in ds.ca['CellID']:
 
             for key in (Counts[cell]):
                 col.append(cix)
                 row.append(r_dict[key])
-                v.append(Counts[cell][key])
+                v.append(np.int8(Counts[cell][key]))
             cix+=1
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
+        logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
 
         ## Create loomfile
         logging.info("Constructing loomfile")
@@ -181,7 +201,7 @@ class Peak_caller:
                     row_attrs=annot, 
                     col_attrs=dict(ds.ca),
                     file_attrs=dict(ds.attrs))
-        logging.info("Loom peaks file saved as {}".format(floom))
+        logging.info(f'Loom peaks file saved as {self.loom}')
 
         return self.loom
 
@@ -199,37 +219,37 @@ if __name__ == '__main__':
 
     logging.info(f'Input files {inputfiles}')
 
-    # loompy.combine_faster(inputfiles, outfile, key = 'loc')
+    loompy.combine_faster(inputfiles, outfile, key = 'loc')
     # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
     logging.info('Finished combining loom-files')
 
-    # ## Run primary Clustering and embedding
-    # with loompy.connect(outfile) as ds:
-    #     ds.attrs['tissue'] = tissue
-    #     bin_analysis = bin_analysis()
-    #     bin_analysis.fit(ds)
+    ## Run primary Clustering and embedding
+    with loompy.connect(outfile) as ds:
+        ds.attrs['tissue'] = tissue
+        bin_analysis = bin_analysis()
+        bin_analysis.fit(ds)
         
-    # ## Merge GA files
-    # GA_file = os.path.join(config.paths.build, tissue + '_GA.loom')
-    # inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
-    # for x in inputfiles:
-    #     with loompy.connect(x) as ds:
-    #         logging.info(f"{x} has shape{ds.shape}")
-    # loompy.combine_faster(inputfiles, GA_file, key = 'Accession')
-    # with loompy.connect(GA_file) as ds:
-    #     logging.info(f'Transferring column attributes and column graphs to GA file')
-    #     with loompy.connect(outfile) as dsb:
-    #         for x in dsb.ca:
-    #             if x not in ds.ca:
-    #                 ds.ca[x] = dsb.ca[x]
-    #         for x in dsb.col_graphs:
-    #             if x not in ds.col_graphs:
-    #                 ds.col_graphs[x] = dsb.col_graphs[x]
-    #     logging.info(f"GA file has shape{ds.shape}")
-    #     Smooth = GeneSmooth()
-    #     Smooth.fit(ds)
+    ## Merge GA files
+    GA_file = os.path.join(config.paths.build, tissue + '_GA.loom')
+    inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
+    for x in inputfiles:
+        with loompy.connect(x) as ds:
+            logging.info(f"{x} has shape{ds.shape}")
+    loompy.combine_faster(inputfiles, GA_file, key = 'Accession')
+    with loompy.connect(GA_file) as ds:
+        logging.info(f'Transferring column attributes and column graphs to GA file')
+        with loompy.connect(outfile) as dsb:
+            for x in dsb.ca:
+                if x not in ds.ca:
+                    ds.ca[x] = dsb.ca[x]
+            for x in dsb.col_graphs:
+                if x not in ds.col_graphs:
+                    ds.col_graphs[x] = dsb.col_graphs[x]
+        logging.info(f"GA file has shape{ds.shape}")
+        Smooth = GeneSmooth()
+        Smooth.fit(ds)
 
     ## Call peaks
-    with loompy.connect(outfile) as ds:
+    with loompy.connect(outfile, 'r') as ds:
         peak_caller = Peak_caller()
         peak_caller.fit(ds)

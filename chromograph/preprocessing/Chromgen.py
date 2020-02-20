@@ -71,7 +71,7 @@ class Chromgen:
             for k,v in summary.items():
                 summary[k] = str(v)
         summary['bin_size'] = bsize
-        summary['level'] = level
+        summary['level'] = self.config.params.level
         
         barcodes = np.genfromtxt(fb, delimiter=',', skip_header=2,
                                  dtype={'names':('barcode','total','duplicate','chimeric','unmapped','lowmapq','mitochondrial','passed_filters','cell_id','is__cell_barcode',
@@ -81,13 +81,13 @@ class Chromgen:
 
         ## Transfer metadata to dict format
         meta = {}
-        passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.min_frags) & (barcodes['passed_filters'] < 1000000)
+        passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 1000000)
         for key in barcodes.dtype.names:
             meta[key] = barcodes[key][passed]
         meta['CellID'] = [f'{sample}:{x}' for x in meta['barcode']]
     
         ## Retrieve sample metadata from SangerDB
-        m =  load_sample_metadata(self.config.path.metadata, sample)
+        m =  load_sample_metadata(self.config.paths.metadata, sample)
         for k,v in m.items():
             meta[k] = np.array([v] * len(meta['barcode']))
 
@@ -110,46 +110,47 @@ class Chromgen:
         logging.info("Read fragments into dict")
         frag_dict = read_fragments(ff)
         
-        ## Split fragments to seperate files for fast indexing
-        logging.info(f"Saving fragments to separate folder for fast indexing")
-        fdir = os.path.join(outdir, 'fragments')
-        if not os.path.isdir(fdir):
-            os.mkdir(fdir)
-            
-        i = 0
-        for x in meta['barcode']:
-            f = os.path.join(fdir, f'{x}.tsv.gz')
-            frags = BedTool(frag_dict[x]).saveas(f)
-            i += 1
-            if i%1000 == 0:
-                logging.info(f'Finished separating fragments for {i} cells')
+        # ## Split fragments to seperate files for fast indexing
+        # logging.info(f"Saving fragments to separate folder for fast indexing")
+        # fdir = os.path.join(outdir, 'fragments')
+        # if not os.path.isdir(fdir):
+        #     os.mkdir(fdir)
+
+        # ## Save fragments to folder
+        # i = 0
+        # for x in meta['barcode']:
+        #     f = os.path.join(fdir, f'{x}.tsv.gz')
+        #     frags = BedTool(frag_dict[x]).saveas(f)
+        #     i += 1
+        #     if i%1000 == 0:
+        #         logging.info(f'Finished separating fragments for {i} cells')
                 
-            del frags
+        #     del frags
         
-        logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
-        chrom_bins = generate_bins(chrom_size, bsize)
+        # logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
+        # chrom_bins = generate_bins(chrom_size, bsize)
 
-        ## Count fragments inside bins
-        logging.info("Count fragments overlapping with bins")
-        Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
-        logging.info("Finished counting fragments")
+        # ## Count fragments inside bins
+        # logging.info("Count fragments overlapping with bins")
+        # Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
+        # logging.info("Finished counting fragments")
 
-        logging.info("Loading blacklist")
-        # Load Blacklist
-        if blacklist == None:
-            blacklist = get_blacklist(summary['reference_assembly'])    
+        # logging.info("Loading blacklist")
+        # # Load Blacklist
+        # if blacklist == None:
+        #     blacklist = get_blacklist(summary['reference_assembly'])    
 
-        logging.info("Remove bins that overlap with the ENCODE blacklist")
-        black_list = BedTool(blacklist)
-        bins = [(k[0], str(k[1]), str(k[2])) for k in chrom_bins.keys()]
-        intervals = BedTool(bins)
-        cleaned = intervals.subtract(black_list, A=True)
+        # logging.info("Remove bins that overlap with the ENCODE blacklist")
+        # black_list = BedTool(blacklist)
+        # bins = [(k[0], str(k[1]), str(k[2])) for k in chrom_bins.keys()]
+        # intervals = BedTool(bins)
+        # cleaned = intervals.subtract(black_list, A=True)
 
-        keep = [(row['chrom'], int(row['start']), int(row['end'])) for row in cleaned.sort()] # Sort the bins to make downstream alignment with features easier
-        retain = [chrom_bins[x] for x in keep]
-        clean_bin = [bins[x] for x in retain]
+        # keep = [(row['chrom'], int(row['start']), int(row['end'])) for row in cleaned.sort()] # Sort the bins to make downstream alignment with features easier
+        # retain = [chrom_bins[x] for x in keep]
+        # clean_bin = [bins[x] for x in retain]
         
-        logging.info("Number of bins after cleaning: {}".format(len(clean_bin)))
+        # logging.info("Number of bins after cleaning: {}".format(len(clean_bin)))
 
         ######
         ## Construct loom file
@@ -157,60 +158,59 @@ class Chromgen:
         
         ## Create sparse matrix
         
-        logging.info("Generating Sparse matrix")
-        col = []
-        row = []
-        v = []
+        # logging.info("Generating Sparse matrix")
+        # col = []
+        # row = []
+        # v = []
 
-        cix = 0
-        for cell in meta['barcode']:
+        # cix = 0
+        # for cell in meta['barcode']:
 
-            for key in (Count_dict[cell]):
-                col.append(cix)
-                row.append(chrom_bins[key])
-                v.append(int(Count_dict[cell][key]))
-            cix+=1
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])))
+        #     for key in (Count_dict[cell]):
+        #         col.append(cix)
+        #         row.append(chrom_bins[key])
+        #         v.append(int(Count_dict[cell][key]))
+        #     cix+=1
+        # matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])))
 
         ## Save a smaller section of the summary
         keys = ['cellranger-atac_version', 'reference_assembly', 'reference_assembly_accession', 'reference_assembly_fasta_url', 'reference_organism', 'reference_version', 'bin_size']
         small_summary = {k: summary[k] for k in keys}
         
-        ## We retain only the bins that have no overlap with the ENCODE blacklist
-        cleaned_matrix = matrix.tocsr()[retain,:]
-        logging.info("Identified {} positive bins in {} cells before filtering blacklist".format(len(v), len(meta['barcode'])))
-        logging.info("Identified {} positive bins in {} cells after filtering blacklist".format(len(cleaned_matrix.nonzero()[0]), len(meta['barcode'])))
+        # ## We retain only the bins that have no overlap with the ENCODE blacklist
+        # cleaned_matrix = matrix.tocsr()[retain,:]
+        # logging.info("Identified {} positive bins in {} cells before filtering blacklist".format(len(v), len(meta['barcode'])))
+        # logging.info("Identified {} positive bins in {} cells after filtering blacklist".format(len(cleaned_matrix.nonzero()[0]), len(meta['barcode'])))
 
-        ## Create row attributes
-        chrom = [x[0] for x in clean_bin]
-        start = [x[1] for x in clean_bin]
-        end = [x[2] for x in clean_bin]
+        # ## Create row attributes
+        # chrom = [x[0] for x in clean_bin]
+        # start = [x[1] for x in clean_bin]
+        # end = [x[2] for x in clean_bin]
 
-        row_attrs = {'loc': np.array([f'{c}:{s}-{e}' for c,s,e in zip(chrom, start, end)]), 
-                     'chrom': np.array(chrom), 'start': np.array(start), 'end': np.array(end)}
+        # row_attrs = {'loc': np.array([f'{c}:{s}-{e}' for c,s,e in zip(chrom, start, end)]), 
+        #              'chrom': np.array(chrom), 'start': np.array(start), 'end': np.array(end)}
 
-        ## Create loomfile
-        logging.info("Constructing loomfile")
-        sampleid = indir.split('/')[-1] + '_' + str(int(bsize/1000)) + 'kb'
-        floom = outdir + '/' + sampleid + '.loom'
+        # ## Create loomfile
+        # logging.info("Constructing loomfile")
+        # sampleid = indir.split('/')[-1] + '_' + str(int(bsize/1000)) + 'kb'
+        # floom = outdir + '/' + sampleid + '.loom'
 
-        loompy.create(filename=floom, 
-                      layers=cleaned_matrix, 
-                      row_attrs=row_attrs, 
-                      col_attrs=meta,
-                      file_attrs=small_summary)
-        self.loom = floom
-        logging.info("Loom bin file saved as {}".format(floom))
+        # loompy.create(filename=floom, 
+        #               layers=cleaned_matrix, 
+        #               row_attrs=row_attrs, 
+        #               col_attrs=meta,
+        #               file_attrs=small_summary)
+        # self.loom = floom
+        # logging.info("Loom bin file saved as {}".format(floom))
         
-        ## Cleanup
-        del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin
+        # ## Cleanup
+        # del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin
                 
         ######
         ## Generate Gene Accessibility Scores
         ######
         
-        logging.info('Start generating Gene Acessibility Scores')
-        logging.info('Setting up BedTool')
+        logging.info('## Start generating Gene Acessibility Scores ##')
         fragments = BedTool(ff)
         
         ## Saving fragments in cells
@@ -248,7 +248,13 @@ class Chromgen:
             cix+=1
 
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(g_dict.keys()), len(meta['barcode'])))
+        logging.info(f'Shape matrix: {matrix.shape}. Number of elements: {matrix.nnz}')
         
+        ## Do some cleanup
+        # del col, row, v, Count_dict, barcodes, bins, blacklist, cleaned_matrix, frag_dict, fragments, g_dict, gb, inter, summary
+
+        logging.info(f'Remaining variables: {dir()}')
+
         ## Create loomfile
         logging.info("Constructing loomfile")
         floom = os.path.join(outdir, indir.split('/')[-1] + '_GA.loom')

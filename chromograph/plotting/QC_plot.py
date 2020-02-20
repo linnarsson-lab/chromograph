@@ -62,9 +62,9 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
     ## Histogram of Bin Coverage
     ax2 = fig.add_axes([0, 0.5, 0.45, 0.2])
 
-    ax2.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))
-    ax2.axvline(x=np.log10(ds.attrs['bin_max_cutoff']))
-    ax2.axvline(x=np.log10(ds.attrs['bin_min_cutoff']))
+    ax2.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
+    # ax2.axvline(x=np.log10(ds.attrs['bin_max_cutoff']))
+    # ax2.axvline(x=np.log10(ds.attrs['bin_min_cutoff']))
     ax2.set_title("Bin Coverage")
     ax2.set_ylabel("Number of Bins")
     ax2.set_xlabel("Log10 Coverage")
@@ -72,15 +72,28 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
     ## Histogram of Bins per cell
     ax3 = fig.add_axes([0.5, 0.5, 0.45, 0.2])
     
-    ax3.hist(ds.ca['NBins'], bins=100, alpha=0.5)
-    ax3.set_title("Number of positive bins per cell")
-    ax3.set_ylabel("Number of Cells")
-    ax3.set_xlabel("Number of positive bins")
+    if ds.ca['NPeaks']:
+        ax3.hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
+        ax3.set_title("Number of positive peaks per cell")
+        ax3.set_ylabel("Number of Cells")
+        ax3.set_xlabel("Number of positive peaks")
+
+        ax4 = fig.add_axes([0.5, 0, 0.40, 0.45])
+        ax4.scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']), s=1)
+        ax4.set_title("Fragments per cell v. positive peaks per cell")
+        ax4.set_ylabel("Log10 Positive peaks")
+        ax4.set_xlabel("Log10 fragmentss")
+
+    else:
+        ax3.hist(ds.ca['NBins'], bins=100, alpha=0.5)
+        ax3.set_title("Number of positive bins per cell")
+        ax3.set_ylabel("Number of Cells")
+        ax3.set_xlabel("Number of positive bins")
     
-    ax4 = fig.add_axes([0.5, 0, 0.40, 0.45])
-    ax4.scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']), s=1)
-    ax4.set_title("Fragments per cell v. positive bins per cell")
-    ax4.set_ylabel("Log10 Positive Bins")
-    ax4.set_xlabel("Log10 fragmentss")
+        ax4 = fig.add_axes([0.5, 0, 0.40, 0.45])
+        ax4.scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']), s=1)
+        ax4.set_title("Fragments per cell v. positive bins per cell")
+        ax4.set_ylabel("Log10 Positive Bins")
+        ax4.set_xlabel("Log10 fragmentss")
     
     fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
