@@ -49,18 +49,18 @@ class bin_analysis:
         """
         self.config = config.load_config()
         self.outdir = os.path.join(self.config.paths.build, 'exported')
+        self.blayer = 'TF_IDF'
         logging.info("Bin_Analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Chromograph on {ds.shape[1]} cells")
         
-        logging.info('skipping steps')
         try:
             self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
         except:
             ds.attrs['bin_size'] = int(int(ds.ra.end[0]) - int(ds.ra.start[0]) + 1)
             self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
-        logging.info("Running Bin-analysis on {} cells with {}".format(ds.shape[1], self.blayer))
+        logging.info(f'Running Bin-analysis on {ds.shape[1]} cells with {self.blayer}')
         
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
@@ -98,17 +98,17 @@ class bin_analysis:
             ## Select bins for PCA fitting
             # bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
 
-            ds.ra.Valid = (ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)
-            ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid])
-            ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid])
+            ds.ra.Valid = np.array((ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)==1)
+            ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid==1])
+            ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid==1])
             PCA = IncrementalPCA(n_components=self.config.params.n_factors)
             logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
             for (ix, selection, view) in ds.scan(axis=1):
-                PCA.partial_fit(view[self.blayer][ds.ra.Valid, :].T)
+                PCA.partial_fit(view[self.blayer][ds.ra.Valid==1, :].T)
                 logging.info(f'Fitted {ix} cells to PCA')
-                
+
             logging.info(f'Transforming data')
-            X = PCA.transform(ds[self.blayer][ds.ra.Valid,:].T)
+            X = PCA.transform(ds[self.blayer][ds.ra.Valid==1,:].T)
             logging.info(f'Shape X is {X.shape}')
             ds.ca.PCA = X
             logging.info(f'Added PCA components')
@@ -123,23 +123,22 @@ class bin_analysis:
             
             logging.info(f"Selected max cut_off {ds.attrs['bin_max_cutoff']} and min cut_off {ds.attrs['bin_min_cutoff']}")
 
-            ds.ra.Valid = (ds.ra['NCells'] > ds.attrs['bin_min_cutoff']) & (ds.ra['NCells'] < ds.attrs['bin_max_cutoff'])
+            ds.ra.Valid = np.array((ds.ra['NCells'] > ds.attrs['bin_min_cutoff']) & (ds.ra['NCells'] < ds.attrs['bin_max_cutoff']))
             logging.info("Using {} out of {} bins for manifold learning".format(sum(ds.ra.Valid), ds.shape[0]))
             # Load the data for the selected genes
             logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} bins")
-            data = ds[self.blayer].sparse(rows=ds.ra.Valid).T
+            data = ds[self.blayer].sparse(rows=np.array(ds.ra.Valid==1)).T
             logging.info(f"Shape data: {data.shape}")
 
             # HPF factorization
-            k = 48
             cpus = 4
             logging.info("Performing HPF factorization with {} factors".format(k))
-            hpf = HPF(k=k, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
+            hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
             hpf.fit(data)
 
             logging.info("Adding Betas and Thetas to loom file")
             beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-            beta_all[ds.ra.Valid] = hpf.beta
+            beta_all[ds.ra.Valid==1] = hpf.beta
             # Save the unnormalized factors
             ds.ra.HPF_beta = beta_all
             ds.ca.HPF_theta = hpf.theta
@@ -147,7 +146,7 @@ class bin_analysis:
             # and because otherwise the components will be exactly proportional to cell size
             theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
             beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
-            beta_all[ds.ra.Valid] = beta
+            beta_all[ds.ra.Valid==1] = beta
             # Save the normalized factors
             ds.ra.HPF = beta_all
             ds.ca.HPF = theta
@@ -210,18 +209,15 @@ class bin_analysis:
         del knn, mknn, rnn
     
         ## Perform tSNE and UMAP
-        logging.info("Generating tSNE from decomposition")
-        # ds.ca.TSNE = tsne(decomp, metric="js", radius=radius)
-
         logging.info(f"Computing 2D and 3D embeddings from latent space")
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
-        logging.info(f"  Art of tSNE with {metric} distance metric")
-        ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+        # logging.info(f"  Art of tSNE with {metric} distance metric")
+        # ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
 
         logging.info(f'Using sklearn TSNE for the time being')
         from sklearn.manifold import TSNE
-        # TSNE = TSNE(init='pca') ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
-        # ds.ca.TSNE = TSNE.fit(decomp).embedding_
+        TSNE = TSNE(init='pca') ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info("Generating UMAP from decomposition")
         with warnings.catch_warnings():

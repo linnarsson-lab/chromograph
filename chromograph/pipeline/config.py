@@ -70,6 +70,7 @@ def load_config() -> Config:
 			"Normalization": "TF-IDF", 
 			"factorization": "PCA",  # or "HPF" or "both"
 			"n_factors": 50,
+			"HPF_factors": 48,
 			"level": 5000,
 			"cov": 1.75,
 			"bin_size": 5000,
@@ -85,7 +86,9 @@ def load_config() -> Config:
 			"skip_metadata": False,
 			"passedQC": False,
 			"clusterer": "louvain",  # or "surprise"
-			"nn_space": "auto"
+			"nn_space": "auto",
+			"peak_depth": 2.5e7,
+			"peak_min_cells": 50
 		}),
 		# "steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
 		"steps": ("nn", "embeddings", "clustering"),
@@ -93,7 +96,7 @@ def load_config() -> Config:
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 52,
 			"n_gpus": 0,
-			"memory": 128
+			"memory": 256
 		})
 	})
 	# Home directory

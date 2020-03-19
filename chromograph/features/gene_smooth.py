@@ -11,6 +11,7 @@ import chromograph
 from chromograph.pipeline import config
 from chromograph.pipeline.utils import div0
 import cytograph as cg
+from cytograph.manifold import BalancedKNN
 
 import sklearn.metrics
 from scipy.spatial import distance
@@ -25,19 +26,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%H:%M:%S')
-
-@njit()
-def smooth_jit(data, g) -> None:
-    '''
-    '''
-    y = []
-    for x in numba.prange(data.shape[1]):
-        nn = g[:,x]>0
-        nn_n = np.sum(nn)
-        v = data[:,x] + np.sum(data[:,nn], axis=1) / (nn_n+1)
-        y.append(v)
-        
-    return y
 
 class GeneSmooth:
     def __init__(self) -> None:
@@ -60,19 +48,20 @@ class GeneSmooth:
         ds.ra['GA_rowsum'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['GA_colsum'] = ds.map([np.count_nonzero], axis=1)[0]
 
-        logging.info(f'Normalizing GA scores to same depth: {self.config.params.level}')
-        ## Normalize to same level
-        ds['norm'] = 'float32'
+        logging.info(f'Converting to FPKM')  # divide by BPs/1e3 and divide by GA_colsum/1e6
+        ds['FPKM'] = 'float16'
         for (ix, selection, view) in ds.scan(axis=1):
-            ds['norm'][:,selection] = (div0(view[:,:], ds.ca['GA_colsum'][selection]) * int(self.config.params.level))
-            logging.info(f"finished: {max(selection)} rows")
+            ds['FPKM'][:,selection] = div0(div0(view[''][:,:], 1e-3*ds.ra['BPs'].reshape(ds.shape[0], 1)), (1e-6 * ds.ca['GA_colsum'][selection]))
+            logging.info(f"FPKM for: {max(selection)} cells out of {ds.shape[1]}")
 
-        ds['smooth'] = 'float32'
+        logging.info(f'Loading the network')
+        bnn = BalancedKNN(k=self.config.params.k, metric='euclidean', maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
+        bnn.bknn = ds.col_graphs.KNN
+
+        logging.info('Smoothing over the graph')
+        ds['smooth'] = 'float16'
         for (ix, selection, view) in ds.scan(axis=0):
-            g = view.col_graphs['KNN'].toarray()
-            vals = smooth_jit(view[:,:]['norm'], g)
-            vals = np.vstack(vals)
-            ds['smooth'][ix:vals.shape[1],:] = vals.T
-            logging.info(f"finished: {max(selection)} rows")
+            ds['smooth'][selection,:] = bnn.smooth_data(view['FPKM'][:,:], only_increase=False)
+            logging.info(f'Smoothed {max(selection)} rows out of {ds.shape[0]}')
 
-        logging.info(f"Finished smoothing and saving to file")         
+        logging.info(f'Finished smoothing')      

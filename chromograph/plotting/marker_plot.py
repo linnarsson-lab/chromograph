@@ -43,7 +43,7 @@ def marker_plot(ds: loompy.LoomConnection, out_file: str, markers: list, embeddi
     nn.fit(pos)
     knn = nn.kneighbors_graph(mode='distance')
     k_radius = knn.max(axis=1).toarray()
-    epsilon = (2500 / (pos.max() - pos.min())) * np.percentile(k_radius, eps_pct)
+    epsilon = (1500 / (pos.max() - pos.min())) * np.percentile(k_radius, eps_pct)
     
     nM = len(markers)
     

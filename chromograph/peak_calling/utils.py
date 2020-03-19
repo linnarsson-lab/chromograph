@@ -36,24 +36,30 @@ def add_strand(feature, strand):
     feature[5] = strand
     return feature
 
-def read_HOMER_annotation(file):
+def read_HOMER(file):
     '''
     Read the output of HOMER into a numpy array
     '''
     table = []
+    TFs = []
     with open(file) as f:
         i = 0
         for line in f:
             if i == 0:
                 cols = ['ID'] + line.split('\t')[1:]
                 cols = [x.rstrip() for x in cols]
-                cols = [x.replace('/', '-',) for x in cols]
-            if i > 0 :
-                table.append([x.rstrip() for x in line.split('\t')])
+                cols = np.array([x.replace('/', '-',) for x in cols])
+                clim = np.where(cols == 'GC%')[0][0] + 1
+                TF_cols = [x.split(' ')[0] for x in cols[clim:]]
+            if i> 0:
+                table.append([x.rstrip() for x in line.split('\t')][:clim])
+                tline = [x.rstrip() for x in line.split('\t')][clim:]
+                tline = [x is not '' for x in tline]
+                TFs.append(tline)
             i += 1
 
-    table = np.array(table)
-    return cols, table
+    return cols[:clim], np.array(table), TF_cols, np.array(TFs)
+
 
 def reorder_by_IDs(mat: np.ndarray, IDs):
     '''
@@ -71,6 +77,21 @@ def reorder_by_IDs(mat: np.ndarray, IDs):
         table[idx[mat[x,0]],:] = mat[x,:]
 
     return np.array(table)
+
+def bed_downsample(pile, level):
+    '''
+    '''
+    p = BedTool(pile[1])
+    frag_count = p.count()
+    fraction = level / frag_count
+
+    if fraction < 1:
+        downsamp = p.random_subset(f=fraction)
+        downsamp.saveas(pile[1])
+        logging.info(f'Total fragments: {frag_count} in cluster {pile[0]}, downsampled to {downsamp.count()}')
+    else:
+        logging.info(f'cluster {pile[0]} was not downsampled')
+    return
 
 def Count_peaks(cells, sample_dir, f_peaks, q):
     '''

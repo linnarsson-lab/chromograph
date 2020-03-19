@@ -63,16 +63,14 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
     ax2 = fig.add_axes([0, 0.5, 0.45, 0.2])
 
     ax2.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
-    # ax2.axvline(x=np.log10(ds.attrs['bin_max_cutoff']))
-    # ax2.axvline(x=np.log10(ds.attrs['bin_min_cutoff']))
-    ax2.set_title("Bin Coverage")
-    ax2.set_ylabel("Number of Bins")
+    ax2.set_title("Coverage")
+    ax2.set_ylabel("Number of features")
     ax2.set_xlabel("Log10 Coverage")
     
     ## Histogram of Bins per cell
     ax3 = fig.add_axes([0.5, 0.5, 0.45, 0.2])
     
-    if ds.ca['NPeaks']:
+    if 'NPeaks' in ds.ca:
         ax3.hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
         ax3.set_title("Number of positive peaks per cell")
         ax3.set_ylabel("Number of Cells")

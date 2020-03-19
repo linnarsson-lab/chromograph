@@ -8,6 +8,7 @@ sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
+from chromograph.pipeline.peak_analysis import Peak_analysis
 from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
@@ -77,12 +78,12 @@ class Peak_caller:
 
         chunks = []
         for i in np.unique(ds.ca['Clusters']):
-            cells = ds.ca["SampleID", "barcode"][ds.ca['Clusters'] == i]
+            cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
             files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
-            chunks.append([i,files])
+            if len(cells) > self.config.params.peak_min_cells:
+                chunks.append([i,files])
 
         logging.info('Start merging fragments by cluster')
-        # mp.set_start_method('spawn')
         piles = []
         for ck in chunks:
             files = np.array(ck[1])
@@ -97,15 +98,16 @@ class Peak_caller:
             piles.append([ck[0], fmerge])
             logging.info(f'Finished with cluster {ck[0]}')
 
-        # jobs = []
-        # for pile in piles:
-        #     p = mp.Process(target=call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
-        #     jobs.append(p)
-        #     p.start()
+        logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
+        pool = mp.Pool(10) 
+        for pile in piles:
+            pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
+        pool.close()
+        pool.join()
 
-        # for p in jobs:
-        #     p.join()
+        logging.info(f'Finished downsampling')
 
+        logging.info(f'Start calling peaks')
         pool = mp.Pool(10) 
         for pile in piles:
             pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
@@ -119,7 +121,8 @@ class Peak_caller:
 
         f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
         peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
-        # peaks_all = BedTool(f)
+        
+        peaks_all = BedTool(f)
         logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
         ## Clean up
@@ -142,33 +145,33 @@ class Peak_caller:
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
 
-        ## Count peaks and make Peak by Cell matrix
-        ## Counting peaks
+        # Count peaks and make Peak by Cell matrix
+        # Counting peaks
         logging.info(f'Start counting peaks')
         chunks = np.array_split(ds.ca['CellID'], 10)
-        # jobs = []
-        # q = mp.Queue()
-        # dicts = []
-        # for cells in chunks:
-        #     p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
-        #     jobs.append(p)
-        #     p.start()
+        jobs = []
+        q = mp.Queue()
+        dicts = []
+        for cells in chunks:
+            p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
+            jobs.append(p)
+            p.start()
             
-        # for i in range(len(chunks))
-        #     dicts.append(q.get())
+        for i in range(len(chunks)):
+            dicts.append(q.get())
             
-        # for p in jobs:
-        #     p.join()
+        for p in jobs:
+            p.join()
 
         dicts = []
         def log_result(result):
-            # This is called whenever foo_pool(i) returns a result.
-            # result_list is modified only by the main process, not the pool workers.
+            # This is called whenever pool returns a result.
             dicts.append(result)
 
         pool = mp.Pool(10)
-        for i in range(10):
-            pool.apply_async(Count_peaks2, args=(cells, self.config.paths.samples, f, ), callback = dicts)
+        chunks = np.array_split(ds.ca['CellID'], 10)
+        for cells in chunks:
+            pool.apply_async(Count_peaks2, args=(cells, self.config.paths.samples, f, ), callback = log_result)
         pool.close()
         pool.join()
         
@@ -183,12 +186,12 @@ class Peak_caller:
 
         cix = 0
         for cell in ds.ca['CellID']:
-
-            for key in (Counts[cell]):
-                col.append(cix)
-                row.append(r_dict[key])
-                v.append(np.int8(Counts[cell][key]))
-            cix+=1
+            if len(Counts[cell]) > 0:
+                for key in (Counts[cell]):
+                    col.append(cix)
+                    row.append(r_dict[key])
+                    v.append(np.int8(Counts[cell][key]))
+                cix+=1
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
         logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
 
@@ -207,49 +210,65 @@ class Peak_caller:
 
 if __name__ == '__main__':
 
-    ## Check if directory exists
-    if not os.path.isdir(config.paths.build):
-        os.mkdir(config.paths.build)
-
+    logging.info(f'Performing the following steps: {config.steps}')
     logging.info(f'The build folder is {config.paths.build}, now analyzing {tissue}')
-
-    ## Merge Bin files
     outfile = os.path.join(config.paths.build, tissue + '.loom')
-    inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
 
-    logging.info(f'Input files {inputfiles}')
+    if 'bin_analysis' in config.steps:
+        ## Check if directory exists
+        if not os.path.isdir(config.paths.build):
+            os.mkdir(config.paths.build)
 
-    loompy.combine_faster(inputfiles, outfile, key = 'loc')
-    # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
-    logging.info('Finished combining loom-files')
+        # ## Merge Bin files
+        inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
 
-    ## Run primary Clustering and embedding
-    with loompy.connect(outfile) as ds:
-        ds.attrs['tissue'] = tissue
-        bin_analysis = bin_analysis()
-        bin_analysis.fit(ds)
-        
-    ## Merge GA files
-    GA_file = os.path.join(config.paths.build, tissue + '_GA.loom')
-    inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
-    for x in inputfiles:
-        with loompy.connect(x) as ds:
-            logging.info(f"{x} has shape{ds.shape}")
-    loompy.combine_faster(inputfiles, GA_file, key = 'Accession')
-    with loompy.connect(GA_file) as ds:
-        logging.info(f'Transferring column attributes and column graphs to GA file')
-        with loompy.connect(outfile) as dsb:
-            for x in dsb.ca:
-                if x not in ds.ca:
-                    ds.ca[x] = dsb.ca[x]
-            for x in dsb.col_graphs:
-                if x not in ds.col_graphs:
-                    ds.col_graphs[x] = dsb.col_graphs[x]
-        logging.info(f"GA file has shape{ds.shape}")
-        Smooth = GeneSmooth()
-        Smooth.fit(ds)
+        logging.info(f'Input files {inputfiles}')
 
-    ## Call peaks
-    with loompy.connect(outfile, 'r') as ds:
-        peak_caller = Peak_caller()
-        peak_caller.fit(ds)
+        loompy.combine_faster(inputfiles, outfile, key = 'loc')
+        # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
+        logging.info('Finished combining loom-files')
+
+        ## Run primary Clustering and embedding
+        with loompy.connect(outfile) as ds:
+            ds.attrs['tissue'] = tissue
+            bin_analysis = bin_analysis()
+            bin_analysis.fit(ds)
+    
+    if 'GA' in config.steps:
+        ## Merge GA files
+        GA_file = os.path.join(config.paths.build, tissue + '_GA.loom')
+        inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
+        for x in inputfiles:
+            with loompy.connect(x) as ds:
+                logging.info(f"{x} has shape{ds.shape}")
+        loompy.combine_faster(inputfiles, GA_file, key = 'Accession')
+
+        ## Transer column attributes
+        with loompy.connect(GA_file) as ds:
+            logging.info(f'Transferring column attributes and column graphs to GA file')
+            with loompy.connect(outfile) as dsb:
+                ds.permute(ds.ca['CellID'].argsort(), axis=1)
+                dsb.permute(dsb.ca['CellID'].argsort(), axis=1)
+                for x in dsb.ca:
+                    if x not in ds.ca:
+                        ds.ca[x] = dsb.ca[x]
+                ## Transfer column graphs
+                for x in dsb.col_graphs:
+                    if x not in ds.col_graphs:
+                        ds.col_graphs[x] = dsb.col_graphs[x]
+            logging.info(f"GA file has shape{ds.shape}")
+            Smooth = GeneSmooth()
+            Smooth.fit(ds)
+
+    if 'peak_calling' in config.steps:
+        ## Call peaks
+        with loompy.connect(outfile, 'r') as ds:
+            peak_caller = Peak_caller()
+            peak_caller.fit(ds)
+
+    if 'peak_analysis' in config.steps:
+        ## Analyse peak-file
+        peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
+        with loompy.connect(peak_file, 'r+') as ds:
+            Peak_analysis = Peak_analysis()
+            Peak_analysis.fit(ds)

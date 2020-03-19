@@ -1,0 +1,9 @@
+getenv       = true
+executable   = /home/camiel/homer/bin/annotatePeaks.pl
+arguments    = "Compounded_peaks.bed hg38 -size 200 -m /home/camiel/homer/data/knownTFs/vertebrates/known.motifs"
+log          = /home/camiel/logs/homer_comp.log
+output       = /home/camiel/logs/homer_comp.txt
+error        = /home/camiel/logs/homer_comp.error
+request_cpus = 8
+
+queue
