@@ -1,1 +1,0 @@
-cmd = C0_peaks.bed hg38 tmp_out -bg C0_bg.bed -size 200 -p 8 -mask -nomotif

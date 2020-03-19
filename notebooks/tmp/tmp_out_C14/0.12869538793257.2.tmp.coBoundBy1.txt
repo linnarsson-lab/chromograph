@@ -1,2 +1,0 @@
-#Name (cmd = mergePeaks tmp_out_C14/bg.clean.pos tmp_out_C14/target.clean..pos -d 200 -cobound 1 -prefix tmp_out_C14/0.12869538793257.2.tmp)	chr	start	end	strand	stat	stat2	tmp_out_C14/target.clean..pos
-BGchr2:237601647-237601826	chr2	237601649	237601826	+	0.000	0.000	chr2:237601831-237602034
