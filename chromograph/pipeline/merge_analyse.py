@@ -60,7 +60,7 @@ class Peak_caller:
         logging.info("Peak Caller initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
-        ''''
+        '''
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
         Args:
@@ -120,9 +120,8 @@ class Peak_caller:
         peaks_all = peaks[0].cat(*peaks[1:])
 
         f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+        peaks_all.merge()
         peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
-        
-        peaks_all = BedTool(f)
         logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
         ## Clean up
@@ -140,7 +139,8 @@ class Peak_caller:
 
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
-        cols, table = read_HOMER_annotation(f_annot)
+        # cols, table = read_HOMER_annotation(f_annot)
+        cols, table, TF_cols, TFs = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
@@ -264,7 +264,7 @@ if __name__ == '__main__':
         ## Call peaks
         with loompy.connect(outfile, 'r') as ds:
             peak_caller = Peak_caller()
-            peak_caller.fit(ds)
+            peak_loom = loom_peak = peak_caller.fit(ds)
 
     if 'peak_analysis' in config.steps:
         ## Analyse peak-file
@@ -272,3 +272,11 @@ if __name__ == '__main__':
         with loompy.connect(peak_file, 'r+') as ds:
             Peak_analysis = Peak_analysis()
             Peak_analysis.fit(ds)
+
+    if 'motifs' in config.steps:
+        if peak_file not in locals():
+            peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
+
+        with loompy.connect(peak_file, 'r') as ds:
+            motif_compounder = motif_compounder()
+            motif_compounder.fit(ds)

@@ -2,7 +2,7 @@ import numpy as np
 
 import loompy
 
-from .utils import div0
+from chromograph.pipeline.utils import div0
 
 class TF_IDF:
     """
