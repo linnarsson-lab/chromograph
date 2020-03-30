@@ -32,27 +32,24 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%H:%M:%S')
-
 class Peak_caller:
     def __init__(self) -> None:
         """
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
-        ##### CURRENTLY OUTDATED #####
-
         Args:
             ds                    Loom connection
 
         Remarks:
         
         """
-        self.config = config.load_config()
+        self.config = chromograph.pipeline.config.load_config()
         self.peakdir = os.path.join(self.config.paths.build, 'peaks')
         self.loom = ''
         logging.info("Peak Caller initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
-        ''''
+        '''
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
         Args:
@@ -62,7 +59,6 @@ class Peak_caller:
         Remarks:
         
         '''
-        # if __name__ == '__main__':
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
@@ -73,10 +69,10 @@ class Peak_caller:
         for i in np.unique(ds.ca['Clusters']):
             cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
             files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
-            chunks.append([i,files])
+            if len(cells) > self.config.params.peak_min_cells:
+                chunks.append([i,files])
 
         logging.info('Start merging fragments by cluster')
-        # mp.set_start_method('spawn')
         piles = []
         for ck in chunks:
             files = np.array(ck[1])
@@ -91,11 +87,21 @@ class Peak_caller:
             piles.append([ck[0], fmerge])
             logging.info(f'Finished with cluster {ck[0]}')
 
-        jobs = []
+        logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
+        pool = mp.Pool(10) 
         for pile in piles:
-            p = mp.Process(target=call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
-            jobs.append(p)
-            p.start()
+            pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
+        pool.close()
+        pool.join()
+
+        logging.info(f'Finished downsampling')
+
+        logging.info(f'Start calling peaks')
+        pool = mp.Pool(10) 
+        for pile in piles:
+            pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
+        pool.close()
+        pool.join()
             
         ## Compound the peak lists
         peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
@@ -103,10 +109,16 @@ class Peak_caller:
         peaks_all = peaks[0].cat(*peaks[1:])
 
         f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+        peaks_all.merge()
         peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
         logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
+        ## Clean up
+        for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
+            os.system(f'rm {file}')
+
         ## Annotate peaks
+        logging.info(f'Annotating peaks')
         homer = os.path.join(self.config.paths.HOMER, 'annotatePeaks.pl')
         genes = os.path.join(self.config.paths.ref, 'genes', 'genes.gtf')
         motifs = os.path.join(self.config.paths.ref, 'regions', 'motifs.pfm')
@@ -115,12 +127,16 @@ class Peak_caller:
         os.system(cmd)  ## Actually call HOMER
 
         ## Load and reorder HOMER output
-        table = read_HOMER_annotation(f_annot)
+        logging.info(f'Reordering annotation file')
+        # cols, table = read_HOMER_annotation(f_annot)
+        cols, table, TF_cols, TFs = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
 
-        ## Count peaks and make Peak by Cell matrix
+        # Count peaks and make Peak by Cell matrix
+        # Counting peaks
+        logging.info(f'Start counting peaks')
         chunks = np.array_split(ds.ca['CellID'], 10)
         jobs = []
         q = mp.Queue()
@@ -129,7 +145,24 @@ class Peak_caller:
             p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
             jobs.append(p)
             p.start()
+            
+        for i in range(len(chunks)):
             dicts.append(q.get())
+            
+        for p in jobs:
+            p.join()
+
+        dicts = []
+        def log_result(result):
+            # This is called whenever pool returns a result.
+            dicts.append(result)
+
+        pool = mp.Pool(10)
+        chunks = np.array_split(ds.ca['CellID'], 10)
+        for cells in chunks:
+            pool.apply_async(Count_peaks2, args=(cells, self.config.paths.samples, f, ), callback = log_result)
+        pool.close()
+        pool.join()
         
         ## Unpack results
         Counts = {k: v for d in dicts for k, v in d.items()}
@@ -141,14 +174,15 @@ class Peak_caller:
         v = []
 
         cix = 0
-        for cell in ds.ca['CellID'][:30]:
-
-            for key in (Counts[cell]):
-                col.append(cix)
-                row.append(r_dict[key])
-                v.append(Counts[cell][key])
-            cix+=1
+        for cell in ds.ca['CellID']:
+            if len(Counts[cell]) > 0:
+                for key in (Counts[cell]):
+                    col.append(cix)
+                    row.append(r_dict[key])
+                    v.append(np.int8(Counts[cell][key]))
+                cix+=1
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
+        logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
 
         ## Create loomfile
         logging.info("Constructing loomfile")
@@ -159,11 +193,7 @@ class Peak_caller:
                     row_attrs=annot, 
                     col_attrs=dict(ds.ca),
                     file_attrs=dict(ds.attrs))
-        logging.info("Loom peaks file saved as {}".format(floom))
+        logging.info(f'Loom peaks file saved as {self.loom}')
 
         return self.loom
-            
-# peak_caller = Peak_caller()
-# r = peak_caller.fit(ds)
-# logging.info('Saved peaks as {r}')
 

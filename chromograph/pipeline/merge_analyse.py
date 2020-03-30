@@ -120,9 +120,8 @@ class Peak_caller:
         peaks_all = peaks[0].cat(*peaks[1:])
 
         f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+        peaks_all.merge()
         peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
-        
-        peaks_all = BedTool(f)
         logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
         ## Clean up
@@ -267,17 +266,17 @@ if __name__ == '__main__':
             peak_caller = Peak_caller()
             peak_loom = loom_peak = peak_caller.fit(ds)
 
-    if 'motifs' in config.steps:
-        if peak_loom not in locals():
-            peak_loom = os.path.join(config.paths.build, tissue + '_peaks.loom')
-
-        with loompy.connect(peak_loom, 'r') as ds:
-            motif_compounder = motif_compounder()
-            motif_compounder.fit(ds)
-
     if 'peak_analysis' in config.steps:
         ## Analyse peak-file
         peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
         with loompy.connect(peak_file, 'r+') as ds:
             Peak_analysis = Peak_analysis()
             Peak_analysis.fit(ds)
+
+    if 'motifs' in config.steps:
+        if peak_file not in locals():
+            peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
+
+        with loompy.connect(peak_file, 'r') as ds:
+            motif_compounder = motif_compounder()
+            motif_compounder.fit(ds)
