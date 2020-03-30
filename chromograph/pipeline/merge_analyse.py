@@ -60,7 +60,7 @@ class Peak_caller:
         logging.info("Peak Caller initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
-        ''''
+        '''
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
         Args:
@@ -140,7 +140,8 @@ class Peak_caller:
 
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
-        cols, table = read_HOMER_annotation(f_annot)
+        # cols, table = read_HOMER_annotation(f_annot)
+        cols, table, TF_cols, TFs = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
@@ -264,7 +265,15 @@ if __name__ == '__main__':
         ## Call peaks
         with loompy.connect(outfile, 'r') as ds:
             peak_caller = Peak_caller()
-            peak_caller.fit(ds)
+            peak_loom = loom_peak = peak_caller.fit(ds)
+
+    if 'motifs' in config.steps:
+        if peak_loom not in locals():
+            peak_loom = os.path.join(config.paths.build, tissue + '_peaks.loom')
+
+        with loompy.connect(peak_loom, 'r') as ds:
+            motif_compounder = motif_compounder()
+            motif_compounder.fit(ds)
 
     if 'peak_analysis' in config.steps:
         ## Analyse peak-file

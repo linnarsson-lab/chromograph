@@ -33,15 +33,13 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-# ## Parameters
-# ds = loompy.connect('/data/proj/scATAC/chromograph/build_20191205/Midbrain.loom', 'r')
-# logging.info(f'ds connection: {ds.shape}')
-
 class Peak_caller:
     def __init__(self) -> None:
         """
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
+        ##### CURRENTLY OUTDATED #####
+
         Args:
             ds                    Loom connection
 
