@@ -61,6 +61,9 @@ class Chromgen:
         fs = indir + '/outs/summary.json'
         sample = indir.split('/')[-1]
 
+        if len(sample.split('_')) > 2:
+            sample = '_'.join(sample.split('_')[:2])
+
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
    
