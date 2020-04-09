@@ -233,7 +233,7 @@ class Chromgen:
             r_dict['Accession'].append(x.attrs['gene_id'])
             r_dict['Gene'].append(x.attrs['gene_name'])
             r_dict['loc'].append(f'{x[0]}:{x[3]}-{x[4]}')
-            r_dict['BPs'].append(int(abs(x[3]-x[4])))
+            r_dict['BPs'].append(int(abs(int(x[3])-int(x[4]))))
         
         g_dict = {k: v for v,k in enumerate(r_dict['Accession'])}
         
