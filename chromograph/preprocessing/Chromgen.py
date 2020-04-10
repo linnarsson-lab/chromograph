@@ -67,7 +67,7 @@ class Chromgen:
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
    
-        logging.info("Reading metadata and summary from Cellranger output {}".format(fs))
+        logging.info(f'Reading metadata and summary for {sample} from Cellranger output {fs}')
         with open(fs, "r") as f:
             summary = json.load(f)
 
@@ -90,6 +90,7 @@ class Chromgen:
         meta['CellID'] = [f'{sample}:{x}' for x in meta['barcode']]
     
         ## Retrieve sample metadata from SangerDB
+        logging.info(f'Retrieve metadata from {[self.config.paths.metadata, sample]}')
         m =  load_sample_metadata(self.config.paths.metadata, sample)
         for k,v in m.items():
             meta[k] = np.array([v] * len(meta['barcode']))
