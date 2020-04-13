@@ -196,8 +196,8 @@ class Chromgen:
 
         ## Create loomfile
         logging.info("Constructing loomfile")
-        sampleid = indir.split('/')[-1] + '_' + str(int(bsize/1000)) + 'kb'
-        floom = outdir + '/' + sampleid + '.loom'
+        sampleid = sample + '_' + str(int(bsize/1000)) + 'kb'
+        floom = os.path.join(outdir,  + sampleid + '.loom')
 
         loompy.create(filename=floom, 
                       layers=cleaned_matrix, 
@@ -262,7 +262,7 @@ class Chromgen:
 
         ## Create loomfile
         logging.info("Constructing loomfile")
-        floom = os.path.join(outdir, indir.split('/')[-1] + '_GA.loom')
+        floom = os.path.join(outdir, sample + '_GA.loom')
 
         loompy.create(filename=floom, 
                       layers=matrix, 
