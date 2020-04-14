@@ -59,10 +59,15 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
     ax.set_title('Log10 fragments')
     ax.axis("off")
     
-    ## Histogram of Bin Coverage
+    ## Histogram of Feature Coverage
     ax2 = fig.add_axes([0, 0.5, 0.45, 0.2])
 
     ax2.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
+    
+    ## Plot min and max coverage
+    ax2.axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+    ax2.axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+
     ax2.set_title("Coverage")
     ax2.set_ylabel("Number of features")
     ax2.set_xlabel("Log10 Coverage")
