@@ -108,7 +108,13 @@ class bin_analysis:
                 logging.info(f'Fitted {ix} cells to PCA')
 
             logging.info(f'Transforming data')
-            X = PCA.transform(ds[self.blayer][ds.ra.Valid==1,:].T)
+            x = []
+            for (ix, selection, view) in ds.scan(axis=1):
+                X.append(PCA.transform(view[self.blayer][ds.ra.Valid==1,:].T))
+                logging.info(f'Transformed {ix} cells')
+            X = np.vstack(X)
+            # X = PCA.transform(ds[self.blayer][ds.ra.Valid==1,:].T)
+            
             logging.info(f'Shape X is {X.shape}')
             ds.ca.PCA = X
             logging.info(f'Added PCA components')

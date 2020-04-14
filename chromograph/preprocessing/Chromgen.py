@@ -129,7 +129,7 @@ class Chromgen:
             if i%1000 == 0:
                 logging.info(f'Finished separating fragments for {i} cells')
                 
-            del frags
+        del frags
         
         logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
         chrom_bins = generate_bins(chrom_size, bsize)
