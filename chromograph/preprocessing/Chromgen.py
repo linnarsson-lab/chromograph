@@ -223,7 +223,7 @@ class Chromgen:
         gb = BedTool(os.path.join(chromograph.__path__[0], 'references/GRCh38_genes_2kbprom.bed'))
         
         logging.info('Intersecting fragments with Genomic regions')
-        inter = gb.intersect(fragments, wa=True, wb=True).saveas()
+        inter = gb.intersect(fragments, wa=True, wb=True)
         
         logging.info('Count Gene body overlapping reads per barcode')
         Count_dict = Count_genes(meta['barcode'], inter)
@@ -256,7 +256,7 @@ class Chromgen:
         logging.info(f'Shape matrix: {matrix.shape}. Number of elements: {matrix.nnz}')
         
         # Do some cleanup
-        del col, row, v, Count_dict, barcodes, bins, blacklist, cleaned_matrix, frag_dict, fragments, g_dict, gb, inter, summary
+        del col, row, v, Count_dict, barcodes, bins, blacklist, frag_dict, fragments, g_dict, gb, inter, summary
 
         logging.info(f'Remaining variables: {dir()}')
 
