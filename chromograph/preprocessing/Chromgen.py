@@ -208,8 +208,8 @@ class Chromgen:
         logging.info("Loom bin file saved as {}".format(floom))
         
         ## Cleanup
-        del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin, matrix, cleaned_matrix
-                
+        del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin, matrix, cleaned_matrix, col, row, v
+        
         ######
         ## Generate Gene Accessibility Scores
         ######
