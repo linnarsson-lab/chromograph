@@ -96,6 +96,8 @@ class bin_analysis:
             ds.layers['TF_IDF'] = X.astype('float16')
             self.blayer = 'TF_IDF'
 
+            del X
+
         if 'PCA' in self.config.params.factorization:
             ## Select bins for PCA fitting
             # bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
