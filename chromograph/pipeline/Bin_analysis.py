@@ -95,7 +95,6 @@ class bin_analysis:
                 logging.info(f'transformed {max(selection)} cells')
             ds.layers['TF_IDF'] = X.astype('float16')
             self.blayer = 'TF_IDF'
-
             del X
 
         if 'PCA' in self.config.params.factorization:
