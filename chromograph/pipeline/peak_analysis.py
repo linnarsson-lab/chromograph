@@ -69,7 +69,6 @@ class Peak_analysis:
         ds.ra['Coverage'] = (cov - mu) / sd
 
         ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.8*ds.shape[1]))==1)
-        # ds.ra['Valid'] = np.array(ds.ra['NCells'] > (0.02*ds.shape[1]))
         
         ## Create binary layer
         logging.info("Binarizing the matrix")
@@ -78,6 +77,8 @@ class Peak_analysis:
         ds.layers['Binary'] = nnz
         
         logging.info(f'Performing HPF, layer = {self.layer}')
+
+        del nnz, cov, mu, sd
         
         # Load the data for the selected genes
         logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} peaks")
