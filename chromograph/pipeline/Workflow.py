@@ -225,11 +225,13 @@ if __name__ == '__main__':
         # ## Merge Bin files
         inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
 
-        logging.info(f'Input files {inputfiles}')
-
-        loompy.combine_faster(inputfiles, outfile, key = 'loc')
-        # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
-        logging.info('Finished combining loom-files')
+        if not os.path.exists(outfile):
+            logging.info(f'Input files {inputfiles}')
+            loompy.combine_faster(inputfiles, outfile, key = 'loc')
+            # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
+            logging.info('Finished combining loom-files')
+        else:
+            logging.info('Combined bin file already exists, usingt his for analysis')
 
         ## Run primary Clustering and embedding
         with loompy.connect(outfile) as ds:

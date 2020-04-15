@@ -82,7 +82,9 @@ class bin_analysis:
         nnz.dtype = 'int8'
         ds.layers[self.blayer] = nnz
 
-        #### TRY OUT TF-IDF (Term-Frequence Inverse-Data-Frequency####
+        del nnz, cov, mu, sd
+
+        ## Term-Frequence Inverse-Data-Frequency ##
         if 'TF-IDF' in self.config.params.Normalization:
             logging.info(f'Performing TF-IDF')
             tf_idf = TF_IDF()
@@ -114,7 +116,7 @@ class bin_analysis:
                 logging.info(f'Transformed {ix} cells')
             X = np.vstack(X)
             # X = PCA.transform(ds[self.blayer][ds.ra.Valid==1,:].T)
-            
+
             logging.info(f'Shape X is {X.shape}')
             ds.ca.PCA = X
             logging.info(f'Added PCA components')
