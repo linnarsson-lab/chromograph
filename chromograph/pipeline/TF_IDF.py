@@ -22,7 +22,7 @@ class TF_IDF:
 
         ## Scan over rows (all cells) and add to column totals
         for _, selection, view in ds.scan(axis=0):
-            vals = view[self.layer][:, :].astype("float32")
+            vals = view[self.layer][:, :].astype("float16")
             self.totals += np.sum(vals, axis=0)
             
             ## Set row totals
