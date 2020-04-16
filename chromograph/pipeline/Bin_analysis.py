@@ -77,12 +77,13 @@ class bin_analysis:
         ds.ra['Coverage'] = (cov - mu) / sd
         
         ## Create binary layer
-        logging.info("Binarizing the matrix")
-        nnz = ds[:,:] > 0
-        nnz.dtype = 'int8'
-        ds.layers['binary'] = nnz
+        if 'binary' not in ds.layers:
+            logging.info("Binarizing the matrix")
+            nnz = ds[:,:] > 0
+            nnz.dtype = 'int8'
+            ds.layers['binary'] = nnz
 
-        del nnz, cov, mu, sd
+            del nnz, cov, mu, sd
 
         ## Term-Frequence Inverse-Data-Frequency ##
         if 'TF-IDF' in self.config.params.Normalization:
