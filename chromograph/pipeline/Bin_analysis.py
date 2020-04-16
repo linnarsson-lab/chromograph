@@ -89,7 +89,7 @@ class bin_analysis:
         if 'TF-IDF' in self.config.params.Normalization:
             if 'TF-IDF' not in ds.layers:
                 logging.info(f'Performing TF-IDF')
-                tf_idf = TF_IDF()
+                tf_idf = TF_IDF(layer=self.blayer)
                 tf_idf.fit(ds)
                 ds.layers['TF_IDF'] = 'float16'
                 for (ix, selection, view) in ds.scan(axis=1):
