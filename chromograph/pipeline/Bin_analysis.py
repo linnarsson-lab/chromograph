@@ -89,13 +89,13 @@ class bin_analysis:
             logging.info(f'Performing TF-IDF')
             tf_idf = TF_IDF()
             tf_idf.fit(ds)
-            X = np.zeros((ds.shape[0], ds.shape[1]))
+            X = np.zeros((ds.shape[0], ds.shape[1])).astype('float16')
             for (ix, selection, view) in ds.scan(axis=1):
                 X[:,selection] = tf_idf.transform(view[:,:], selection)
                 logging.info(f'transformed {max(selection)} cells')
-            ds.layers['TF_IDF'] = X.astype('float16')
+            ds.layers['TF_IDF'] = sparse.coo_matrix(X)
             self.blayer = 'TF_IDF'
-            del X
+            del X, tf_idf
 
         if 'PCA' in self.config.params.factorization:
             ## Select bins for PCA fitting
