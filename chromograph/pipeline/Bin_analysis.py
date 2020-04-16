@@ -80,22 +80,22 @@ class bin_analysis:
         logging.info("Binarizing the matrix")
         nnz = ds[:,:] > 0
         nnz.dtype = 'int8'
-        ds.layers[self.blayer] = nnz
+        ds.layers['binary'] = nnz
 
         del nnz, cov, mu, sd
 
         ## Term-Frequence Inverse-Data-Frequency ##
         if 'TF-IDF' in self.config.params.Normalization:
-            logging.info(f'Performing TF-IDF')
-            tf_idf = TF_IDF()
-            tf_idf.fit(ds)
-            X = np.zeros((ds.shape[0], ds.shape[1])).astype('float16')
-            for (ix, selection, view) in ds.scan(axis=1):
-                X[:,selection] = tf_idf.transform(view[:,:], selection)
-                logging.info(f'transformed {max(selection)} cells')
-            ds.layers['TF_IDF'] = sparse.coo_matrix(X)
-            self.blayer = 'TF_IDF'
-            del X, tf_idf
+            if 'TF-IDF' not in ds.layers:
+                logging.info(f'Performing TF-IDF')
+                tf_idf = TF_IDF()
+                tf_idf.fit(ds)
+                ds.layers['TF_IDF'] = 'float16'
+                for (ix, selection, view) in ds.scan(axis=1):
+                    ds['TF_IDF'][:,selection] = tf_idf.transform(view['binary'][:,:], selection)
+                    logging.info(f'transformed {max(selection)} cells')
+                self.blayer = 'TF_IDF'
+                del tf_idf
 
         if 'PCA' in self.config.params.factorization:
             ## Select bins for PCA fitting
@@ -111,7 +111,7 @@ class bin_analysis:
                 logging.info(f'Fitted {ix} cells to PCA')
 
             logging.info(f'Transforming data')
-            x = []
+            X = []
             for (ix, selection, view) in ds.scan(axis=1):
                 X.append(PCA.transform(view[self.blayer][ds.ra.Valid==1,:].T))
                 logging.info(f'Transformed {ix} cells')
