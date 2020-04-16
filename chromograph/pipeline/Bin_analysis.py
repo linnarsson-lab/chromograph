@@ -92,7 +92,7 @@ class bin_analysis:
                 tf_idf.fit(ds)
                 ds.layers['TF_IDF'] = 'float16'
                 for (ix, selection, view) in ds.scan(axis=1):
-                    ds['TF_IDF'][:,selection] = tf_idf.transform(view[:,:], selection)
+                    ds['TF_IDF'][:,selection] = tf_idf.transform(view['binary'][:,:], selection)
                     logging.info(f'transformed {max(selection)} cells')
                 self.blayer = 'TF_IDF'
                 del tf_idf
