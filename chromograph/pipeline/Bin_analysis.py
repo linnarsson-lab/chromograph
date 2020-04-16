@@ -49,7 +49,7 @@ class bin_analysis:
         """
         self.config = config.load_config()
         self.outdir = os.path.join(self.config.paths.build, 'exported')
-        self.blayer = 'TF_IDF'
+        self.blayer = '5kb_bins'
         logging.info("Bin_Analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -77,11 +77,11 @@ class bin_analysis:
         ds.ra['Coverage'] = (cov - mu) / sd
         
         ## Create binary layer
-        if 'binary' not in ds.layers:
+        if self.blayer not in ds.layers:
             logging.info("Binarizing the matrix")
             nnz = ds[:,:] > 0
             nnz.dtype = 'int8'
-            ds.layers['binary'] = nnz
+            ds.layers[self.blayer] = nnz
 
             del nnz, cov, mu, sd
 
@@ -93,7 +93,7 @@ class bin_analysis:
                 tf_idf.fit(ds)
                 ds.layers['TF_IDF'] = 'float16'
                 for (ix, selection, view) in ds.scan(axis=1):
-                    ds['TF_IDF'][:,selection] = tf_idf.transform(view['binary'][:,:], selection)
+                    ds['TF_IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
                     logging.info(f'transformed {max(selection)} cells')
                 self.blayer = 'TF_IDF'
                 del tf_idf
