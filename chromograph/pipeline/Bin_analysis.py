@@ -91,11 +91,11 @@ class bin_analysis:
                 logging.info(f'Performing TF-IDF')
                 tf_idf = TF_IDF(layer=self.blayer)
                 tf_idf.fit(ds)
-                ds.layers['TF_IDF'] = 'float16'
+                ds.layers['TF-IDF'] = 'float16'
                 for (ix, selection, view) in ds.scan(axis=1):
-                    ds['TF_IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
+                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
                     logging.info(f'transformed {max(selection)} cells')
-                self.blayer = 'TF_IDF'
+                self.blayer = 'TF-IDF'
                 del tf_idf
 
         if 'PCA' in self.config.params.factorization:
