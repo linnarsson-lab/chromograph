@@ -14,13 +14,13 @@ def plot_peak_annotation_wheel(annotation, out_file):
     Remarks:
     
     '''
-    simple_annotation = np.array([x.split(' ')[0] for x in annotation['Annotation']])
+    simple_annotation = np.array([x.split(' ')[0].lower() for x in annotation['Annotation']])
 
     counts = {}
     for x in np.unique(simple_annotation):
         counts[x] = np.sum(simple_annotation == x)
         
-    labels = 'Intergenic', 'Intron', 'Promoter-TSS', 'Exon', 'TTS'
+    labels = 'intergenic', 'intron', 'promoter-tss', 'exon', 'tts'
 
     fig, ax = plt.subplots(figsize = (12,10))
     plt.rcParams["font.size"] = "10"
