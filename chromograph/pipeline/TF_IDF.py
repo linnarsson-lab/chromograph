@@ -15,7 +15,7 @@ class TF_IDF:
         self.layer = layer
         self.level = 0
 
-    def fit(self, ds: loompy.LoomConnection, items:numpy.ndarray=None) -> None:
+    def fit(self, ds: loompy.LoomConnection, items:np.ndarray=None) -> None:
         if items == None:
             self.IDF = np.zeros(ds.shape[0])  ## Row totals
         else:
