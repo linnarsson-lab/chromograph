@@ -15,13 +15,16 @@ class TF_IDF:
         self.layer = layer
         self.level = 0
 
-    def fit(self, ds: loompy.LoomConnection) -> None:
-        self.IDF = np.zeros(ds.shape[0])  ## Row totals
+    def fit(self, ds: loompy.LoomConnection, items:numpy.ndarray=None) -> None:
+        if items == None:
+            self.IDF = np.zeros(ds.shape[0])  ## Row totals
+        else:
+            self.IDF = np.zeros(np.sum(items))
         self.totals = np.zeros(ds.shape[1])  ## Column totals
         N = ds.shape[1]
 
         ## Scan over rows (all cells) and add to column totals
-        for _, selection, view in ds.scan(axis=0):
+        for _, selection, view in ds.scan(axis=0, items=items):
             vals = view[self.layer][:, :].astype("float16")
             self.totals += np.sum(vals, axis=0)
             

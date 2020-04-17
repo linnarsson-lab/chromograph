@@ -76,6 +76,12 @@ class bin_analysis:
         sd = np.std(cov)
         ds.ra['Coverage'] = (cov - mu) / sd
         
+        ## Select bins for PCA fitting
+        # ds.ra.Valid = np.array((ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)==1)
+        ds.ra.Valid = np.array((ds.ra['NCells'] > (0.05*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+        ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid==1])
+        ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid==1])
+
         ## Create binary layer
         if self.blayer not in ds.layers:
             logging.info("Binarizing the matrix")
@@ -93,18 +99,12 @@ class bin_analysis:
                 tf_idf.fit(ds)
                 ds.layers['TF-IDF'] = 'float16'
                 for (ix, selection, view) in ds.scan(axis=1):
-                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
+                    ds['TF-IDF'][ds.ra.Valid==1,selection] = tf_idf.transform(view[self.blayer][ds.ra.Valid==1,:], selection)
                     logging.info(f'transformed {max(selection)} cells')
                 self.blayer = 'TF-IDF'
                 del tf_idf
 
         if 'PCA' in self.config.params.factorization:
-            ## Select bins for PCA fitting
-            # bins = (ds.ra['Coverage'] > -self.config.params.cov) & (ds.ra['Coverage'] < self.config.params.cov)
-
-            ds.ra.Valid = np.array((ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)==1)
-            ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid==1])
-            ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid==1])
             PCA = IncrementalPCA(n_components=self.config.params.n_factors)
             logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
             for (ix, selection, view) in ds.scan(axis=1):
@@ -124,71 +124,9 @@ class bin_analysis:
             logging.info(f'Added PCA components')
             del X, PCA
         
-        if 'HPF' in self.config.params.factorization:
-            logging.info("Performing HPF")
-            
-            ## Bin selection  --RIGHT NOW WE FITLER THE ABSOLUTE TOP 1% BINS and bottom 80%--
-            ds.attrs['bin_max_cutoff'] = np.quantile(ds.ra['NCells'], 0.99)
-            ds.attrs['bin_min_cutoff'] = np.quantile(ds.ra['NCells'], 0.80)
-            
-            logging.info(f"Selected max cut_off {ds.attrs['bin_max_cutoff']} and min cut_off {ds.attrs['bin_min_cutoff']}")
-
-            ds.ra.Valid = np.array((ds.ra['NCells'] > ds.attrs['bin_min_cutoff']) & (ds.ra['NCells'] < ds.attrs['bin_max_cutoff']))
-            logging.info("Using {} out of {} bins for manifold learning".format(sum(ds.ra.Valid), ds.shape[0]))
-            # Load the data for the selected genes
-            logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} bins")
-            data = ds[self.blayer].sparse(rows=np.array(ds.ra.Valid==1)).T
-            logging.info(f"Shape data: {data.shape}")
-
-            # HPF factorization
-            cpus = 4
-            logging.info("Performing HPF factorization with {} factors".format(k))
-            hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
-            hpf.fit(data)
-
-            logging.info("Adding Betas and Thetas to loom file")
-            beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-            beta_all[ds.ra.Valid==1] = hpf.beta
-            # Save the unnormalized factors
-            ds.ra.HPF_beta = beta_all
-            ds.ca.HPF_theta = hpf.theta
-            # Here we normalize so the sums over components are one, because JSD requires it
-            # and because otherwise the components will be exactly proportional to cell size
-            theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
-            beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
-            beta_all[ds.ra.Valid==1] = beta
-            # Save the normalized factors
-            ds.ra.HPF = beta_all
-            ds.ca.HPF = theta
-
-            logging.info("Calculating posterior probabilities")
-            # Expected values
-            exp = "{}_expected".format(self.blayer)
-            n_samples = ds.shape[1]
-
-            ds[exp] = 'float32'  # Create a layer of floats
-            log_posterior_proba = np.zeros(n_samples)
-            theta_unnormalized = hpf.theta
-            data = data.toarray()
-            start = 0
-            batch_size = 6400
-            beta_all = ds.ra.HPF_beta  # The unnormalized beta
-
-            while start < n_samples:
-                # Compute PPV (using normalized theta)
-                ds[exp][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
-                # Compute PPV using raw theta, for calculating posterior probability of the observations
-                ppv_unnormalized = beta @ theta_unnormalized[start: start + batch_size, :].T
-                log_posterior_proba[start: start + batch_size] = poisson.logpmf(data.T[:, start: start + batch_size], ppv_unnormalized).sum(axis=0)
-                start += batch_size
-            ds.ca.HPF_LogPP = log_posterior_proba
-        
         if 'PCA' in self.config.params.factorization:
             decomp = ds.ca['PCA']
             metric = "euclidean"
-        elif 'HPF' in self.config.params.factorization:
-            decomp = ds.ca['HPF']
-            metric = "js"
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) in {self.config.params.nn_space} space using the '{metric}' metric")

@@ -36,7 +36,7 @@ def add_strand(feature, strand):
     feature[5] = strand
     return feature
 
-def read_HOMER(file):
+def read_HOMER_annotation(file):
     '''
     Read the output of HOMER into a numpy array
     '''

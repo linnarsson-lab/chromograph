@@ -68,7 +68,7 @@ class Peak_analysis:
         sd = np.std(cov)
         ds.ra['Coverage'] = (cov - mu) / sd
 
-        ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.8*ds.shape[1]))==1)
+        ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
         
         ## Create binary layer
         logging.info("Binarizing the matrix")
