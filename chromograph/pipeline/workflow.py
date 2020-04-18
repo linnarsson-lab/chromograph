@@ -289,7 +289,7 @@ if __name__ == '__main__':
             Peak_analysis.fit(ds)
 
     if 'motifs' in config.steps:
-        if peak_file not in locals():
+        if 'peak_file' not in locals():
             peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
 
         with loompy.connect(peak_file, 'r') as ds:
