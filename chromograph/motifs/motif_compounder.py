@@ -43,7 +43,7 @@ class motif_compounder:
         '''
         
         ## Load the annotated peaks
-        cols, table, TF_cols, TFs = read_HOMER(os.path.join(self.peakdir, 'annotated_peaks.txt'))
+        cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))
 
         logging.info(f'Creating a loom-file to fill with motif enrichments for cells')
         f_out = os.path.join(self.config.paths.build, ds.attrs['tissue'] + '_motifs.loom')
