@@ -14,6 +14,7 @@ from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
 from chromograph.peak_calling.call_MACS import call_MACS
 from chromograph.plotting.peak_annotation_plot import *
+from chromograph.motifs.motif_compounder import motif_compounder
 
 import gzip
 import glob
@@ -155,6 +156,7 @@ class Peak_caller:
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
+        logging.info('Plotting peak annotation wheel')
         plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, 'exported', 'peak_annotation_wheel.png'))
 
         # Count peaks and make Peak by Cell matrix

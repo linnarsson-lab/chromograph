@@ -48,7 +48,7 @@ class Peak_analysis:
         """
         self.config = config.load_config()
         self.outdir = os.path.join(self.config.paths.build, 'exported')
-        self.layer = ''
+        self.layer = 'Binary'
         logging.info("Peak_analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -71,63 +71,66 @@ class Peak_analysis:
         ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
         
         ## Create binary layer
-        logging.info("Binarizing the matrix")
-        nnz = ds[:,:] > 0
-        nnz.dtype = 'int8'
-        ds.layers['Binary'] = nnz
+        if 'Binary' not in ds.layers:
+            ## Create binary layer
+            logging.info("Binarizing the matrix")
+            nnz = ds[:,:] > 0
+            nnz.dtype = 'int8'
+            ds.layers['Binary'] = nnz
         
-        logging.info(f'Performing HPF, layer = {self.layer}')
+        if 'HPF_LogPP' not in ds.ca:
+            logging.info(f'Performing HPF, layer = {self.layer}')
 
-        del nnz, cov, mu, sd
-        
-        # Load the data for the selected genes
-        logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} peaks")
-        data = ds[self.layer].sparse(rows=np.array(ds.ra.Valid==1)).T
-        logging.info(f"Shape data: {data.shape} with {data.nnz} values")
+            del nnz, cov, mu, sd
+            
+            # Load the data for the selected genes
+            logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} peaks")
+            data = ds[self.layer].sparse(rows=np.array(ds.ra.Valid==1)).T
+            logging.info(f"Shape data: {data.shape} with {data.nnz} values")
 
-        # HPF factorization
-        
-        cpus = 4
-        logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
-        hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
-        hpf.fit(data)
+            # HPF factorization
+            
+            cpus = 4
+            logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
+            hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
+            hpf.fit(data)
 
-        logging.info("Adding Betas and Thetas to loom file")
-        beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-        beta_all[ds.ra.Valid==1] = hpf.beta
-        # Save the unnormalized factors
-        ds.ra.HPF_beta = beta_all
-        ds.ca.HPF_theta = hpf.theta
-        # Here we normalize so the sums over components are one, because JSD requires it
-        # and because otherwise the components will be exactly proportional to cell size
-        theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
-        beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
-        beta_all[ds.ra.Valid==1] = beta
-        # Save the normalized factors
-        ds.ra.HPF = beta_all
-        ds.ca.HPF = theta
+            logging.info("Adding Betas and Thetas to loom file")
+            beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
+            beta_all[ds.ra.Valid==1] = hpf.beta
+            # Save the unnormalized factors
+            ds.ra.HPF_beta = beta_all
+            ds.ca.HPF_theta = hpf.theta
+            # Here we normalize so the sums over components are one, because JSD requires it
+            # and because otherwise the components will be exactly proportional to cell size
+            theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
+            beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
+            beta_all[ds.ra.Valid==1] = beta
+            # Save the normalized factors
+            ds.ra.HPF = beta_all
+            ds.ca.HPF = theta
 
-        logging.info("Calculating posterior probabilities")
-        # Expected values
-        exp = "{}_expected".format(self.layer)
-        n_samples = ds.shape[1]
+            logging.info("Calculating posterior probabilities")
+            # Expected values
+            exp = "{}_expected".format(self.layer)
+            n_samples = ds.shape[1]
 
-        ds[exp] = 'float32'  # Create a layer of floats
-        log_posterior_proba = np.zeros(n_samples)
-        theta_unnormalized = hpf.theta
-        data = data.toarray()
-        start = 0
-        batch_size = 6400
-        beta_all = ds.ra.HPF_beta  # The unnormalized beta
+            ds[exp] = 'float32'  # Create a layer of floats
+            log_posterior_proba = np.zeros(n_samples)
+            theta_unnormalized = hpf.theta
+            data = data.toarray()
+            start = 0
+            batch_size = 6400
+            beta_all = ds.ra.HPF_beta  # The unnormalized beta
 
-        while start < n_samples:
-            # Compute PPV (using normalized theta)
-            ds[exp][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
-            # Compute PPV using raw theta, for calculating posterior probability of the observations
-            ppv_unnormalized = beta @ theta_unnormalized[start: start + batch_size, :].T
-            log_posterior_proba[start: start + batch_size] = poisson.logpmf(data.T[:, start: start + batch_size], ppv_unnormalized).sum(axis=0)
-            start += batch_size
-        ds.ca.HPF_LogPP = log_posterior_proba
+            while start < n_samples:
+                # Compute PPV (using normalized theta)
+                ds[exp][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
+                # Compute PPV using raw theta, for calculating posterior probability of the observations
+                ppv_unnormalized = beta @ theta_unnormalized[start: start + batch_size, :].T
+                log_posterior_proba[start: start + batch_size] = poisson.logpmf(data.T[:, start: start + batch_size], ppv_unnormalized).sum(axis=0)
+                start += batch_size
+            ds.ca.HPF_LogPP = log_posterior_proba
         
         decomp = ds.ca['HPF']
         metric = "euclidean" # js euclidean correlation

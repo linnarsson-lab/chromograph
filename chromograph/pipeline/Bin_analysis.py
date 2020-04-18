@@ -75,10 +75,11 @@ class bin_analysis:
         mu = np.mean(cov)
         sd = np.std(cov)
         ds.ra['Coverage'] = (cov - mu) / sd
+        del cov, mu, sd
         
         ## Select bins for PCA fitting
         # ds.ra.Valid = np.array((ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)==1)
-        ds.ra.Valid = np.array((ds.ra['NCells'] > (0.05*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+        ds.ra.Valid = np.array((ds.ra['NCells'] > (0.04*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
         ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid==1])
         ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid==1])
 
@@ -89,7 +90,7 @@ class bin_analysis:
             nnz.dtype = 'int8'
             ds.layers[self.blayer] = nnz
 
-            del nnz, cov, mu, sd
+            del nnz
 
         ## Term-Frequence Inverse-Data-Frequency ##
         if 'TF-IDF' in self.config.params.Normalization:
@@ -164,7 +165,7 @@ class bin_analysis:
 
         logging.info(f'Using sklearn TSNE for the time being')
         from sklearn.manifold import TSNE
-        TSNE = TSNE(init='pca') ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
         ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info("Generating UMAP from decomposition")
