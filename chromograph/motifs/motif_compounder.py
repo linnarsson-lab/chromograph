@@ -8,7 +8,7 @@ import loompy
 sys.path.append('/home/camiel/chromograph')
 import chromograph
 from chromograph.pipeline import config
-from chromograph.peak_calling.utils import read_HOMER
+from chromograph.peak_calling.utils import read_HOMER_annotation
 from chromograph.pipeline.utils import div0
 from chromograph.pipeline.TF_IDF import TF_IDF
 from cytograph.manifold import BalancedKNN
