@@ -18,10 +18,10 @@ import pickle
 import importlib
 
 sys.path.append('/home/camiel/chromograph/')
-# sys.path.append('/data/bin/bedtools2/bin/')
 from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
 from chromograph.features.feature_count import *
+from chromograph.preprocessing.doublet_finder import doublet_finder
 
 class Chromgen:
     def __init__(self) -> None:
@@ -210,6 +210,14 @@ class Chromgen:
         ## Cleanup
         del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin, matrix, cleaned_matrix, col, row, v
         
+        ## Doublet detection
+        logging.info(f'Detecting doublets in loom file')
+
+        with loompy.connect(self.loom, 'r+') as ds:
+            ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, qc_dir = "/data/proj/scATAC/chromograph/doublets_test")
+            meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
+            meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
+
         ######
         ## Generate Gene Accessibility Scores
         ######

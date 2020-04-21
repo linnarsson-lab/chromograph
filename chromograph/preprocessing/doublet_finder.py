@@ -31,6 +31,7 @@ import sys
 import matplotlib.pyplot as plt
 import loompy
 from scipy import sparse
+from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 from matplotlib.collections import LineCollection
@@ -129,9 +130,9 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         TSNE = TSNE(angle=0.5, perplexity= np.round(ds.shape[1]/100)) ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
         dsb.ca.TSNE = TSNE.fit(dsb.ca.PCA).embedding_
 
-        plt.figure(figsize=(12,12))
-        plt.scatter(dsb.ca.TSNE[dsb.ca.Cell == 1, 0], dsb.ca.TSNE[dsb.ca.Cell == 1, 1], c='#8da0cb', s=1.5)
-        plt.scatter(dsb.ca.TSNE[dsb.ca.Cell == 0, 0], dsb.ca.TSNE[dsb.ca.Cell == 0, 1], c='#fc8d62', s=1.5)
+        plt.figure(figsize=(8,8))
+        plt.scatter(dsb.ca.TSNE[dsb.ca.Cell == 1, 0], dsb.ca.TSNE[dsb.ca.Cell == 1, 1], c='#8da0cb', s=10)
+        plt.scatter(dsb.ca.TSNE[dsb.ca.Cell == 0, 0], dsb.ca.TSNE[dsb.ca.Cell == 0, 1], c='#fc8d62', s=10)
         plt.savefig(os.path.join(qc_dir, 'TSNE_with_doublets.png'))
         
     dist_th = np.mean(knn_dist1.flatten()) + 1.64 * np.std(knn_dist1.flatten())
