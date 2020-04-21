@@ -82,8 +82,6 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         a = np.random.choice(ds.shape[1])
         b = np.random.choice(ds.shape[1])
         doublets[:, i] = real_data[:, a] + real_data[:, b]
-        if i%100 ==0:
-            logging.info(f'{i} completed')
     
     ## Concatenate data and create temporary loom
     A = sparse.coo_matrix(real_data)
@@ -175,6 +173,7 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         #0.5% for every 1000 cells - the rate of detectable doublets by 10X 
         doublet_th2 = np.percentile(doublet_score,100-(5e-4*ds.shape[1]))
         doublet_th2 = np.around(doublet_th2,decimals=3)
+        logging.info(f'th1: {doublet_th1} th2: {doublet_th2}')
         #The TH shouldn't be higher than indicated
         if  doublet_th2 >max_th:
             doublet_th2= max_th
