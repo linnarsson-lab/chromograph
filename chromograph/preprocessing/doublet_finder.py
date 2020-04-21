@@ -166,6 +166,7 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         #Check if the distribution is bimodal
         intervals = UniDip(np.exp(logprob)).run()
         if (len(intervals)>1):
+            logging.info(f'Distribution is bimodal')
             kmeans = KMeans(n_clusters=2).fit(doublet_score_A.reshape(len(doublet_score_A),1))
             high_cluster = np.where(kmeans.cluster_centers_==max(kmeans.cluster_centers_))[0][0]
             doublet_th1 = np.around(np.min(doublet_score_A[kmeans.labels_==high_cluster]),decimals=3)
@@ -179,7 +180,9 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
             doublet_th2= max_th
         if  doublet_th1 >max_th:
             doublet_th1= max_th
-        if (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
+        if doublet_th1 == max_th:
+            doublet_th = doublet_th2
+        elif (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
             doublet_th = doublet_th2
         else:
             doublet_th = doublet_th1
