@@ -184,7 +184,9 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
             doublet_th = doublet_th2
         else:
             doublet_th = doublet_th1
+
     doublet_flag[doublet_score>=doublet_th]=1
+    logging.info(f'Doublet threshold is set at {doublet_th}, cells passing threshold: {np.sum(doublet_flag==1)}')
     
     #Calculate the score for the cells that are nn of the marked doublets 
     pca_rc = pca[0:n_real_cells, :]
