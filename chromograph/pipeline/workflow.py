@@ -16,6 +16,9 @@ from chromograph.peak_calling.call_MACS import call_MACS
 from chromograph.plotting.peak_annotation_plot import *
 from chromograph.motifs.motif_compounder import motif_compounder
 
+## Import punchcards
+from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
+
 import gzip
 import glob
 import pybedtools
@@ -32,13 +35,13 @@ config = config.load_config()
 
 if sys.argv[1] == 'Cerebellum':
     samples = ['232_1', '232_2', '250_1', '250_2']
-    tissue = 'Cerebellum'
+    name = 'Cerebellum'
 elif sys.argv[1] == 'Midbrain':
     samples = ['232_3', '232_4', '242_3', '242_4']
-    tissue = 'Midbrain'
+    name = 'Midbrain'
 elif sys.argv[1] == 'Hindbrain':
     samples = ['242_1', '242_2', '250_3', '250_4']
-    tissue = 'Hindbrain'
+    name = 'Hindbrain'
 
 bsize = '5kb'
 
@@ -224,20 +227,33 @@ class Peak_caller:
 
 if __name__ == '__main__':
 
+    # ## Load punchcard and setup decks for analysis
+    # deck = PunchcardDeck(config.paths.build)
+    # for subset in deck.get_leaves():
+    #     name = subset.name
+    #     samples = subset.include
+
     logging.info(f'Performing the following steps: {config.steps}')
-    logging.info(f'The build folder is {config.paths.build}, now analyzing {tissue}')
-    outfile = os.path.join(config.paths.build, tissue + '.loom')
+    logging.info(f'The build folder is {config.paths.build}, now analyzing {name}')
+    outfile = os.path.join(config.paths.build, name + '.loom')
 
     if 'bin_analysis' in config.steps:
         ## Check if directory exists
         if not os.path.isdir(config.paths.build):
             os.mkdir(config.paths.build)
 
-        # ## Merge Bin files
+        ## Select valid cells from input files
         inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
+        selections = []
+        for file in inputfiles:
+            with loompy.connect(file, 'r') as ds:
+                good_cells = ds.ca.DoubletFinderFlag == 0
+                selections.append(good_cells)
+
+        # ## Merge Bin files
         if not os.path.exists(outfile):
             logging.info(f'Input files {inputfiles}')
-            loompy.combine_faster(inputfiles, outfile, key = 'loc')
+            loompy.combine_faster(inputfiles, outfile, selection=selections, key = 'loc')
             # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
             logging.info('Finished combining loom-files')
         else:
@@ -245,18 +261,26 @@ if __name__ == '__main__':
 
         ## Run primary Clustering and embedding
         with loompy.connect(outfile) as ds:
-            ds.attrs['tissue'] = tissue
             bin_analysis = bin_analysis()
             bin_analysis.fit(ds)
     
     if 'GA' in config.steps:
         ## Merge GA files
-        GA_file = os.path.join(config.paths.build, tissue + '_GA.loom')
+        GA_file = os.path.join(config.paths.build, name + '_GA.loom')
         inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
+
+        ## Check if cells have been selected
+        if 'selections' not in locals():
+            selections = []
+            for file in inputfiles:
+                with loompy.connect(file, 'r') as ds:
+                    good_cells = ds.ca.DoubletFinderFlag == 0
+                    selections.append(good_cells)
+
         for x in inputfiles:
             with loompy.connect(x) as ds:
                 logging.info(f"{x} has shape{ds.shape}")
-        loompy.combine_faster(inputfiles, GA_file, key = 'Accession')
+        loompy.combine_faster(inputfiles, GA_file, selection=selections, key = 'Accession')
 
         ## Transer column attributes
         with loompy.connect(GA_file) as ds:
@@ -283,14 +307,14 @@ if __name__ == '__main__':
 
     if 'peak_analysis' in config.steps:
         ## Analyse peak-file
-        peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
+        peak_file = os.path.join(config.paths.build, name + '_peaks.loom')
         with loompy.connect(peak_file, 'r+') as ds:
             Peak_analysis = Peak_analysis()
             Peak_analysis.fit(ds)
 
     if 'motifs' in config.steps:
         if 'peak_file' not in locals():
-            peak_file = os.path.join(config.paths.build, tissue + '_peaks.loom')
+            peak_file = os.path.join(config.paths.build, name + '_peaks.loom')
 
         with loompy.connect(peak_file, 'r') as ds:
             motif_compounder = motif_compounder()
