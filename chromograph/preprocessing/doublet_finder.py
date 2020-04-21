@@ -127,7 +127,7 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         knn_dist_rc, knn_idx_rc = knn_result1.kneighbors(X=pca[0:num, :], return_distance=True)
 
         logging.info(f'Plot TSNE of data with doublets')
-        TSNE = TSNE(angle=0.5, perplexity= np.round(ds.shape[1]/100)) ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        TSNE = TSNE(angle=0.5, perplexity= 30) ## perplexity at 30 because of small cell number
         dsb.ca.TSNE = TSNE.fit(dsb.ca.PCA).embedding_
 
         plt.figure(figsize=(8,8))
