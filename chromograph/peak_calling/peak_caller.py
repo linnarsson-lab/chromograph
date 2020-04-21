@@ -63,76 +63,85 @@ class Peak_caller:
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
 
-        logging.info(f'Saving peaks to folder {self.peakdir}')
+        if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
+            logging.info('Calling peaks')
+            logging.info(f'Saving peaks to folder {self.peakdir}')
 
-        chunks = []
-        for i in np.unique(ds.ca['Clusters']):
-            cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
-            files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
-            if len(cells) > self.config.params.peak_min_cells:
-                chunks.append([i,files])
+            chunks = []
+            for i in np.unique(ds.ca['Clusters']):
+                cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
+                files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
+                if len(cells) > self.config.params.peak_min_cells:
+                    chunks.append([i,files])
 
-        logging.info('Start merging fragments by cluster')
-        piles = []
-        for ck in chunks:
-            files = np.array(ck[1])
-            ex = np.array([os.path.exists(x) for x in files])
-            files = files[ex]
+            logging.info('Start merging fragments by cluster')
+            piles = []
+            for ck in chunks:
+                files = np.array(ck[1])
+                ex = np.array([os.path.exists(x) for x in files])
+                files = files[ex]
 
-            fmerge = os.path.join(self.peakdir, f'fragments_{ck[0]}.tsv.gz')
-            with open(fmerge, 'wb') as out:
-                for f in files:
-                    with open(f, 'rb') as file:
-                        shutil.copyfileobj(file, out)
-            piles.append([ck[0], fmerge])
-            logging.info(f'Finished with cluster {ck[0]}')
+                fmerge = os.path.join(self.peakdir, f'fragments_{ck[0]}.tsv.gz')
+                with open(fmerge, 'wb') as out:
+                    for f in files:
+                        with open(f, 'rb') as file:
+                            shutil.copyfileobj(file, out)
+                piles.append([ck[0], fmerge])
+                logging.info(f'Finished with cluster {ck[0]}')
 
-        logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
-        pool = mp.Pool(10) 
-        for pile in piles:
-            pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
-        pool.close()
-        pool.join()
+            logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
+            pool = mp.Pool(10) 
+            for pile in piles:
+                pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
+            pool.close()
+            pool.join()
 
-        logging.info(f'Finished downsampling')
+            logging.info(f'Finished downsampling')
 
-        logging.info(f'Start calling peaks')
-        pool = mp.Pool(10) 
-        for pile in piles:
-            pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
-        pool.close()
-        pool.join()
-            
-        ## Compound the peak lists
-        peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
-        logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
-        peaks_all = peaks[0].cat(*peaks[1:])
+            logging.info(f'Start calling peaks')
+            pool = mp.Pool(10) 
+            for pile in piles:
+                pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
+            pool.close()
+            pool.join()
+                
+            ## Compound the peak lists
+            peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
+            logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
+            peaks_all = peaks[0].cat(*peaks[1:])
 
-        f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
-        peaks_all.merge()
-        peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
-        logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
+            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+            peaks_all.merge()
+            peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
+            logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
-        ## Clean up
-        for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
-            os.system(f'rm {file}')
+            ## Clean up
+            for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
+                os.system(f'rm {file}')
 
-        ## Annotate peaks
-        logging.info(f'Annotating peaks')
-        homer = os.path.join(self.config.paths.HOMER, 'annotatePeaks.pl')
-        genes = os.path.join(self.config.paths.ref, 'genes', 'genes.gtf')
-        motifs = os.path.join(self.config.paths.ref, 'regions', 'motifs.pfm')
+        else:
+            logging.info('Compounded peak file already present, loading now')
+            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+            peaks_all = BedTool(f)
+        
         f_annot = os.path.join(self.peakdir, 'annotated_peaks.txt')
-        cmd = f'{homer} {f} hg38 -gtf {genes} -m {motifs} > {f_annot}'  ## Command to call HOMER
-        os.system(cmd)  ## Actually call HOMER
+        if not os.path.exists(f_annot):
+            ## Annotate peaks
+            logging.info(f'Annotating peaks')
+            homer = os.path.join(self.config.paths.HOMER, 'annotatePeaks.pl')
+            genes = os.path.join(self.config.paths.ref, 'genes', 'genes.gtf')
+            motifs = os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs') ## Read the motif file from chromograph reference
+            cmd = f'{homer} {f} hg38 -gtf {genes} -m {motifs} > {f_annot}'  ## Command to call HOMER
+            os.system(cmd)  ## Actually call HOMER
 
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
-        # cols, table = read_HOMER_annotation(f_annot)
         cols, table, TF_cols, TFs = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
+        logging.info('Plotting peak annotation wheel')
+        plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, 'exported', 'peak_annotation_wheel.png'))
 
         # Count peaks and make Peak by Cell matrix
         # Counting peaks

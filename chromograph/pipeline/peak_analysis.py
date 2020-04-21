@@ -68,8 +68,12 @@ class Peak_analysis:
         sd = np.std(cov)
         ds.ra['Coverage'] = (cov - mu) / sd
 
-        ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
-        
+        del cov, mu, sd
+
+        ## Select peaks for manifold learning
+        # ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+        ds.ra.Valid = np.array((ds.ra['NCells'] > np.quantile(ds.ra['NCells'], self.config.params.peak_quantile))  & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+
         ## Create binary layer
         if 'Binary' not in ds.layers:
             ## Create binary layer
@@ -77,11 +81,11 @@ class Peak_analysis:
             nnz = ds[:,:] > 0
             nnz.dtype = 'int8'
             ds.layers['Binary'] = nnz
+
+            del nnz
         
         if 'HPF_LogPP' not in ds.ca:
             logging.info(f'Performing HPF, layer = {self.layer}')
-
-            del nnz, cov, mu, sd
             
             # Load the data for the selected genes
             logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} peaks")
@@ -173,7 +177,8 @@ class Peak_analysis:
 
         logging.info(f'Using sklearn TSNE for the time being')
         from sklearn.manifold import TSNE
-        TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        # TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## Relate perplexity to n
+        TSNE = TSNE(angle = 0.5, perplexity= 30)
         ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info(f'Generating UMAP from decomposition using metric {metric_f}')

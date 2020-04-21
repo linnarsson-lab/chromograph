@@ -79,7 +79,8 @@ class bin_analysis:
         
         ## Select bins for PCA fitting
         # ds.ra.Valid = np.array((ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)==1)
-        ds.ra.Valid = np.array((ds.ra['NCells'] > (0.04*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+        # ds.ra.Valid = np.array((ds.ra['NCells'] > (0.04*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+        ds.ra.Valid = np.array((ds.ra['NCells'] > np.quantile(ds.ra['NCells'], self.config.params.bin_quantile))  & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
         ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid==1])
         ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid==1])
 
@@ -165,7 +166,8 @@ class bin_analysis:
 
         logging.info(f'Using sklearn TSNE for the time being')
         from sklearn.manifold import TSNE
-        TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## TSNE uses a random seed to initiate, meaning that the results don't always look the same!
+        # TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## Relate perplexity to n
+        TSNE = TSNE(angle = 0.5, perplexity= 30) 
         ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info("Generating UMAP from decomposition")

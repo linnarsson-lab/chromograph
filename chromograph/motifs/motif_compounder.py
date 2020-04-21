@@ -44,11 +44,12 @@ class motif_compounder:
         
         ## Load the annotated peaks
         cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))
-
-        logging.info(f'Creating a loom-file to fill with enrichments of {len(TFs)} motifs for {ds.shape[1]} cells')
+        logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
         f_out = os.path.join(self.config.paths.build, ds.attrs['tissue'] + '_motifs.loom')
+        
         with loompy.new(f_out) as dsout:
             ## Transferring column attributes and grapsh from peak-file
+            logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
             dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array(TF_cols), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
             dsout.col_graphs = ds.col_graphs
             logging.info(f'New loom file has shape {dsout.shape}')

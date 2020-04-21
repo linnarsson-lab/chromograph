@@ -4,7 +4,13 @@ import loompy
 from sklearn.neighbors import NearestNeighbors
 from matplotlib.collections import LineCollection
 
-def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -> None:
+import matplotlib.pyplot as plt
+import numpy as np
+import loompy
+from sklearn.neighbors import NearestNeighbors
+from matplotlib.collections import LineCollection
+
+def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", attrs: list = None) -> None:
     '''
     Generates a multi-panel plot to inspect UMI and Bin counts.
     
@@ -12,6 +18,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
         ds                    Connection to the .loom file to use
         out_file              Name and location of the output file
         embedding             The embedding to use for UMI manifold plot (TSNE or UMAP)
+        attrs                 List of column attributes to plot
         
     Remarks:
     
@@ -35,6 +42,13 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
     else:
         outliers = np.zeros(ds.shape[1])
         
+    if attrs == None:
+        n_axes = 4
+    else:
+        n_axes = 4 + len(attrs)
+        
+    nrows = int(np.ceil(n_axes/2))
+        
     # Compute a good size for the markers, based on local density
     min_pts = 50
     eps_pct = 60
@@ -44,59 +58,75 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE") -
     k_radius = knn.max(axis=1).toarray()
     epsilon = (2500 / (pos.max() - pos.min())) * np.percentile(k_radius, eps_pct)
     
-    fig = plt.figure(figsize=(25, 20))
-    ax = fig.add_axes([0, 0, 0.40, 0.45])
+    fig, ax = plt.subplots(nrows, 2, figsize = (20, 10*nrows))
+    ax = ax.flatten()
     
+    ## Histogram of features per cell    
+    if 'NPeaks' in ds.ca:
+        ax[0].hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
+        ax[0].set_title("Number of positive peaks per cell")
+        ax[0].set_ylabel("Number of Cells")
+        ax[0].set_xlabel("Number of positive peaks")
+
+        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']), s=1)
+        ax[1].set_title("Fragments per cell v. positive peaks per cell")
+        ax[1].set_ylabel("Log10 Positive peaks")
+        ax[1].set_xlabel("Log10 fragmentss")
+
+    else:
+        ax[0].hist(ds.ca['NBins'], bins=100, alpha=0.5)
+        ax[0].set_title("Number of positive bins per cell")
+        ax[0].set_ylabel("Number of Cells")
+        ax[0].set_xlabel("Number of positive bins")
+    
+        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']), s=1)
+        ax[1].set_title("Fragments per cell v. positive bins per cell")
+        ax[1].set_ylabel("Log10 Positive Bins")
+        ax[1].set_xlabel("Log10 fragmentss")
+    
+
+    ## Histogram of Feature Coverage
+    ax[2].hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
+    
+    ## Plot min and max coverage
+    ax[2].axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+    ax[2].axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+    ax[2].set_title("Coverage")
+    ax[2].set_ylabel("Number of features")
+    ax[2].set_xlabel("Log10 Coverage")
+    
+    ## Plot the number of fragments per cell
     # Draw edges
     if has_edges:
         lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
-        ax.add_collection(lc)
+        ax[3].add_collection(lc)
     
-    im = ax.scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
+    im = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
+    fig.colorbar(im, ax=ax[3], orientation='vertical')
+    ax[3].set_title('Log10 fragments')
+    ax[3].axis("off")
     
-    cax = fig.add_axes([0.45, 0.05, 0.005, 0.4])
-    fig.colorbar(im, cax=cax, orientation='vertical')
-    ax.set_title('Log10 fragments')
-    ax.axis("off")
-    
-    ## Histogram of Feature Coverage
-    ax2 = fig.add_axes([0, 0.5, 0.45, 0.2])
+    ## Plot the attributes on the embedding
+    if attrs is not None:
+        for n, attr in enumerate(attrs):
+            x = n +4
+            # Draw edges
+            if has_edges:
+                lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
+                ax[x].add_collection(lc)
+            
+            ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c='lightgrey', marker='.', lw=0, s=epsilon)
+            
+            names, labels = np.unique(ds.ca[attr], return_inverse=True)
+            colors = colorize(names)
+            cells = np.random.permutation(labels.shape[0])
+            ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c=colors[labels][cells], marker='.', lw=0, s=epsilon)
 
-    ax2.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
-    
-    ## Plot min and max coverage
-    ax2.axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
-    ax2.axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
-
-    ax2.set_title("Coverage")
-    ax2.set_ylabel("Number of features")
-    ax2.set_xlabel("Log10 Coverage")
-    
-    ## Histogram of Bins per cell
-    ax3 = fig.add_axes([0.5, 0.5, 0.45, 0.2])
-    
-    if 'NPeaks' in ds.ca:
-        ax3.hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
-        ax3.set_title("Number of positive peaks per cell")
-        ax3.set_ylabel("Number of Cells")
-        ax3.set_xlabel("Number of positive peaks")
-
-        ax4 = fig.add_axes([0.5, 0, 0.40, 0.45])
-        ax4.scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']), s=1)
-        ax4.set_title("Fragments per cell v. positive peaks per cell")
-        ax4.set_ylabel("Log10 Positive peaks")
-        ax4.set_xlabel("Log10 fragmentss")
-
-    else:
-        ax3.hist(ds.ca['NBins'], bins=100, alpha=0.5)
-        ax3.set_title("Number of positive bins per cell")
-        ax3.set_ylabel("Number of Cells")
-        ax3.set_xlabel("Number of positive bins")
-    
-        ax4 = fig.add_axes([0.5, 0, 0.40, 0.45])
-        ax4.scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']), s=1)
-        ax4.set_title("Fragments per cell v. positive bins per cell")
-        ax4.set_ylabel("Log10 Positive Bins")
-        ax4.set_xlabel("Log10 fragmentss")
+            def h(c):
+                return plt.Line2D([], [], color=c, ls="", marker="o")
+            ax[x].legend(handles=[h(colors[i]) for i in range(len(names))], labels=list(names), loc='lower left', markerscale=1, frameon=False, fontsize=10)
+            ax[x].set_title(f'{attr}')
+            ax[x].axis("off")
+            
     
     fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
