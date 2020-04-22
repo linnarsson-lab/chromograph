@@ -102,7 +102,7 @@ class bin_analysis:
             if 'TF-IDF' not in ds.layers:
                 logging.info(f'Performing TF-IDF')
                 tf_idf = TF_IDF(layer=self.blayer)
-                tf_idf.fit(ds)
+                tf_idf.fit(ds, items=ds.ra.Valid==1)
                 ds.layers['TF-IDF'] = 'float16'
                 for (ix, selection, view) in ds.scan(axis=1):
                     ds['TF-IDF'][ds.ra.Valid==1,selection] = tf_idf.transform(view[self.blayer][ds.ra.Valid==1,:], selection)
