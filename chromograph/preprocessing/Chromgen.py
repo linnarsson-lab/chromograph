@@ -214,7 +214,7 @@ class Chromgen:
         logging.info(f'Detecting doublets in loom file')
 
         with loompy.connect(self.loom, 'r+') as ds:
-            ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, qc_dir = "/data/proj/scATAC/chromograph/doublets_test")
+            ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = "/data/proj/scATAC/chromograph/doublets_test", max_th=0.6)
             meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
             meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
 

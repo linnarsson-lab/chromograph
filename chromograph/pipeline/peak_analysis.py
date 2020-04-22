@@ -53,7 +53,8 @@ class Peak_analysis:
     
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Peak_analysis on {ds.shape[1]} cells with {ds.shape[0]} peaks")
-                
+        name = ds.filename.split(".")[0]
+        self.outdir = os.path.join(self.config.paths.build, name, 'exported')
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
@@ -217,4 +218,4 @@ class Peak_analysis:
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_QC.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])

@@ -78,6 +78,10 @@ class Peak_caller:
         Remarks:
         
         '''
+        ## Get sample name from loom-file
+        name = ds.filename.split(".")[0]
+        self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
+
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
@@ -160,7 +164,7 @@ class Peak_caller:
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
         logging.info('Plotting peak annotation wheel')
-        plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, 'exported', 'peak_annotation_wheel.png'))
+        plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, name, 'exported', 'peak_annotation_wheel.png'))
 
         # Count peaks and make Peak by Cell matrix
         # Counting peaks
@@ -214,7 +218,7 @@ class Peak_caller:
 
         ## Create loomfile
         logging.info("Constructing loomfile")
-        self.loom = f'{ds.filename.split(".")[0]}_peaks.loom'
+        self.loom = os.path.join(self.config.paths.build, name, f'{name}_peaks.loom')
 
         loompy.create(filename=self.loom, 
                     layers=matrix, 
@@ -227,95 +231,98 @@ class Peak_caller:
 
 if __name__ == '__main__':
 
-    # ## Load punchcard and setup decks for analysis
-    # deck = PunchcardDeck(config.paths.build)
-    # for subset in deck.get_leaves():
-    #     name = subset.name
-    #     samples = subset.include
+    ## Load punchcard and setup decks for analysis
+    deck = PunchcardDeck(config.paths.build)
+    for subset in deck.get_leaves():
+        name = subset.name
+        samples = subset.include
 
-    logging.info(f'Performing the following steps: {config.steps}')
-    logging.info(f'The build folder is {config.paths.build}, now analyzing {name}')
-    outfile = os.path.join(config.paths.build, name + '.loom')
-
-    if 'bin_analysis' in config.steps:
+        logging.info(f'Performing the following steps: {config.steps} for build {config.paths.build}')
         ## Check if directory exists
         if not os.path.isdir(config.paths.build):
             os.mkdir(config.paths.build)
+        
+        logging.info(f'Starting analysis for subset {name}')
+        subset_dir = os.path.join(config.paths.build, name)
+        if not os.path.isdir(subset_dir):
+            os.mkdir(subset_dir)
+        outfile = os.path.join(subset_dir, name + '.loom')
 
-        ## Select valid cells from input files
-        inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
-        selections = []
-        for file in inputfiles:
-            with loompy.connect(file, 'r') as ds:
-                good_cells = ds.ca.DoubletFinderFlag == 0
-                selections.append(good_cells)
-
-        # ## Merge Bin files
-        if not os.path.exists(outfile):
-            logging.info(f'Input files {inputfiles}')
-            loompy.combine_faster(inputfiles, outfile, selection=selections, key = 'loc')
-            # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
-            logging.info('Finished combining loom-files')
-        else:
-            logging.info('Combined bin file already exists, usingt his for analysis')
-
-        ## Run primary Clustering and embedding
-        with loompy.connect(outfile) as ds:
-            bin_analysis = bin_analysis()
-            bin_analysis.fit(ds)
-    
-    if 'GA' in config.steps:
-        ## Merge GA files
-        GA_file = os.path.join(config.paths.build, name + '_GA.loom')
-        inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
-
-        ## Check if cells have been selected
-        if 'selections' not in locals():
+        if 'bin_analysis' in config.steps:
+            ## Select valid cells from input files
+            inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
             selections = []
             for file in inputfiles:
                 with loompy.connect(file, 'r') as ds:
                     good_cells = ds.ca.DoubletFinderFlag == 0
                     selections.append(good_cells)
 
-        for x in inputfiles:
-            with loompy.connect(x) as ds:
-                logging.info(f"{x} has shape{ds.shape}")
-        loompy.combine_faster(inputfiles, GA_file, selection=selections, key = 'Accession')
+            # ## Merge Bin files
+            if not os.path.exists(outfile):
+                logging.info(f'Input files {inputfiles}')
+                loompy.combine_faster(inputfiles, outfile, selection=selections, key = 'loc')
+                # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
+                logging.info('Finished combining loom-files')
+            else:
+                logging.info('Combined bin file already exists, using this for analysis')
 
-        ## Transer column attributes
-        with loompy.connect(GA_file) as ds:
-            logging.info(f'Transferring column attributes and column graphs to GA file')
-            with loompy.connect(outfile) as dsb:
-                ds.permute(ds.ca['CellID'].argsort(), axis=1)
-                dsb.permute(dsb.ca['CellID'].argsort(), axis=1)
-                for x in dsb.ca:
-                    if x not in ds.ca:
-                        ds.ca[x] = dsb.ca[x]
-                ## Transfer column graphs
-                for x in dsb.col_graphs:
-                    if x not in ds.col_graphs:
-                        ds.col_graphs[x] = dsb.col_graphs[x]
-            logging.info(f"GA file has shape{ds.shape}")
-            Smooth = GeneSmooth()
-            Smooth.fit(ds)
+            ## Run primary Clustering and embedding
+            with loompy.connect(outfile) as ds:
+                bin_analysis = bin_analysis()
+                bin_analysis.fit(ds)
+        
+        if 'GA' in config.steps:
+            ## Merge GA files
+            GA_file = os.path.join(subset_dir, name + '_GA.loom')
+            inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
 
-    if 'peak_calling' in config.steps:
-        ## Call peaks
-        with loompy.connect(outfile, 'r') as ds:
-            peak_caller = Peak_caller()
-            peak_caller.fit(ds)
+            ## Check if cells have been selected
+            if 'selections' not in locals():
+                selections = []
+                for file in inputfiles:
+                    with loompy.connect(file, 'r') as ds:
+                        good_cells = ds.ca.DoubletFinderFlag == 0
+                        selections.append(good_cells)
 
-    if 'peak_analysis' in config.steps:
-        ## Analyse peak-file
-        peak_file = os.path.join(config.paths.build, name + '_peaks.loom')
-        with loompy.connect(peak_file, 'r+') as ds:
-            Peak_analysis = Peak_analysis()
-            Peak_analysis.fit(ds)
+            for x in inputfiles:
+                with loompy.connect(x) as ds:
+                    logging.info(f"{x} has shape{ds.shape}")
+            loompy.combine_faster(inputfiles, GA_file, selection=selections, key = 'Accession')
 
-    if 'motifs' in config.steps:
-        if 'peak_file' not in locals():
-            peak_file = os.path.join(config.paths.build, name + '_peaks.loom')
+            ## Transer column attributes
+            with loompy.connect(GA_file) as ds:
+                logging.info(f'Transferring column attributes and column graphs to GA file')
+                with loompy.connect(outfile) as dsb:
+                    ds.permute(ds.ca['CellID'].argsort(), axis=1)
+                    dsb.permute(dsb.ca['CellID'].argsort(), axis=1)
+                    for x in dsb.ca:
+                        if x not in ds.ca:
+                            ds.ca[x] = dsb.ca[x]
+                    ## Transfer column graphs
+                    for x in dsb.col_graphs:
+                        if x not in ds.col_graphs:
+                            ds.col_graphs[x] = dsb.col_graphs[x]
+                logging.info(f"GA file has shape{ds.shape}")
+                Smooth = GeneSmooth()
+                Smooth.fit(ds)
 
-        with loompy.connect(peak_file, 'r') as ds:
-            motif_compounder = motif_compounder()
-            motif_compounder.fit(ds)
+        if 'peak_calling' in config.steps:
+            ## Call peaks
+            with loompy.connect(outfile, 'r') as ds:
+                peak_caller = Peak_caller()
+                peak_caller.fit(ds)
+
+        if 'peak_analysis' in config.steps:
+            ## Analyse peak-file
+            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+            with loompy.connect(peak_file, 'r+') as ds:
+                Peak_analysis = Peak_analysis()
+                Peak_analysis.fit(ds)
+
+        if 'motifs' in config.steps:
+            if 'peak_file' not in locals():
+                peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+
+            with loompy.connect(peak_file, 'r') as ds:
+                motif_compounder = motif_compounder()
+                motif_compounder.fit(ds)

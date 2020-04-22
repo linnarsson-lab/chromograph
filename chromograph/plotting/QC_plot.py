@@ -119,8 +119,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
             
             names, labels = np.unique(ds.ca[attr], return_inverse=True)
             colors = colorize(names)
-            cells = np.random.permutation(labels.shape[0])
-            ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c=colors[labels][cells], marker='.', lw=0, s=epsilon)
+            ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c=colors[labels], marker='.', lw=0, s=epsilon)
 
             def h(c):
                 return plt.Line2D([], [], color=c, ls="", marker="o")

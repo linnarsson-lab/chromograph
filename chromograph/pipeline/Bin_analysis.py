@@ -61,7 +61,11 @@ class bin_analysis:
             ds.attrs['bin_size'] = int(int(ds.ra.end[0]) - int(ds.ra.start[0]) + 1)
             self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
         logging.info(f'Running Bin-analysis on {ds.shape[1]} cells with {self.blayer}')
-        
+
+        ## Get the output folder
+        name = ds.filename.split(".")[0]
+        self.outdir = os.path.join(self.config.paths.build, name, 'exported')
+    
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
@@ -206,4 +210,4 @@ class bin_analysis:
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_QC.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])

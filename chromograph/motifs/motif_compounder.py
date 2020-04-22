@@ -26,9 +26,10 @@ class motif_compounder:
         """
         self.config = chromograph.pipeline.config.load_config()
         self.peakdir = os.path.join(self.config.paths.build, 'peaks')
+        self.out_file = os.path.join(self.config.paths.build, 'motifs.loom')
         logging.info("Motif compounder initialised")
 
-    def fit(self, ds: loompy.LoomConnection) -> None:
+    def fit(self, ds: loompy.LoomConnection, name: str) -> None:
         '''
         Generates loom-file with Motif enrichments based on HOMER-annotated peaks
         and peaks loomfile.
@@ -42,12 +43,15 @@ class motif_compounder:
         
         '''
         
+        ## Get paths
+        self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
+        self.out_file = os.path.join(self.config.paths.build, name, name + '_motifs.loom')
+
         ## Load the annotated peaks
         cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))
         logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
-        f_out = os.path.join(self.config.paths.build, ds.attrs['tissue'] + '_motifs.loom')
         
-        with loompy.new(f_out) as dsout:
+        with loompy.new(self.out_file) as dsout:
             ## Transferring column attributes and grapsh from peak-file
             logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
             dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array(TF_cols), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
@@ -61,12 +65,12 @@ class motif_compounder:
                     dsout[x,selection] = np.sum(view[TFs[:,x], :], axis=0)
                 logging.info(f'finished {max(selection)}')
 
-            ## TF-IDF
+            ## TF-IDF normalization agains motif prevalence and total identified motifs per cell
             tf_idf = TF_IDF()
             tf_idf.fit(ds)
             dsout['TF_IDF'] = tf_idf.transform(ds[''][:,:])
 
-            logging.info('Normalizing against depth')
+            logging.info('Normalizing against total peaks')
             dsout.layers['MMP'] = div0(dsout[:,:], (1e-6 * ds.ca['NPeaks']))
 
             ## Smooth motif enrichments
@@ -84,5 +88,5 @@ class motif_compounder:
             dsout.ra['Median'] = dsout['smooth'].map([np.median], axis=0)[0]
             dsout.ra['MADS'] = np.median(abs(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1])), axis=1)
             dsout['MZ'] = 0.6745 * div0(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1]), dsout.ra['MADS'].reshape([dsout.shape[0],1]))  
-        return f_out
+        return self.out_file
 
