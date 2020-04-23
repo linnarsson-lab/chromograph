@@ -33,17 +33,17 @@ import multiprocessing as mp
 
 config = config.load_config()
 
-if sys.argv[1] == 'Cerebellum':
-    samples = ['232_1', '232_2', '250_1', '250_2']
-    name = 'Cerebellum'
-elif sys.argv[1] == 'Midbrain':
-    samples = ['232_3', '232_4', '242_3', '242_4']
-    name = 'Midbrain'
-elif sys.argv[1] == 'Hindbrain':
-    samples = ['242_1', '242_2', '250_3', '250_4']
-    name = 'Hindbrain'
+# if sys.argv[1] == 'Cerebellum':
+#     samples = ['232_1', '232_2', '250_1', '250_2']
+#     name = 'Cerebellum'
+# elif sys.argv[1] == 'Midbrain':
+#     samples = ['232_3', '232_4', '242_3', '242_4']
+#     name = 'Midbrain'
+# elif sys.argv[1] == 'Hindbrain':
+#     samples = ['242_1', '242_2', '250_3', '250_4']
+#     name = 'Hindbrain'
 
-bsize = '5kb'
+# bsize = '5kb'
 
 logger = logging.getLogger()
 logging.basicConfig(
