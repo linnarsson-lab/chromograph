@@ -231,6 +231,8 @@ class Peak_caller:
 
 if __name__ == '__main__':
 
+    bsize = f'{int(config.params.bin_size/1000)}kb'
+
     ## Load punchcard and setup decks for analysis
     deck = PunchcardDeck(config.paths.build)
     for subset in deck.get_leaves():
