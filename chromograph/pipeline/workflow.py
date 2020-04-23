@@ -262,7 +262,7 @@ if __name__ == '__main__':
             # ## Merge Bin files
             if not os.path.exists(outfile):
                 logging.info(f'Input files {inputfiles}')
-                loompy.combine_faster(inputfiles, outfile, selection=selections, key = 'loc')
+                loompy.combine_faster(inputfiles, outfile, selections=selections, key = 'loc')
                 # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
                 logging.info('Finished combining loom-files')
             else:
@@ -289,7 +289,7 @@ if __name__ == '__main__':
             for x in inputfiles:
                 with loompy.connect(x) as ds:
                     logging.info(f"{x} has shape{ds.shape}")
-            loompy.combine_faster(inputfiles, GA_file, selection=selections, key = 'Accession')
+            loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession')
 
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
