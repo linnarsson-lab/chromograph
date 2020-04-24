@@ -87,7 +87,8 @@ def load_config() -> Config:
 			"clusterer": "louvain",  # or "surprise"
 			"nn_space": "auto",
 			"peak_depth": 2.5e7,
-			"peak_min_cells": 50
+			"peak_min_cells": 50,
+			"reference_assembly": "GRCh38"
 		}),
 		# "steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
 		"steps": ("nn", "embeddings", "clustering"),

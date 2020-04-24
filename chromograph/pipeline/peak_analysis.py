@@ -10,6 +10,7 @@ import urllib.request
 import pybedtools
 import warnings
 import logging
+from tqdm import tqdm
 
 from cytograph.decomposition import HPF
 from scipy.stats import poisson
@@ -77,13 +78,15 @@ class Peak_analysis:
 
         ## Create binary layer
         if 'Binary' not in ds.layers:
-            ## Create binary layer
             logging.info("Binarizing the matrix")
-            nnz = ds[:,:] > 0
-            nnz.dtype = 'int8'
-            ds.layers['Binary'] = nnz
+            ds.layers['Binary'] = 'int8'
 
-            del nnz
+            ## Binarize in loop
+            progress = tqdm(total=ds.shape[1])
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+                ds['Binary'][:,selection] = view[:,:] > 0
+                progress.update(self.config.params.batch_size)
+            progress.close()
         
         if 'HPF_LogPP' not in ds.ca:
             logging.info(f'Performing HPF, layer = {self.layer}')
@@ -217,5 +220,5 @@ class Peak_analysis:
         manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
-        logging.info("plotting the number of UMIs")
+        logging.info("plotting attributes")
         QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])

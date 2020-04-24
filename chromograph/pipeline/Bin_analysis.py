@@ -70,10 +70,11 @@ class bin_analysis:
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
-        ## nonzero (nnz) counts per bin
-        logging.info('Calculating bin and cell coverage')
-        ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
-        ds.ca['NBins'] = ds.map([np.count_nonzero], axis=1)[0]
+        if 'NCells' not in ds.ra or 'NBins' not in ds.ca:
+            ## nonzero (nnz) counts per bin
+            logging.info('Calculating bin and cell coverage')
+            ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
+            ds.ca['NBins'] = ds.map([np.count_nonzero], axis=1)[0]
         
         ## Calculate coverage
         cov = np.log10(ds.ra['NCells']+1)
@@ -96,9 +97,9 @@ class bin_analysis:
 
             ## Binarize in loop
             progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=1024):
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 ds[self.blayer][:,selection] = view[:,:] > 0
-                progress.update(1024)
+                progress.update(self.config.params.batch_size)
             progress.close()
 
         ## Term-Frequence Inverse-Data-Frequency ##
@@ -106,12 +107,12 @@ class bin_analysis:
             if 'TF-IDF' not in ds.layers:
                 logging.info(f'Performing TF-IDF')
                 tf_idf = TF_IDF(layer=self.blayer)
-                tf_idf.fit(ds, items=ds.ra.Valid==1)
+                tf_idf.fit(ds, items=ds.ra.Valid)
                 ds.layers['TF-IDF'] = 'float16'
                 progress = tqdm(total=ds.shape[1])
-                for (ix, selection, view) in ds.scan(axis=1):
+                for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                     ds['TF-IDF'][ds.ra.Valid==1,selection] = tf_idf.transform(view[self.blayer][ds.ra.Valid==1,:], selection)
-                    progress.update(512)
+                    progress.update(self.config.params.batch_size)
                 progress.close()
                 self.blayer = 'TF-IDF'
                 del tf_idf
@@ -120,17 +121,17 @@ class bin_analysis:
             PCA = IncrementalPCA(n_components=self.config.params.n_factors)
             logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
             progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1):
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 PCA.partial_fit(view[self.blayer][ds.ra.Valid==1, :].T)
-                progress.update(512)
+                progress.update(self.config.params.batch_size)
             progress.close()
 
             logging.info(f'Transforming data')
             X = []
             progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1):
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 X.append(PCA.transform(view[self.blayer][ds.ra.Valid==1,:].T))
-                progress.update(512)
+                progress.update(self.config.params.batch_size)
             progress.close()
             X = np.vstack(X)
 

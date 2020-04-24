@@ -4,12 +4,27 @@ import sys
 import numpy as np
 from datetime import datetime
 import logging
+from typing import *
+
+import gzip
+import glob
+import pybedtools
+from pybedtools import BedTool
+import MACS2
+import shutil
+import multiprocessing as mp
+# import community
+# import networkx as nx
+# from scipy import sparse
+
+## Import chromograph
 sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
 from chromograph.pipeline.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
+from chromograph.preprocessing.utils import get_blacklist
 from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
@@ -20,32 +35,8 @@ from chromograph.motifs.motif_compounder import motif_compounder
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
 
-import gzip
-import glob
-import pybedtools
-from pybedtools import BedTool
-import MACS2
-import shutil
-import community
-import networkx as nx
-from scipy import sparse
-from typing import *
-import multiprocessing as mp
-
+## Setup logger and load config
 config = config.load_config()
-
-# if sys.argv[1] == 'Cerebellum':
-#     samples = ['232_1', '232_2', '250_1', '250_2']
-#     name = 'Cerebellum'
-# elif sys.argv[1] == 'Midbrain':
-#     samples = ['232_3', '232_4', '242_3', '242_4']
-#     name = 'Midbrain'
-# elif sys.argv[1] == 'Hindbrain':
-#     samples = ['242_1', '242_2', '250_3', '250_4']
-#     name = 'Hindbrain'
-
-# bsize = '5kb'
-
 logger = logging.getLogger()
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -133,9 +124,14 @@ class Peak_caller:
             peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
             logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
             peaks_all = peaks[0].cat(*peaks[1:])
-
-            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
             peaks_all.merge()
+
+            ## Substract blacklist
+            black_list = BedTool(get_blacklist(self.config.params.reference_assembly))
+            peaks_all.subtract(black_list, A=True)
+
+            ## Pad out and save peaks
+            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
             peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
             logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
