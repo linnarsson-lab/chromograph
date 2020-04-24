@@ -29,7 +29,7 @@ class motif_compounder:
         self.out_file = os.path.join(self.config.paths.build, 'motifs.loom')
         logging.info("Motif compounder initialised")
 
-    def fit(self, ds: loompy.LoomConnection, name: str) -> None:
+    def fit(self, ds: loompy.LoomConnection) -> None:
         '''
         Generates loom-file with Motif enrichments based on HOMER-annotated peaks
         and peaks loomfile.
@@ -44,8 +44,9 @@ class motif_compounder:
         '''
         
         ## Get paths
-        self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
-        self.out_file = os.path.join(self.config.paths.build, name, name + '_motifs.loom')
+        name = ds.filename.split(".")[0]
+        # self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
+        # self.out_file = os.path.join(self.config.paths.build, name, name + '_motifs.loom')
 
         ## Load the annotated peaks
         cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))

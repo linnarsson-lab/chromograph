@@ -80,7 +80,7 @@ class Peak_caller:
         '''
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
-        self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
+        # self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
 
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
@@ -164,7 +164,8 @@ class Peak_caller:
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
         logging.info('Plotting peak annotation wheel')
-        plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, name, 'exported', 'peak_annotation_wheel.png'))
+        # plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, name, 'exported', 'peak_annotation_wheel.png'))
+        plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, 'exported', 'peak_annotation_wheel.png'))
 
         # Count peaks and make Peak by Cell matrix
         # Counting peaks
@@ -218,7 +219,8 @@ class Peak_caller:
 
         ## Create loomfile
         logging.info("Constructing loomfile")
-        self.loom = os.path.join(self.config.paths.build, name, f'{name}_peaks.loom')
+        # self.loom = os.path.join(self.config.paths.build, name, f'{name}_peaks.loom')
+        self.loom = os.path.join(self.config.paths.build, f'{name}_peaks.loom')
 
         loompy.create(filename=self.loom, 
                     layers=matrix, 
@@ -286,10 +288,11 @@ if __name__ == '__main__':
                         good_cells = ds.ca.DoubletFinderFlag == 0
                         selections.append(good_cells)
 
-            for x in inputfiles:
-                with loompy.connect(x) as ds:
-                    logging.info(f"{x} has shape{ds.shape}")
-            loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession')
+            if not os.path.exists(GA_file):
+                for x in inputfiles:
+                    with loompy.connect(x) as ds:
+                        logging.info(f"{x} has shape{ds.shape}")
+                loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession')
 
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:

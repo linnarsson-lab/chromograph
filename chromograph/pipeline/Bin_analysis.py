@@ -64,7 +64,7 @@ class bin_analysis:
 
         ## Get the output folder
         name = ds.filename.split(".")[0]
-        self.outdir = os.path.join(self.config.paths.build, name, 'exported')
+        # self.outdir = os.path.join(self.config.paths.build, name, 'exported')
     
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
