@@ -16,11 +16,8 @@ class TF_IDF:
         self.level = 0
 
     def fit(self, ds: loompy.LoomConnection, items:np.ndarray=None) -> None:
-        if items is None:
-            self.IDF = np.zeros(ds.shape[0])  ## Row totals
-        else:
-            self.IDF = np.zeros(np.sum(items))
-            items = items.astype('bool')
+        self.IDF = np.zeros(np.sum(items))
+        items = items.astype('bool')
         self.totals = np.zeros(ds.shape[1])  ## Column totals
         N = ds.shape[1]
 

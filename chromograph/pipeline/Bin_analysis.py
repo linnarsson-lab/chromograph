@@ -111,7 +111,7 @@ class bin_analysis:
                 ds.layers['TF-IDF'] = 'float16'
                 progress = tqdm(total=ds.shape[1])
                 for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                    ds['TF-IDF'][ds.ra.Valid==1,selection] = tf_idf.transform(view[self.blayer][ds.ra.Valid==1,:], selection)
+                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
                     progress.update(self.config.params.batch_size)
                 progress.close()
                 self.blayer = 'TF-IDF'
