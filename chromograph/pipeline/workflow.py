@@ -9,6 +9,7 @@ import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
 from chromograph.pipeline.peak_analysis import Peak_analysis
+from chromograph.pipeline.utils import transfer_ca
 from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
@@ -298,16 +299,8 @@ if __name__ == '__main__':
             with loompy.connect(GA_file) as ds:
                 logging.info(f'Transferring column attributes and column graphs to GA file')
                 with loompy.connect(outfile) as dsb:
-                    ds.permute(ds.ca['CellID'].argsort(), axis=1)
-                    dsb.permute(dsb.ca['CellID'].argsort(), axis=1)
-                    for x in dsb.ca:
-                        if x not in ds.ca:
-                            ds.ca[x] = dsb.ca[x]
-                    ## Transfer column graphs
-                    for x in dsb.col_graphs:
-                        if x not in ds.col_graphs:
-                            ds.col_graphs[x] = dsb.col_graphs[x]
-                logging.info(f"GA file has shape{ds.shape}")
+                    transfer_ca(dsb, ds, 'CellID')
+                ## Smoooth over NN graph
                 Smooth = GeneSmooth()
                 Smooth.fit(ds)
 

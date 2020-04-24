@@ -32,6 +32,7 @@ import community
 import networkx as nx
 from scipy import sparse
 from typing import *
+from tqdm import tqdm
 
 from sklearn.decomposition import IncrementalPCA
 
@@ -91,11 +92,14 @@ class bin_analysis:
         ## Create binary layer
         if self.blayer not in ds.layers:
             logging.info("Binarizing the matrix")
-            nnz = ds[:,:] > 0
-            nnz.dtype = 'int8'
-            ds.layers[self.blayer] = nnz
+            ds.layers[self.blayer] = 'int8'
 
-            del nnz
+            ## Binarize in loop
+            progress = tqdm(total=ds.shape[1])
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=1024):
+                ds[self.blayer][:,selection] = view[:,:] > 0
+                progress.update(1024)
+            progress.close()
 
         ## Term-Frequence Inverse-Data-Frequency ##
         if 'TF-IDF' in self.config.params.Normalization:
@@ -104,26 +108,31 @@ class bin_analysis:
                 tf_idf = TF_IDF(layer=self.blayer)
                 tf_idf.fit(ds, items=ds.ra.Valid==1)
                 ds.layers['TF-IDF'] = 'float16'
+                progress = tqdm(total=ds.shape[1])
                 for (ix, selection, view) in ds.scan(axis=1):
                     ds['TF-IDF'][ds.ra.Valid==1,selection] = tf_idf.transform(view[self.blayer][ds.ra.Valid==1,:], selection)
-                    logging.info(f'transformed {max(selection)} cells')
+                    progress.update(512)
+                progress.close()
                 self.blayer = 'TF-IDF'
                 del tf_idf
 
         if 'PCA' in self.config.params.factorization:
             PCA = IncrementalPCA(n_components=self.config.params.n_factors)
             logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
+            progress = tqdm(total=ds.shape[1])
             for (ix, selection, view) in ds.scan(axis=1):
                 PCA.partial_fit(view[self.blayer][ds.ra.Valid==1, :].T)
-                logging.info(f'Fitted {ix} cells to PCA')
+                progress.update(512)
+            progress.close()
 
             logging.info(f'Transforming data')
             X = []
+            progress = tqdm(total=ds.shape[1])
             for (ix, selection, view) in ds.scan(axis=1):
                 X.append(PCA.transform(view[self.blayer][ds.ra.Valid==1,:].T))
-                logging.info(f'Transformed {ix} cells')
+                progress.update(512)
+            progress.close()
             X = np.vstack(X)
-            # X = PCA.transform(ds[self.blayer][ds.ra.Valid==1,:].T)
 
             logging.info(f'Shape X is {X.shape}')
             ds.ca.PCA = X
