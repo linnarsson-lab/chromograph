@@ -53,15 +53,13 @@ class bin_analysis:
         self.blayer = '5kb_bins'
         logging.info("Bin_Analysis initialised")
     
-    def fit(self, ds: loompy.LoomConnection) -> None:
-        logging.info(f"Running Chromograph on {ds.shape[1]} cells")
-        
+    def fit(self, ds: loompy.LoomConnection) -> None:        
         try:
             self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
         except:
             ds.attrs['bin_size'] = int(int(ds.ra.end[0]) - int(ds.ra.start[0]) + 1)
             self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
-        logging.info(f'Running Bin-analysis on {ds.shape[1]} cells with {self.blayer}')
+        logging.info(f'Running Chromograph Bin-analysis on {ds.shape[1]} cells with {self.blayer}')
 
         ## Get the output folder
         name = ds.filename.split(".")[0]
