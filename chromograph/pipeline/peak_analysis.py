@@ -217,8 +217,8 @@ class Peak_analysis:
         
         ## Plot results on manifold
         logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
+        manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
+        manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting attributes")
-        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_peaks_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])

@@ -216,8 +216,8 @@ class bin_analysis:
         
         ## Plot results on manifold
         logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_UMAP.png"), embedding = 'UMAP')
+        manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_TSNE.png"), embedding = 'TSNE')
+        manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting the number of UMIs")
-        QC_plot(ds, os.path.join(self.outdir, f"{ds.attrs['tissue']}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])
