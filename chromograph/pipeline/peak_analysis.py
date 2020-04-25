@@ -36,7 +36,7 @@ from typing import *
 from sklearn.decomposition import IncrementalPCA
 
 class Peak_analysis:
-    def __init__(self) -> None:
+    def __init__(self, outdir) -> None:
         """
         Perform Dimensional Reduction and Clustering on a Peak loom-file   
         Args:
@@ -48,7 +48,7 @@ class Peak_analysis:
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
-        self.outdir = os.path.join(self.config.paths.build, 'exported')
+        self.outdir = os.path.join(outdir, 'exported')
         self.layer = 'Binary'
         logging.info("Peak_analysis initialised")
     

@@ -44,7 +44,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S')
 
 class Peak_caller:
-    def __init__(self) -> None:
+    def __init__(self, outdir) -> None:
         """
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
@@ -55,7 +55,8 @@ class Peak_caller:
         
         """
         self.config = chromograph.pipeline.config.load_config()
-        self.peakdir = os.path.join(self.config.paths.build, 'peaks')
+        self.outdir = outdir
+        self.peakdir = os.path.join(outdir, 'peaks')
         self.loom = ''
         logging.info("Peak Caller initialised")
     
@@ -216,8 +217,7 @@ class Peak_caller:
 
         ## Create loomfile
         logging.info("Constructing loomfile")
-        # self.loom = os.path.join(self.config.paths.build, name, f'{name}_peaks.loom')
-        self.loom = os.path.join(self.config.paths.build, f'{name}_peaks.loom')
+        self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
 
         loompy.create(filename=self.loom, 
                     layers=matrix, 
@@ -269,7 +269,7 @@ if __name__ == '__main__':
 
             ## Run primary Clustering and embedding
             with loompy.connect(outfile) as ds:
-                bin_analysis = bin_analysis(name=name)
+                bin_analysis = bin_analysis(outdir=subset_dir)
                 bin_analysis.fit(ds)
         
         if 'GA' in config.steps:
@@ -303,14 +303,14 @@ if __name__ == '__main__':
         if 'peak_calling' in config.steps:
             ## Call peaks
             with loompy.connect(outfile, 'r') as ds:
-                peak_caller = Peak_caller()
+                peak_caller = Peak_caller(outdir=subset_dir)
                 peak_caller.fit(ds)
 
         if 'peak_analysis' in config.steps:
             ## Analyse peak-file
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
             with loompy.connect(peak_file, 'r+') as ds:
-                Peak_analysis = Peak_analysis()
+                Peak_analysis = Peak_analysis(outdir=subset_dir)
                 Peak_analysis.fit(ds)
 
         if 'motifs' in config.steps:
@@ -318,5 +318,5 @@ if __name__ == '__main__':
                 peak_file = os.path.join(subset_dir, name + '_peaks.loom')
 
             with loompy.connect(peak_file, 'r') as ds:
-                motif_compounder = motif_compounder()
+                motif_compounder = motif_compounder(outdir=subset_dir)
                 motif_compounder.fit(ds)

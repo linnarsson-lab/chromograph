@@ -14,7 +14,7 @@ from chromograph.pipeline.TF_IDF import TF_IDF
 from cytograph.manifold import BalancedKNN
 
 class motif_compounder:
-    def __init__(self) -> None:
+    def __init__(self, outdir) -> None:
         """
         Generate fragments piles based on cluster identities and use MACS to call peaks
         
@@ -25,8 +25,8 @@ class motif_compounder:
         
         """
         self.config = chromograph.pipeline.config.load_config()
-        self.peakdir = os.path.join(self.config.paths.build, 'peaks')
-        self.out_file = os.path.join(self.config.paths.build, 'motifs.loom')
+        self.peakdir = os.path.join(outdir, 'peaks')
+        self.out_file = os.path.join(outdir, 'motifs.loom')
         logging.info("Motif compounder initialised")
 
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -45,9 +45,7 @@ class motif_compounder:
         
         ## Get paths
         name = ds.filename.split(".")[0]
-        # self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
-        # self.out_file = os.path.join(self.config.paths.build, name, name + '_motifs.loom')
-
+        
         ## Load the annotated peaks
         cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))
         logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')

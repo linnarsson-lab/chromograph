@@ -37,7 +37,7 @@ from tqdm import tqdm
 from sklearn.decomposition import IncrementalPCA
 
 class bin_analysis:
-    def __init__(self, name) -> None:
+    def __init__(self, outdir) -> None:
         """
         Perform Dimensional Reduction and Clustering on a binned loom-file   
         Args:
@@ -49,7 +49,7 @@ class bin_analysis:
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
-        self.outdir = os.path.join(self.config.paths.build, name, 'exported')
+        self.outdir = os.path.join(outdir, 'exported')
         self.blayer = '5kb_bins'
         logging.info("Bin_Analysis initialised")
     
