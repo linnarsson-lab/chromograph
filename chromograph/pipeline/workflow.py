@@ -269,7 +269,7 @@ if __name__ == '__main__':
 
             ## Run primary Clustering and embedding
             with loompy.connect(outfile) as ds:
-                bin_analysis = bin_analysis()
+                bin_analysis = bin_analysis(name=name)
                 bin_analysis.fit(ds)
         
         if 'GA' in config.steps:

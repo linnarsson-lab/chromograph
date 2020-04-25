@@ -37,7 +37,7 @@ from tqdm import tqdm
 from sklearn.decomposition import IncrementalPCA
 
 class bin_analysis:
-    def __init__(self) -> None:
+    def __init__(self, name) -> None:
         """
         Perform Dimensional Reduction and Clustering on a binned loom-file   
         Args:
@@ -49,7 +49,7 @@ class bin_analysis:
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
-        self.outdir = os.path.join(self.config.paths.build, 'exported')
+        self.outdir = os.path.join(self.config.paths.build, name, 'exported')
         self.blayer = '5kb_bins'
         logging.info("Bin_Analysis initialised")
     
@@ -95,7 +95,7 @@ class bin_analysis:
 
             ## Binarize in loop
             progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+            for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 ds[self.blayer][:,selection] = view[:,:] > 0
                 progress.update(self.config.params.batch_size)
             progress.close()
@@ -108,18 +108,19 @@ class bin_analysis:
                 tf_idf.fit(ds, items=ds.ra.Valid)
                 ds.layers['TF-IDF'] = 'float16'
                 progress = tqdm(total=ds.shape[1])
-                for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+                for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                     ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
                     progress.update(self.config.params.batch_size)
                 progress.close()
                 self.blayer = 'TF-IDF'
                 del tf_idf
+                logging.info(f'Finished fitting TF-IDF')
 
         if 'PCA' in self.config.params.factorization:
             PCA = IncrementalPCA(n_components=self.config.params.n_factors)
             logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
             progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+            for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 PCA.partial_fit(view[self.blayer][ds.ra.Valid==1, :].T)
                 progress.update(self.config.params.batch_size)
             progress.close()
@@ -178,6 +179,7 @@ class bin_analysis:
 
         logging.info(f'Using sklearn TSNE for the time being')
         from sklearn.manifold import TSNE
+
         # TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## Relate perplexity to n
         TSNE = TSNE(angle = 0.5, perplexity= 30) 
         ds.ca.TSNE = TSNE.fit(decomp).embedding_
