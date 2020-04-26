@@ -63,9 +63,9 @@ class bin_analysis:
 
         ## Get the output folder
         name = ds.filename.split(".")[0]
-        # self.outdir = os.path.join(self.config.paths.build, name, 'exported')
     
         if not os.path.isdir(self.outdir):
+            logging.info(f'Creating dir {self.outdir}')
             os.mkdir(self.outdir)
         
         if 'NCells' not in ds.ra or 'NBins' not in ds.ca:
@@ -219,5 +219,5 @@ class bin_analysis:
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
-        logging.info("plotting the number of UMIs")
+        logging.info("plotting attributes")
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])
