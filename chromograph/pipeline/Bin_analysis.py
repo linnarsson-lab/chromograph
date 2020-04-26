@@ -78,8 +78,6 @@ class bin_analysis:
         del cov, mu, sd
         
         ## Select bins for PCA fitting
-        # ds.ra.Valid = np.array((ds.ra['Coverage'] > 0) & (ds.ra['Coverage'] < self.config.params.cov)==1)
-        # ds.ra.Valid = np.array((ds.ra['NCells'] > (0.04*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
         ds.ra.Valid = np.array((ds.ra['NCells'] > np.quantile(ds.ra['NCells'], self.config.params.bin_quantile))  & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
         ds.attrs['bin_max_cutoff'] = max(ds.ra['NCells'][ds.ra.Valid==1])
         ds.attrs['bin_min_cutoff'] = min(ds.ra['NCells'][ds.ra.Valid==1])

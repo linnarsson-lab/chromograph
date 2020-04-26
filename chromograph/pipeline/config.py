@@ -70,7 +70,7 @@ def load_config() -> Config:
 			"k_pooling": 10,
 			"Normalization": "TF-IDF", 
 			"factorization": "PCA",  # or "HPF" or "both"
-			"n_factors": 50,
+			"n_factors": 40,
 			"HPF_factors": 48,
 			"level": 5000,
 			"cov": 1.75,

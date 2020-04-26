@@ -268,7 +268,7 @@ if __name__ == '__main__':
                 logging.info('Combined bin file already exists, using this for analysis')
 
             ## Run primary Clustering and embedding
-            with loompy.connect(outfile) as ds:
+            with loompy.connect(outfile, 'r+') as ds:
                 bin_analysis = bin_analysis(outdir=subset_dir)
                 bin_analysis.fit(ds)
         
