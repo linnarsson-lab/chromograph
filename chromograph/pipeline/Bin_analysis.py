@@ -7,12 +7,9 @@ import gzip
 import loompy
 import scipy.sparse as sparse
 import urllib.request
-import pybedtools
 import warnings
 import logging
 
-from cytograph.decomposition import HPF
-from scipy.stats import poisson
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
@@ -23,6 +20,7 @@ sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
 from chromograph.pipeline.TF_IDF import TF_IDF
+from chromograph.pipeline.PCA import PCA
 from chromograph.pipeline import config
 
 from umap import UMAP
@@ -33,8 +31,6 @@ import networkx as nx
 from scipy import sparse
 from typing import *
 from tqdm import tqdm
-
-from sklearn.decomposition import IncrementalPCA
 
 class bin_analysis:
     def __init__(self, outdir) -> None:
@@ -117,31 +113,16 @@ class bin_analysis:
                 logging.info(f'Finished fitting TF-IDF')
 
         if 'PCA' in self.config.params.factorization:
-            PCA = IncrementalPCA(n_components=self.config.params.n_factors)
-            logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
-            progress = tqdm(total=ds.shape[1])
-            for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                PCA.partial_fit(view[self.blayer][ds.ra.Valid==1, :].T)
-                progress.update(self.config.params.batch_size)
-            progress.close()
+            ## Fit PCA
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            pca.fit(ds)
 
-            logging.info(f'Transforming data')
-            X = []
-            progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                X.append(PCA.transform(view[self.blayer][ds.ra.Valid==1,:].T))
-                progress.update(self.config.params.batch_size)
-            progress.close()
-            X = np.vstack(X)
-
-            logging.info(f'Shape X is {X.shape}')
-            ds.ca.PCA = X
-            logging.info(f'Added PCA components')
-            del X, PCA
-        
-        if 'PCA' in self.config.params.factorization:
-            decomp = ds.ca['PCA']
+            ## Decompose data
+            ds.ca.PCA = pca.transform(ds)
+            decomp = ds.ca.PCA
             metric = "euclidean"
+
+            del pca
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) in {self.config.params.nn_space} space using the '{metric}' metric")

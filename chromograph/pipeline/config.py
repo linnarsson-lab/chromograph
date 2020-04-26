@@ -66,7 +66,7 @@ def load_config() -> Config:
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
 			"k": 25,
-			"batch_size": 2048,
+			"batch_size": 512,
 			"k_pooling": 10,
 			"Normalization": "TF-IDF", 
 			"factorization": "PCA",  # or "HPF" or "both"
