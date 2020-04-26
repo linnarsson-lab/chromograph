@@ -19,7 +19,7 @@ from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold
 
-# sys.path.append('/home/camiel/chromograph/')
+sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
 from chromograph.pipeline.TF_IDF import TF_IDF
@@ -220,4 +220,4 @@ class bin_analysis:
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting attributes")
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname','Donor', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
