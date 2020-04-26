@@ -10,6 +10,9 @@ import loompy
 from sklearn.neighbors import NearestNeighbors
 from matplotlib.collections import LineCollection
 
+## Import from cytograph
+from cytograp.colors import colorize
+
 def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", attrs: list = None) -> None:
     '''
     Generates a multi-panel plot to inspect UMI and Bin counts.
