@@ -13,7 +13,7 @@ from chromograph.pipeline.utils import div0
 from chromograph.pipeline.TF_IDF import TF_IDF
 from cytograph.manifold import BalancedKNN
 
-class motif_compounder:
+class Motif_compounder:
     def __init__(self, outdir) -> None:
         """
         Generate fragments piles based on cluster identities and use MACS to call peaks

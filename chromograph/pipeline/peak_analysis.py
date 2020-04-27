@@ -141,7 +141,7 @@ class Peak_analysis:
             ds.ca.HPF_LogPP = log_posterior_proba
         
         decomp = ds.ca['HPF']
-        metric = "euclidean" # js euclidean correlation
+        metric = "js" # js euclidean correlation
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) in {self.config.params.nn_space} space using the '{metric}' metric")

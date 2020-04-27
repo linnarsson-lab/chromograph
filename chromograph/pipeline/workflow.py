@@ -30,7 +30,7 @@ from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
 from chromograph.peak_calling.call_MACS import call_MACS
 from chromograph.plotting.peak_annotation_plot import *
-from chromograph.motifs.motif_compounder import motif_compounder
+from chromograph.motifs.motif_compounder import Motif_compounder
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -269,7 +269,7 @@ if __name__ == '__main__':
 
             ## Run primary Clustering and embedding
             with loompy.connect(outfile, 'r+') as ds:
-                bin_analysis = bin_analysis(outdir=subset_dir)
+                bin_analysis = Bin_analysis(outdir=subset_dir)
                 bin_analysis.fit(ds)
         
         if 'GA' in config.steps:
@@ -310,13 +310,13 @@ if __name__ == '__main__':
             ## Analyse peak-file
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
             with loompy.connect(peak_file, 'r+') as ds:
-                Peak_analysis = Peak_analysis(outdir=subset_dir)
-                Peak_analysis.fit(ds)
+                peak_analysis = Peak_analysis(outdir=subset_dir)
+                peak_analysis.fit(ds)
 
         if 'motifs' in config.steps:
             if 'peak_file' not in locals():
                 peak_file = os.path.join(subset_dir, name + '_peaks.loom')
 
             with loompy.connect(peak_file, 'r') as ds:
-                motif_compounder = motif_compounder(outdir=subset_dir)
+                motif_compounder = Motif_compounder(outdir=subset_dir)
                 motif_compounder.fit(ds)

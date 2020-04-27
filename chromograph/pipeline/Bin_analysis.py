@@ -32,7 +32,7 @@ from scipy import sparse
 from typing import *
 from tqdm import tqdm
 
-class bin_analysis:
+class Bin_analysis:
     def __init__(self, outdir) -> None:
         """
         Perform Dimensional Reduction and Clustering on a binned loom-file   
