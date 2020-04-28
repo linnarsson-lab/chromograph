@@ -162,8 +162,7 @@ class Peak_caller:
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
         logging.info('Plotting peak annotation wheel')
-        # plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, name, 'exported', 'peak_annotation_wheel.png'))
-        plot_peak_annotation_wheel(annot, os.path.join(self.config.paths.build, 'exported', 'peak_annotation_wheel.png'))
+        plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
         # Count peaks and make Peak by Cell matrix
         # Counting peaks
@@ -286,9 +285,7 @@ if __name__ == '__main__':
                         selections.append(good_cells)
 
             if not os.path.exists(GA_file):
-                for x in inputfiles:
-                    with loompy.connect(x) as ds:
-                        logging.info(f"{x} has shape{ds.shape}")
+                logging.info(f'Combining GA looms')
                 loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession')
 
             ## Transer column attributes
