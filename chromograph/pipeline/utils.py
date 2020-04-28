@@ -18,8 +18,8 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
         key         Column attriube used to align the columns
     '''
     ## Align the datasets
-    ds1.permute(ds.ca[key].argsort(), axis=1)
-    ds2.permute(dsb.ca[key].argsort(), axis=1)
+    ds1.permute(ds1.ca[key].argsort(), axis=1)
+    ds2.permute(ds2.ca[key].argsort(), axis=1)
     
     ## Transfer column attributes
     for x in ds1.ca:

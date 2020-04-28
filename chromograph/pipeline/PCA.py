@@ -53,7 +53,7 @@ class PCA:
         '''
         Transforming dataset. Must contain row attribute Valid
         '''
-        logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
+        logging.info(f'Transforming {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
         transformed = np.zeros((ds.shape[1], self.n_components))
 
         progress = tqdm(total=ds.shape[1])
