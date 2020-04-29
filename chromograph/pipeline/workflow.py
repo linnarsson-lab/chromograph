@@ -166,27 +166,28 @@ class Peak_caller:
 
         # Count peaks and make Peak by Cell matrix
         # Counting peaks
-        logging.info(f'Start counting peaks')
-        chunks = np.array_split(ds.ca['CellID'], 10)
-        jobs = []
-        q = mp.Queue()
-        dicts = []
-        for cells in chunks:
-            p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
-            jobs.append(p)
-            p.start()
+        # logging.info(f'Start counting peaks')
+        # chunks = np.array_split(ds.ca['CellID'], 10)
+        # jobs = []
+        # q = mp.Queue()
+        # dicts = []
+        # for cells in chunks:
+        #     p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
+        #     jobs.append(p)
+        #     p.start()
             
-        for i in range(len(chunks)):
-            dicts.append(q.get())
+        # for i in range(len(chunks)):
+        #     dicts.append(q.get())
             
-        for p in jobs:
-            p.join()
+        # for p in jobs:
+        #     p.join()
 
         dicts = []
         def log_result(result):
             # This is called whenever pool returns a result.
             dicts.append(result)
 
+        logging.info(f'Start counting peaks')
         pool = mp.Pool(10)
         chunks = np.array_split(ds.ca['CellID'], 10)
         for cells in chunks:
