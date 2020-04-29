@@ -58,6 +58,7 @@ class Peak_caller:
         self.outdir = outdir
         self.peakdir = os.path.join(outdir, 'peaks')
         self.loom = ''
+        self.precomp = 'None'
         logging.info("Peak Caller initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -73,72 +74,79 @@ class Peak_caller:
         '''
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
-        # self.peakdir = os.path.join(self.config.paths.build, name, 'peaks')
 
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
 
         if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
-            logging.info('Calling peaks')
-            logging.info(f'Saving peaks to folder {self.peakdir}')
 
-            chunks = []
-            for i in np.unique(ds.ca['Clusters']):
-                cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
-                files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
-                if len(cells) > self.config.params.peak_min_cells:
-                    chunks.append([i,files])
+            path_precomp = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
+            if os.path.exists(path_precomp):
+                logging.info(f'Use peaks computed for full dataset')
+                self.precomp = 'All'
+                shutil.copyfile(path_precomp, os.path.join(self.peakdir, 'Compounded_peaks.bed'))
 
-            logging.info('Start merging fragments by cluster')
-            piles = []
-            for ck in chunks:
-                files = np.array(ck[1])
-                ex = np.array([os.path.exists(x) for x in files])
-                files = files[ex]
+            else:
+                logging.info('No precomputed peak list. Calling peaks')
+                logging.info(f'Saving peaks to folder {self.peakdir}')
 
-                fmerge = os.path.join(self.peakdir, f'fragments_{ck[0]}.tsv.gz')
-                with open(fmerge, 'wb') as out:
-                    for f in files:
-                        with open(f, 'rb') as file:
-                            shutil.copyfileobj(file, out)
-                piles.append([ck[0], fmerge])
-                logging.info(f'Finished with cluster {ck[0]}')
+                chunks = []
+                for i in np.unique(ds.ca['Clusters']):
+                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
+                    files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
+                    if len(cells) > self.config.params.peak_min_cells:
+                        chunks.append([i,files])
 
-            logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
-            pool = mp.Pool(10) 
-            for pile in piles:
-                pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
-            pool.close()
-            pool.join()
+                logging.info('Start merging fragments by cluster')
+                piles = []
+                for ck in chunks:
+                    files = np.array(ck[1])
+                    ex = np.array([os.path.exists(x) for x in files])
+                    files = files[ex]
 
-            logging.info(f'Finished downsampling')
+                    fmerge = os.path.join(self.peakdir, f'fragments_{ck[0]}.tsv.gz')
+                    with open(fmerge, 'wb') as out:
+                        for f in files:
+                            with open(f, 'rb') as file:
+                                shutil.copyfileobj(file, out)
+                    piles.append([ck[0], fmerge])
+                    logging.info(f'Finished with cluster {ck[0]}')
 
-            logging.info(f'Start calling peaks')
-            pool = mp.Pool(10) 
-            for pile in piles:
-                pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
-            pool.close()
-            pool.join()
-                
-            ## Compound the peak lists
-            peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
-            logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
-            peaks_all = peaks[0].cat(*peaks[1:])
-            peaks_all.merge()
+                logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
+                pool = mp.Pool(20) 
+                for pile in piles:
+                    pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
+                pool.close()
+                pool.join()
 
-            ## Substract blacklist
-            black_list = BedTool(get_blacklist(self.config.params.reference_assembly))
-            peaks_all.subtract(black_list, A=True)
+                logging.info(f'Finished downsampling')
 
-            ## Pad out and save peaks
-            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
-            peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
-            logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
+                logging.info(f'Start calling peaks')
+                pool = mp.Pool(20) 
+                for pile in piles:
+                    pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
+                pool.close()
+                pool.join()
+                    
+                ## Compound the peak lists
+                peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
+                logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
+                peaks_all = peaks[0].cat(*peaks[1:])
+                peaks_all.merge()
 
-            ## Clean up
-            for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
-                os.system(f'rm {file}')
+                ## Substract blacklist
+                black_list = BedTool(get_blacklist(self.config.params.reference_assembly))
+                peaks_all.subtract(black_list, A=True)
+
+                ## Pad out and save peaks
+                f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+                peaks_all = peaks_all.each(extend_fields, 6).each(add_ID).each(add_strand, '+').saveas(f)   ## Pad out the BED-file and save
+                logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
+
+                ## Clean up
+                for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
+                    os.system(f'rm {file}')
 
         else:
             logging.info('Compounded peak file already present, loading now')
@@ -165,31 +173,14 @@ class Peak_caller:
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
         # Count peaks and make Peak by Cell matrix
-        # Counting peaks
-        # logging.info(f'Start counting peaks')
-        # chunks = np.array_split(ds.ca['CellID'], 10)
-        # jobs = []
-        # q = mp.Queue()
-        # dicts = []
-        # for cells in chunks:
-        #     p = mp.Process(target=Count_peaks, args=(cells, self.config.paths.samples, f, q, ))
-        #     jobs.append(p)
-        #     p.start()
-            
-        # for i in range(len(chunks)):
-        #     dicts.append(q.get())
-            
-        # for p in jobs:
-        #     p.join()
-
         dicts = []
         def log_result(result):
             # This is called whenever pool returns a result.
             dicts.append(result)
 
         logging.info(f'Start counting peaks')
-        pool = mp.Pool(10)
-        chunks = np.array_split(ds.ca['CellID'], 10)
+        pool = mp.Pool(20)
+        chunks = np.array_split(ds.ca['CellID'], 20)
         for cells in chunks:
             pool.apply_async(Count_peaks2, args=(cells, self.config.paths.samples, f, ), callback = log_result)
         pool.close()
@@ -224,6 +215,8 @@ class Peak_caller:
                     row_attrs=annot, 
                     col_attrs=dict(ds.ca),
                     file_attrs=dict(ds.attrs))
+        with loompy.connect(self.loom) as ds:
+            ds.attrs['peak_file'] = self.precomp
         logging.info(f'Loom peaks file saved as {self.loom}')
 
         return self.loom
