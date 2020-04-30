@@ -1,5 +1,6 @@
 import numpy as np
 import loompy
+import logging
 
 def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
@@ -17,17 +18,25 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
         ds2         LoomConnection
         key         Column attriube used to align the columns
     '''
-    ## Align the datasets
-    ds1.permute(ds1.ca[key].argsort(), axis=1)
-    ds2.permute(ds2.ca[key].argsort(), axis=1)
-    
+
+    if np.array_equal(ds1.ca.CellID, ds2.ca.CellID):
+        logging.info('Datasets already ordered')
+    else:
+        ## Align the datasets
+        logging.info('Permuting datasets')
+        ds1.permute(ds1.ca[key].argsort(), axis=1)
+        ds2.permute(ds2.ca[key].argsort(), axis=1)
+        logging.info(f'Finished permuting datasets')
+
     ## Transfer column attributes
     for x in ds1.ca:
         if x not in ds2.ca:
             ds2.ca[x] = ds1.ca[x]
+    logging.info('Finished transferring attributes')
 
     ## Transfer column graphs
     for x in ds1.col_graphs:
         if x not in ds2.col_graphs:
             ds2.col_graphs[x] = ds1.col_graphs[x]
+    logging.info('Finished transferring graphs')
     return
