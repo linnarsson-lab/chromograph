@@ -76,6 +76,7 @@ class Peak_caller:
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
 
+        ## Check if Compounded peaks already exists
         if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
             path_precomp = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
             if os.path.exists(path_precomp):
@@ -83,11 +84,11 @@ class Peak_caller:
                 self.precomp = 'All'
                 shutil.copyfile(path_precomp, os.path.join(self.peakdir, 'Compounded_peaks.bed'))
             
-            path_pre_annot = os.path.join(self.config.paths.build, 'All', 'peaks', 'annotated_peaks.txt')
-            if os.path.exists(path_pre_annot):
-                logging.info(f'Use annotation of precomputed pepeaks')
-                shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
-
+                path_pre_annot = os.path.join(self.config.paths.build, 'All', 'peaks', 'annotated_peaks.txt')
+                if os.path.exists(path_pre_annot):
+                    logging.info(f'Use annotation of precomputed pepeaks')
+                    shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
+            
             else:
                 logging.info('No precomputed peak list. Calling peaks')
                 logging.info(f'Saving peaks to folder {self.peakdir}')
@@ -148,6 +149,18 @@ class Peak_caller:
                 ## Clean up
                 for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
                     os.system(f'rm {file}')
+
+        ## Check All_peaks.loom exists, get subset
+        all_peaks_loom = os.path.join(self.config.paths.build, 'All', 'All_peaks.loom')
+        if os.path.exists(all_peaks_loom):
+            logging.info(f'Main peak matrix already exists')
+            with loompy.connect(all_peaks_loom) as dsp:
+                selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
+                
+                self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
+                loompy.combine_faster(all_peaks_loom, self.loom, selections=selection, key = 'ID')
+                logging.info(f'Finished creating peak file')
+                return
 
         else:
             logging.info('Compounded peak file already present, loading now')
