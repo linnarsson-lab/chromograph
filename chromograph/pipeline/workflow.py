@@ -13,9 +13,6 @@ from pybedtools import BedTool
 import MACS2
 import shutil
 import multiprocessing as mp
-# import community
-# import networkx as nx
-# from scipy import sparse
 
 ## Import chromograph
 sys.path.append('/home/camiel/chromograph/')
@@ -281,7 +278,7 @@ if __name__ == '__main__':
                     IDs = set(ds.ca.CellID)
                     for f in inputfiles:
                         with loompy.connect(f) as dsg:
-                            selections.append([x in IDs for x in dsg.ca.CellID])
+                            selections.append(np.array([x in IDs for x in dsg.ca.CellID]))
 
             if not os.path.exists(GA_file):
                 logging.info(f'Combining GA looms')
