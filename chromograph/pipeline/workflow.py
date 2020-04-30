@@ -86,6 +86,11 @@ class Peak_caller:
                 logging.info(f'Use peaks computed for full dataset')
                 self.precomp = 'All'
                 shutil.copyfile(path_precomp, os.path.join(self.peakdir, 'Compounded_peaks.bed'))
+            
+            path_pre_annot = os.path.join(self.config.paths.build, 'All', 'peaks', 'annotated_peaks.txt')
+            if os.path.exists(path_pre_annot):
+                logging.info(f'Use annotation of precomputed pepeaks')
+                shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
 
             else:
                 logging.info('No precomputed peak list. Calling peaks')
@@ -240,7 +245,7 @@ if __name__ == '__main__':
         subset_dir = os.path.join(config.paths.build, name)
         if not os.path.isdir(subset_dir):
             os.mkdir(subset_dir)
-        outfile = os.path.join(subset_dir, name + '.loom')
+        binfile = os.path.join(subset_dir, name + '.loom')
 
         if 'bin_analysis' in config.steps:
             ## Select valid cells from input files
@@ -252,16 +257,16 @@ if __name__ == '__main__':
                     selections.append(good_cells)
 
             # ## Merge Bin files
-            if not os.path.exists(outfile):
+            if not os.path.exists(binfile):
                 logging.info(f'Input files {inputfiles}')
-                loompy.combine_faster(inputfiles, outfile, selections=selections, key = 'loc')
+                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc')
                 # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
                 logging.info('Finished combining loom-files')
             else:
                 logging.info('Combined bin file already exists, using this for analysis')
 
             ## Run primary Clustering and embedding
-            with loompy.connect(outfile, 'r+') as ds:
+            with loompy.connect(binfile, 'r+') as ds:
                 bin_analysis = Bin_analysis(outdir=subset_dir)
                 bin_analysis.fit(ds)
         
@@ -273,10 +278,11 @@ if __name__ == '__main__':
             ## Check if cells have been selected
             if 'selections' not in locals():
                 selections = []
-                for file in inputfiles:
-                    with loompy.connect(file, 'r') as ds:
-                        good_cells = ds.ca.DoubletFinderFlag == 0
-                        selections.append(good_cells)
+                with loompy.connect(binfile, 'r') as ds:
+                    IDs = set(ds.ca.CellID)
+                    for f in inputfiles:
+                        with loompy.connect(f) as dsg:
+                            selections.append([x in IDs for x in dsg.ca.CellID])
 
             if not os.path.exists(GA_file):
                 logging.info(f'Combining GA looms')
@@ -285,7 +291,7 @@ if __name__ == '__main__':
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
                 logging.info(f'Transferring column attributes and column graphs to GA file')
-                with loompy.connect(outfile) as dsb:
+                with loompy.connect(binfile) as dsb:
                     transfer_ca(dsb, ds, 'CellID')
                 ## Smoooth over NN graph
                 Smooth = GeneSmooth()
@@ -293,7 +299,7 @@ if __name__ == '__main__':
 
         if 'peak_calling' in config.steps:
             ## Call peaks
-            with loompy.connect(outfile, 'r') as ds:
+            with loompy.connect(binfile, 'r') as ds:
                 peak_caller = Peak_caller(outdir=subset_dir)
                 peak_caller.fit(ds)
 
