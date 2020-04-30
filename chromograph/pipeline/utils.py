@@ -29,12 +29,10 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
         logging.info(f'Finished permuting datasets')
 
     ## Transfer column attributes
-    for x in ds1.ca:
-        if x not in ds2.ca:
-            ds2.ca[x] = ds1.ca[x]
+    for x in ds1.ca:    ## Don't check if attribute already present as it will prevent transfer of TSNE coordinates
+        ds2.ca[x] = ds1.ca[x]
 
     ## Transfer column graphs
     for x in ds1.col_graphs:
-        if x not in ds2.col_graphs:
-            ds2.col_graphs[x] = ds1.col_graphs[x]
+        ds2.col_graphs[x] = ds1.col_graphs[x]
     return
