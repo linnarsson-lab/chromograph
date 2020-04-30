@@ -80,7 +80,6 @@ class Peak_caller:
             os.mkdir(self.peakdir)   
 
         if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
-
             path_precomp = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
             if os.path.exists(path_precomp):
                 logging.info(f'Use peaks computed for full dataset')
@@ -291,7 +290,7 @@ if __name__ == '__main__':
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
                 logging.info(f'Transferring column attributes and column graphs to GA file')
-                with loompy.connect(binfile) as dsb:
+                with loompy.connect(binfile, 'r') as dsb:
                     transfer_ca(dsb, ds, 'CellID')
                 ## Smoooth over NN graph
                 Smooth = GeneSmooth()
