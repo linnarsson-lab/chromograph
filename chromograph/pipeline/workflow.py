@@ -290,7 +290,7 @@ if __name__ == '__main__':
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
                 logging.info(f'Transferring column attributes and column graphs to GA file')
-                with loompy.connect(binfile, 'r') as dsb:
+                with loompy.connect(binfile) as dsb:
                     transfer_ca(dsb, ds, 'CellID')
                 ## Smoooth over NN graph
                 Smooth = GeneSmooth()
