@@ -3,8 +3,7 @@ import os
 import sys
 import loompy
 import warnings
-from numba import jit, njit
-import numba
+from tqdm import tqdm
 
 sys.path.append('/home/camiel/chromograph/')
 import chromograph
@@ -50,9 +49,11 @@ class GeneSmooth:
 
         logging.info(f'Converting to FPKM')  # divide by BPs/1e3 and divide by GA_colsum/1e6
         ds['FPKM'] = 'float16'
-        for (ix, selection, view) in ds.scan(axis=1):
+        progress = tqdm(total = ds.shape[1])
+        for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
             ds['FPKM'][:,selection] = div0(div0(view[''][:,:], 1e-3*ds.ra['BPs'].reshape(ds.shape[0], 1)), (1e-6 * ds.ca['GA_colsum'][selection]))
-            logging.info(f"FPKM for: {max(selection)} cells out of {ds.shape[1]}")
+            progress.update(self.config.params.batch_size)
+        progress.close()
 
         logging.info(f'Loading the network')
         bnn = BalancedKNN(k=self.config.params.k, metric='euclidean', maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
@@ -60,8 +61,10 @@ class GeneSmooth:
 
         logging.info('Smoothing over the graph')
         ds['smooth'] = 'float16'
-        for (ix, selection, view) in ds.scan(axis=0):
+        progress = tqdm(total = ds.shape[0])
+        for (ix, selection, view) in ds.scan(axis=0, batch_size=self.config.params.batch_size):
             ds['smooth'][selection,:] = bnn.smooth_data(view['FPKM'][:,:], only_increase=False)
-            logging.info(f'Smoothed {max(selection)} rows out of {ds.shape[0]}')
-
-        logging.info(f'Finished smoothing')      
+            progress.update(self.config.params.batch_size)
+        progress.close()
+        logging.info(f'Finished smoothing') 
+        return

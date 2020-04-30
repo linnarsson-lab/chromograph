@@ -32,11 +32,9 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
     for x in ds1.ca:
         if x not in ds2.ca:
             ds2.ca[x] = ds1.ca[x]
-    logging.info('Finished transferring attributes')
 
     ## Transfer column graphs
     for x in ds1.col_graphs:
         if x not in ds2.col_graphs:
             ds2.col_graphs[x] = ds1.col_graphs[x]
-    logging.info('Finished transferring graphs')
     return

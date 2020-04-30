@@ -272,13 +272,12 @@ if __name__ == '__main__':
             inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
 
             ## Check if cells have been selected
-            if 'selections' not in locals():
-                selections = []
-                with loompy.connect(binfile, 'r') as ds:
-                    IDs = set(ds.ca.CellID)
-                    for f in inputfiles:
-                        with loompy.connect(f) as dsg:
-                            selections.append(np.array([x in IDs for x in dsg.ca.CellID]))
+            selections = []
+            with loompy.connect(binfile, 'r') as ds:
+                IDs = set(ds.ca.CellID)
+                for f in inputfiles:
+                    with loompy.connect(f) as dsg:
+                        selections.append(np.array([x in IDs for x in dsg.ca.CellID]))
 
             if not os.path.exists(GA_file):
                 logging.info(f'Combining GA looms')
