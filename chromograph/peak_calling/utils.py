@@ -3,6 +3,7 @@ import sys
 import os
 import loompy
 import multiprocessing
+import pickle as pkl
 import logging
 import pybedtools
 from pybedtools import BedTool
@@ -93,47 +94,14 @@ def bed_downsample(pile, level):
         logging.info(f'cluster {pile[0]} was not downsampled')
     return
 
-def Count_peaks(cells, sample_dir, f_peaks, q):
+def Count_peaks(id, cells, sample_dir, peak_dir):
     '''
     Count peaks
     '''
     logging.info(f'Start job')
     Count_dict = {k: {} for k in cells}
-    peaks = BedTool(f_peaks)  # Connect to peaks file
-    i = 0
-
-    ## Separate cells and get paths to fragment files
-    for x in cells:
-        
-        s, c = x.split(':')
-        f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
-        try:
-            cBed = BedTool(f) # Connect to fragment file
-            pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
-
-            cDict = {}
-            ## Extract peak_IDs
-            for line in pks:
-                cDict[line[3]] = 1
-
-            Count_dict[x] = cDict
-            i += 1
-            if i%1000==0:
-                logging.info(f'Finished counting {i} cells')
-        except:
-            ## If file can't be found print the path to file
-            Count_dict[x] = []
-            logging.info(f'Cannot find {f}')
-    return q.put(Count_dict)
-
-def Count_peaks2(cells, sample_dir, f_peaks):
-    '''
-    Count peaks
-    '''
-    logging.info(f'Start job')
-    Count_dict = {k: {} for k in cells}
-    peaks = BedTool(f_peaks)  # Connect to peaks file
-    i = 0
+    f_peaks = os.path.join(peak_dir, 'Compounded_peaks.bed')
+    peaks = BedTool(f_peaks).saveas()  # Connect to peaks file, save temp to prevent io issues
 
     ## Separate cells and get paths to fragment files
     for x in cells:
@@ -161,14 +129,13 @@ def Count_peaks2(cells, sample_dir, f_peaks):
         try:
             ## Collect in output dictionary
             Count_dict[x] = cDict
-            i += 1
-            if i%1000==0:
-                logging.info(f'Finished counting {i} cells')
         except:
             ## If file can't be found print the path to file
             Count_dict[x] = []
             logging.info(f" Problem collecting to main dict {f}")
-    return Count_dict
+    logging.info(f'Completed job')
+    pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl')))
+    return 
 
 def strFrags_to_list(frags):
     '''

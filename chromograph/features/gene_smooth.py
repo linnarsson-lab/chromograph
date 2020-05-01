@@ -51,7 +51,7 @@ class GeneSmooth:
         ds['FPKM'] = 'float16'
         progress = tqdm(total = ds.shape[1])
         for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-            ds['FPKM'][:,selection] = div0(div0(view[''][:,:], 1e-3*ds.ra['BPs'].reshape(ds.shape[0], 1)), (1e-6 * ds.ca['GA_colsum'][selection]))
+            ds['FPKM'][:,selection] = div0(div0(view[''][:,:], 1e-6 * ds.ca['GA_colsum'][selection]), (1e-3*ds.ra['BPs'].reshape(ds.shape[0], 1)))
             progress.update(self.config.params.batch_size)
         progress.close()
 

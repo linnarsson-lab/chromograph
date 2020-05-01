@@ -189,22 +189,23 @@ class Peak_caller:
         logging.info('Plotting peak annotation wheel')
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
-        # Count peaks and make Peak by Cell matrix
-        dicts = []
-        def log_result(result):
-            # This is called whenever pool returns a result.
-            dicts.append(result)
+        # # Count peaks and make Peak by Cell matrix
+        # dicts = []
+        # def log_result(result):
+        #     # This is called whenever pool returns a result.
+        #     dicts.append(result)
 
         logging.info(f'Start counting peaks')
         pool = mp.Pool(20)
-        chunks = np.array_split(ds.ca['CellID'], 20)
-        for cells in chunks:
-            pool.apply_async(Count_peaks2, args=(cells, self.config.paths.samples, f, ), callback = log_result)
+        chunks = np.array_split(ds.ca['CellID'], 100)
+        for i, cells in enumerate(chunks):
+            # pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ), callback = log_result)
+            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
         pool.close()
         pool.join()
         
         ## Unpack results
-        Counts = {k: v for d in dicts for k, v in d.items()}
+        # Counts = {k: v for d in dicts for k, v in d.items()}
         r_dict = {k: v for v,k in enumerate(annot['ID'])} # Order dict for rows
 
         logging.info("Generating Sparse matrix")
@@ -213,13 +214,19 @@ class Peak_caller:
         v = []
 
         cix = 0
-        for cell in ds.ca['CellID']:
-            if len(Counts[cell]) > 0:
-                for key in (Counts[cell]):
-                    col.append(cix)
-                    row.append(r_dict[key])
-                    v.append(np.int8(Counts[cell][key]))
-                cix+=1
+        IDs = []
+        dict_files = glob.glob(self.peakdir, '*.pkl')
+        for file in dict_files:
+            Counts = pkl.load(open(f, 'rb'))
+            for cell in Counts:
+                if len(Counts[cell]) > 0:
+                    for key in (Counts[cell]):
+                        col.append(cix)
+                        row.append(r_dict[key])
+                        v.append(np.int8(Counts[cell][key]))
+                    cix+=1
+                    IDs.append(cell)
+        logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
         logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
 

@@ -228,7 +228,7 @@ class Chromgen:
         ## Saving fragments in cells
         
         logging.info('Load Genomic regions from reference')
-        gb = BedTool(os.path.join(chromograph.__path__[0], 'references/GRCh38_genes_2kbprom.bed'))
+        gb = BedTool(os.path.join(chromograph.__path__[0], 'references/GRCh38_genes_2kbprom.bed')).saveas()
         
         logging.info('Intersecting fragments with Genomic regions')
         inter = gb.intersect(fragments, wa=True, wb=True)
