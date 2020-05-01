@@ -206,7 +206,7 @@ class Peak_caller:
         # pool.close()
         # pool.join()
         
-        ## Unpack results
+        # # Unpack results
         # Counts = {k: v for d in dicts for k, v in d.items()}
         r_dict = {k: v for v,k in enumerate(annot['ID'])} # Order dict for rows
 
@@ -239,12 +239,15 @@ class Peak_caller:
         loompy.create(filename=self.loom, 
                     layers=matrix, 
                     row_attrs=annot, 
-                    col_attrs=dict(ds.ca),
+                    col_attrs={'CellID': np.array(IDs)},
                     file_attrs=dict(ds.attrs))
-        with loompy.connect(self.loom) as ds:
-            ds.attrs['peak_file'] = self.precomp
+        with loompy.connect(self.loom) as ds2:
+            ds2.attrs['peak_file'] = self.precomp
+            transfer_ca(ds, ds2, 'CellID')
         logging.info(f'Loom peaks file saved as {self.loom}')
 
+        for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
+            os.system(f'rm {file}')
         return self.loom
 
 if __name__ == '__main__':
