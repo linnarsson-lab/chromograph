@@ -44,8 +44,8 @@ class GeneSmooth:
         Smooth the GA data
         """
         ## Get the rowsums and colsums
-        ds.ra['GA_rowsum'] = ds.map([np.count_nonzero], axis=0)[0]
-        ds.ca['GA_colsum'] = ds.map([np.count_nonzero], axis=1)[0]
+        ds.ra['GA_rowsum'] = ds.map([np.sum], axis=0)[0]
+        ds.ca['GA_colsum'] = ds.map([np.sum], axis=1)[0]
 
         logging.info(f'Converting to FPKM')  # divide by BPs/1e3 and divide by GA_colsum/1e6
         ds['FPKM'] = 'float16'

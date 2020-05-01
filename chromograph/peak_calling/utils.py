@@ -142,6 +142,10 @@ def Count_peaks2(cells, sample_dir, f_peaks):
         f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
         try:
             cBed = BedTool(f) # Connect to fragment file
+        except:
+            logging.info(f"Can't find {f}")
+            Count_dict[x] = []
+        try:
             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
 
             cDict = {}
@@ -156,7 +160,7 @@ def Count_peaks2(cells, sample_dir, f_peaks):
         except:
             ## If file can't be found print the path to file
             Count_dict[x] = []
-            logging.info(f'Cannot find {f}')
+            logging.info(f" Problem counting {f}")
     return Count_dict
 
 def strFrags_to_list(frags):
