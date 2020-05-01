@@ -219,7 +219,7 @@ class Peak_caller:
         IDs = []
         dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
         for file in dict_files:
-            Counts = pkl.load(open(f, 'rb'))
+            Counts = pkl.load(open(file, 'rb'))
             for cell in Counts:
                 if len(Counts[cell]) > 0:
                     for key in (Counts[cell]):

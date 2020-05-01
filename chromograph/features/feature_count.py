@@ -4,6 +4,7 @@ import sys
 import collections
 import logging
 import pybedtools
+from tqdm import tqdm
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.peak_calling.utils import *
@@ -15,6 +16,8 @@ def Count_genes(bars, intersections):
     Count_dict = {k: {} for k in bars}
     i = 0
 
+    total = intersections.count()
+    progress = tqdm(total=total)
     for x in intersections:
         
         try:
@@ -29,7 +32,7 @@ def Count_genes(bars, intersections):
             i += 1
 
             if i%1000000 == 0:
-                logging.info(f'Counted {i/1000000} million Fragments')
+                progress.update(1000000)
         except:
             continue
             
