@@ -147,12 +147,19 @@ def Count_peaks2(cells, sample_dir, f_peaks):
             Count_dict[x] = []
         try:
             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
-
+        except:
+            logging.info(f'Problem intersecting {f}')
+            Count_dict[x] = []
+        try:
             cDict = {}
             ## Extract peak_IDs
             for line in pks:
                 cDict[line[3]] = 1
-
+        except:
+            logging.info(f'Problem counting {f}')
+            Count_dict[x] = []
+        try:
+            ## Collect in output dictionary
             Count_dict[x] = cDict
             i += 1
             if i%1000==0:
@@ -160,7 +167,7 @@ def Count_peaks2(cells, sample_dir, f_peaks):
         except:
             ## If file can't be found print the path to file
             Count_dict[x] = []
-            logging.info(f" Problem counting {f}")
+            logging.info(f" Problem collecting to main dict {f}")
     return Count_dict
 
 def strFrags_to_list(frags):
