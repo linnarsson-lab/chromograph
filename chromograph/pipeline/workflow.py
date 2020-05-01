@@ -149,6 +149,10 @@ class Peak_caller:
                 ## Clean up
                 for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
                     os.system(f'rm {file}')
+        else:
+            logging.info('Compounded peak file already present, loading now')
+            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+            peaks_all = BedTool(f)
 
         ## Check All_peaks.loom exists, get subset
         all_peaks_loom = os.path.join(self.config.paths.build, 'All', 'All_peaks.loom')
@@ -160,12 +164,11 @@ class Peak_caller:
                 self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
                 loompy.combine_faster(all_peaks_loom, self.loom, selections=selection, key = 'ID')
                 logging.info(f'Finished creating peak file')
-                return
 
-        else:
-            logging.info('Compounded peak file already present, loading now')
-            f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
-            peaks_all = BedTool(f)
+            with loompy.connect(self.loom, 'r+') as ds_out:
+                logging.info(f'Transferring attributes')
+                transfer_ca(ds, ds_out, 'CellID')
+                return
         
         f_annot = os.path.join(self.peakdir, 'annotated_peaks.txt')
         if not os.path.exists(f_annot):
@@ -307,7 +310,7 @@ if __name__ == '__main__':
 
         if 'peak_calling' in config.steps:
             ## Call peaks
-            with loompy.connect(binfile, 'r') as ds:
+            with loompy.connect(binfile, 'r+') as ds:
                 peak_caller = Peak_caller(outdir=subset_dir)
                 peak_caller.fit(ds)
 
