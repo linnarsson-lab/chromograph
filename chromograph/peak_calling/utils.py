@@ -134,7 +134,7 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             Count_dict[x] = []
             logging.info(f" Problem collecting to main dict {f}")
     logging.info(f'Completed job')
-    pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl')))
+    pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
     return 
 
 def strFrags_to_list(frags):
