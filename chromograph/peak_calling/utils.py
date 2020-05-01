@@ -98,7 +98,6 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
     '''
     Count peaks
     '''
-    logging.info(f'Start job')
     Count_dict = {k: {} for k in cells}
     f_peaks = os.path.join(peak_dir, 'Compounded_peaks.bed')
     peaks = BedTool(f_peaks).saveas()  # Connect to peaks file, save temp to prevent io issues
@@ -133,7 +132,7 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             ## If file can't be found print the path to file
             Count_dict[x] = []
             logging.info(f" Problem collecting to main dict {f}")
-    logging.info(f'Completed job')
+    logging.info(f'Completed job {id}')
     pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
     return 
 

@@ -149,6 +149,8 @@ class Peak_caller:
                 ## Clean up
                 for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
                     os.system(f'rm {file}')
+                for file in glob.glob(os.path.join(self.peakdir, '*.narrowPeak')):
+                    os.system(f'rm {file}')
         else:
             logging.info('Compounded peak file already present, loading now')
             f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
@@ -195,14 +197,14 @@ class Peak_caller:
         #     # This is called whenever pool returns a result.
         #     dicts.append(result)
 
-        logging.info(f'Start counting peaks')
-        pool = mp.Pool(20)
-        chunks = np.array_split(ds.ca['CellID'], 100)
-        for i, cells in enumerate(chunks):
-            # pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ), callback = log_result)
-            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
-        pool.close()
-        pool.join()
+        # logging.info(f'Start counting peaks')
+        # pool = mp.Pool(20)
+        # chunks = np.array_split(ds.ca['CellID'], 100)
+        # for i, cells in enumerate(chunks):
+        #     # pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ), callback = log_result)
+        #     pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
+        # pool.close()
+        # pool.join()
         
         ## Unpack results
         # Counts = {k: v for d in dicts for k, v in d.items()}
@@ -215,7 +217,7 @@ class Peak_caller:
 
         cix = 0
         IDs = []
-        dict_files = glob.glob(self.peakdir, '*.pkl')
+        dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
         for file in dict_files:
             Counts = pkl.load(open(f, 'rb'))
             for cell in Counts:
