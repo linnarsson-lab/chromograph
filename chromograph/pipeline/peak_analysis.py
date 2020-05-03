@@ -33,8 +33,6 @@ import networkx as nx
 from scipy import sparse
 from typing import *
 
-from sklearn.decomposition import IncrementalPCA
-
 class Peak_analysis:
     def __init__(self, outdir) -> None:
         """
@@ -55,7 +53,6 @@ class Peak_analysis:
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Peak_analysis on {ds.shape[1]} cells with {ds.shape[0]} peaks")
         name = ds.filename.split(".")[0]
-        # self.outdir = os.path.join(self.config.paths.build, name, 'exported')
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
@@ -176,14 +173,8 @@ class Peak_analysis:
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         # # metric_f = 'euclidean' # Use if js isn't working
 
-        # logging.info(f"  Art of tSNE with {metric} distance metric")
-        # ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-
-        logging.info(f'Using sklearn TSNE for the time being')
-        from sklearn.manifold import TSNE
-        # TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## Relate perplexity to n
-        TSNE = TSNE(angle = 0.5, perplexity= 30)
-        ds.ca.TSNE = TSNE.fit(decomp).embedding_
+        logging.info(f"  Art of tSNE with {metric} distance metric")
+        ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
 
         logging.info(f'Generating UMAP from decomposition using metric {metric_f}')
         with warnings.catch_warnings():
