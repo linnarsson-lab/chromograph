@@ -10,15 +10,18 @@ sys.path.append('/home/camiel/chromograph/')
 from chromograph.peak_calling.utils import *
 import chromograph
 
-def Count_genes(bars, intersections):
+def Count_genes(bars: list, intersections):
     '''
+    Takes 
+
+    Args:
+        bars            list of barcodes
+        intersections   BedTool instance of fragments overlapped with gene features
     '''
     Count_dict = {k: {} for k in bars}
     i = 0
 
-    total = len(intersections)
-    progress = tqdm(total=total)
-    for x in intersections:
+    for x in tqdm(intersections):
         
         try:
             bar = str(x[-2])
@@ -31,8 +34,6 @@ def Count_genes(bars, intersections):
                     Count_dict[bar][g] += 1
             i += 1
 
-            if i%1000000 == 0:
-                progress.update(1000000)
         except:
             continue
             

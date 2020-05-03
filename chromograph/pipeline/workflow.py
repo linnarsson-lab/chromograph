@@ -86,7 +86,7 @@ class Peak_caller:
             
                 path_pre_annot = os.path.join(self.config.paths.build, 'All', 'peaks', 'annotated_peaks.txt')
                 if os.path.exists(path_pre_annot):
-                    logging.info(f'Use annotation of precomputed pepeaks')
+                    logging.info(f'Use annotation of precomputed peaks')
                     shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
             
             else:
