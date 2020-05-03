@@ -163,9 +163,9 @@ class Peak_caller:
             with loompy.connect(all_peaks_loom) as dsp:
                 selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
                 
-                self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
-                loompy.combine_faster(all_peaks_loom, self.loom, selections=selection, key = 'ID')
-                logging.info(f'Finished creating peak file')
+            self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
+            loompy.combine_faster([all_peaks_loom], self.loom, selections=selection, key = 'ID')
+            logging.info(f'Finished creating peak file')
 
             with loompy.connect(self.loom, 'r+') as ds_out:
                 logging.info(f'Transferring attributes')
@@ -191,20 +191,13 @@ class Peak_caller:
         logging.info('Plotting peak annotation wheel')
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
-        # # Count peaks and make Peak by Cell matrix
-        # dicts = []
-        # def log_result(result):
-        #     # This is called whenever pool returns a result.
-        #     dicts.append(result)
-
-        # logging.info(f'Start counting peaks')
-        # pool = mp.Pool(20)
-        # chunks = np.array_split(ds.ca['CellID'], 100)
-        # for i, cells in enumerate(chunks):
-        #     # pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ), callback = log_result)
-        #     pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
-        # pool.close()
-        # pool.join()
+        logging.info(f'Start counting peaks')
+        pool = mp.Pool(20)
+        chunks = np.array_split(ds.ca['CellID'], 100)
+        for i, cells in enumerate(chunks):
+            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
+        pool.close()
+        pool.join()
         
         # # Unpack results
         # Counts = {k: v for d in dicts for k, v in d.items()}

@@ -16,7 +16,7 @@ def Count_genes(bars, intersections):
     Count_dict = {k: {} for k in bars}
     i = 0
 
-    total = intersections.count()
+    total = len(intersections)
     progress = tqdm(total=total)
     for x in intersections:
         
