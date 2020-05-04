@@ -70,8 +70,7 @@ class Peak_analysis:
         del cov, mu, sd
 
         ## Select peaks for manifold learning
-        # ds.ra['Valid'] = np.array((ds.ra['NCells'] > (0.02*ds.shape[1])) & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
-        ds.ra.Valid = np.array((ds.ra['NCells'] > np.quantile(ds.ra['NCells'], self.config.params.peak_quantile))  & (ds.ra['NCells'] < (0.6*ds.shape[1]))==1)
+        ds.ra.Valid = np.array(ds.ra['NCells'] > np.quantile(ds.ra['NCells'], self.config.params.peak_quantile))
 
         ## Create binary layer
         if 'Binary' not in ds.layers:

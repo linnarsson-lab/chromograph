@@ -21,7 +21,7 @@ def Count_genes(bars: list, intersections):
     Count_dict = {k: {} for k in bars}
     i = 0
 
-    for x in tqdm(intersections):
+    for x in intersections:
         
         try:
             bar = str(x[-2])
@@ -33,6 +33,9 @@ def Count_genes(bars: list, intersections):
                 else:
                     Count_dict[bar][g] += 1
             i += 1
+
+            if i%10000000 == 0:
+                logging.info(f'Counted {i/1000000} million Fragments')
 
         except:
             continue
