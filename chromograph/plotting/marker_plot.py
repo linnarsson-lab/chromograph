@@ -58,7 +58,7 @@ def marker_plot(ds: loompy.LoomConnection, out_file: str, markers: list, lay: st
         GA = v[k]
         q = np.quantile(v, 0.99)
         
-        ax.scatter(pos[:,0], pos[:,1],s=epsilon, c = 'lightgrey', alpha=.5)
+        ax.scatter(pos[:,0], pos[:,1],s=epsilon, marker = '.', c = 'lightgrey', alpha=.5)
         im = ax.scatter(pos[k,0], pos[k,1], cmap='viridis', c=GA, vmax = q, marker='.', lw=0, s=epsilon)
         
         fig.colorbar(im, ax=ax, orientation='vertical', shrink = 0.5)

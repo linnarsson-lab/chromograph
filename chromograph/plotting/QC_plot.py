@@ -105,7 +105,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[3].add_collection(lc)
     
     im = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
-    fig.colorbar(im, ax=ax[3], orientation='vertical')
+    fig.colorbar(im, ax=ax[3], orientation='vertical', shrink=.5)
     ax[3].set_title('Log10 fragments')
     ax[3].axis("off")
     
