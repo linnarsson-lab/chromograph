@@ -15,6 +15,7 @@ from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold
+from cytograph.embedding import art_of_tsne
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
