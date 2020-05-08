@@ -84,7 +84,7 @@ class Chromgen:
 
         ## Transfer metadata to dict format
         meta = {}
-        passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 1000000)
+        passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 100000)
         for key in barcodes.dtype.names:
             meta[key] = barcodes[key][passed]
         meta['CellID'] = [f'{sample}:{x}' for x in meta['barcode']]
@@ -264,6 +264,7 @@ class Chromgen:
         logging.info(f'Shape matrix: {matrix.shape}. Number of elements: {matrix.nnz}')
         
         # Do some cleanup
+        pybedtools.helpers.cleanup()
         del col, row, v, Count_dict, barcodes, bins, blacklist, frag_dict, fragments, g_dict, gb, inter, summary
 
         ## Create loomfile
@@ -278,3 +279,4 @@ class Chromgen:
         self.gloom = floom
         
         logging.info("Loom gene file saved as {}".format(floom))
+

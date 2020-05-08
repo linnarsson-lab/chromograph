@@ -199,9 +199,8 @@ class Peak_caller:
         pool.close()
         pool.join()
         
-        # # Unpack results
-        # Counts = {k: v for d in dicts for k, v in d.items()}
-        r_dict = {k: v for v,k in enumerate(annot['ID'])} # Order dict for rows
+        # Order dict for rows
+        r_dict = {k: v for v,k in enumerate(annot['ID'])} 
 
         logging.info("Generating Sparse matrix")
         col = []
@@ -241,6 +240,9 @@ class Peak_caller:
 
         for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
             os.system(f'rm {file}')
+
+        ## Clean up stranded pybedtools tmp files
+        pybedtools.helpers.cleanup(verbose=True, remove_all=True)
         return self.loom
 
 if __name__ == '__main__':
@@ -270,12 +272,12 @@ if __name__ == '__main__':
             selections = []
             for file in inputfiles:
                 with loompy.connect(file, 'r') as ds:
-                    good_cells = ds.ca.DoubletFinderFlag == 0
+                    good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5)
                     selections.append(good_cells)
 
             # ## Merge Bin files
             if not os.path.exists(binfile):
-                logging.info(f'Input files {inputfiles}')
+                logging.info(f'Input samples {samples}')
                 loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc')
                 # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
                 logging.info('Finished combining loom-files')

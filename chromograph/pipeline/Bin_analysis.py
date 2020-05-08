@@ -41,14 +41,13 @@ class Bin_analysis:
             steps                    Which steps to include in the analysis
 
         Remarks:
-            --- PUNCHCARD SUPPORT NEEDS TO INTEGRATED, FOR NOW PASS PARAMETER TO FIT FUNCTION ---
             # All parameters are obtained from the config object, which comes from the default config
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
         self.outdir = os.path.join(outdir, 'exported')
         self.blayer = '5kb_bins'
-        logging.info("Bin_Analysis initialised")
+        logging.info(f"Bin_Analysis initialised, saving plots to {self.outdir}")
     
     def fit(self, ds: loompy.LoomConnection) -> None:        
         try:
@@ -156,12 +155,6 @@ class Bin_analysis:
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         logging.info(f"  Art of tSNE with {metric} distance metric")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-
-        # logging.info(f'Using sklearn TSNE for the time being')
-        # from sklearn.manifold import TSNE
-        # TSNE = TSNE(perplexity= np.round(ds.shape[1]/100)) ## Relate perplexity to n
-        # TSNE = TSNE(angle = 0.5, perplexity= 30) 
-        # ds.ca.TSNE = TSNE.fit(decomp).embedding_
 
         logging.info("Generating UMAP from decomposition")
         with warnings.catch_warnings():

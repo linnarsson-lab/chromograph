@@ -122,6 +122,8 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             ## Extract peak_IDs
             for line in pks:
                 cDict[line[3]] = 1
+            ## Cleanup
+            pybedtools.helpers.cleanup()
         except:
             logging.info(f'Problem counting {f}')
             Count_dict[x] = []
