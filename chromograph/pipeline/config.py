@@ -73,7 +73,6 @@ def load_config() -> Config:
 			"n_factors": 40,
 			"HPF_factors": 48,
 			"level": 5000,
-			"cov": 1.75,
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
 			"peak_quantile": 0.75,
@@ -82,11 +81,7 @@ def load_config() -> Config:
 			"min_fraction_good_cells": 0.4,
 			"max_fraction_MT_genes": 0.05,
 			# "max_doubletFinder_TH": 0.4,
-			"skip_missing_samples": False,
-			"skip_metadata": False,
-			"passedQC": False,
-			"clusterer": "louvain",  # or "surprise"
-			"nn_space": "auto",
+			"min_cells_cluster": 50,
 			"peak_depth": 2.5e7,
 			"peak_min_cells": 50,
 			"reference_assembly": "GRCh38"
