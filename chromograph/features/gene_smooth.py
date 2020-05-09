@@ -48,7 +48,7 @@ class GeneSmooth:
         ds.ca['GA_colsum'] = ds.map([np.sum], axis=1)[0]
 
         logging.info(f'Converting to FPKM')  # divide by BPs/1e3 and divide by GA_colsum/1e6
-        ds['FPKM'] = 'float16'
+        ds['FPKM'] = 'float32'
         progress = tqdm(total = ds.shape[1])
         for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
             ds['FPKM'][:,selection] = div0(div0(view[''][:,:], 1e-6 * ds.ca['GA_colsum'][selection]), (1e-3*ds.ra['BPs'].reshape(ds.shape[0], 1)))
@@ -60,11 +60,15 @@ class GeneSmooth:
         bnn.bknn = ds.col_graphs.KNN
 
         logging.info('Smoothing over the graph')
-        ds['smooth'] = 'float16'
+        ds['smooth'] = 'float32'
         progress = tqdm(total = ds.shape[0])
         for (ix, selection, view) in ds.scan(axis=0, batch_size=self.config.params.batch_size):
             ds['smooth'][selection,:] = bnn.smooth_data(view['FPKM'][:,:], only_increase=False)
             progress.update(self.config.params.batch_size)
         progress.close()
+
+        ## Set FPKM as main matrix
+        ds['raw'] = ds[''][:,:]
+        ds[''] = np.nan_to_num(ds['FPKM'][:,:])
         logging.info(f'Finished smoothing') 
         return
