@@ -9,7 +9,7 @@ def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         c[~np.isfinite(c)] = 0  # -inf inf NaN
     return c
 
-def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str):
+def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str = 'CellID'):
     '''
     Transfers the column attributes from ds1 to ds2. Both loom-files must
     have the same number of columns with a corresponding unique identifies
@@ -23,9 +23,10 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
         logging.info('Datasets already ordered')
     else:
         ## Align the datasets
-        logging.info('Permuting datasets')
-        ds1.permute(ds1.ca[key].argsort(), axis=1)
-        ds2.permute(ds2.ca[key].argsort(), axis=1)
+        logging.info('Permuting dataset 2 based on order of dataset 1')
+        match = {k:v for v, k in enumerate(ds.ca[key])}
+        new_index = np.array([match[x] for x in ds2.ca[key]]).argsort()
+        ds2.permute(new_index, axis=1)
         logging.info(f'Finished permuting datasets')
 
     ## Transfer column attributes
