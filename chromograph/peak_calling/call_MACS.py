@@ -34,6 +34,6 @@ def call_MACS(data, pf, macs_path):
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
-    os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))  ## Convert this track to BigWig
  
     return f'Cluster {clus} completed'

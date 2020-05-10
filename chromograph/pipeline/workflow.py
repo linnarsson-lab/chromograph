@@ -23,6 +23,7 @@ from chromograph.pipeline.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
 from chromograph.preprocessing.utils import get_blacklist
 from chromograph.features.gene_smooth import GeneSmooth
+from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
 from chromograph.peak_calling.call_MACS import call_MACS
@@ -96,7 +97,7 @@ class Peak_caller:
                 chunks = []
                 for i in np.unique(ds.ca['Clusters']):
                     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
-                    files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
+                    files = [os.path.join(self.config.paths.samples, x[0], 'cluster', f'{x[1]}.tsv.gz') for x in cells]
                     if len(cells) > self.config.params.peak_min_cells:
                         chunks.append([i,files])
 
@@ -107,7 +108,7 @@ class Peak_caller:
                     ex = np.array([os.path.exists(x) for x in files])
                     files = files[ex]
 
-                    fmerge = os.path.join(self.peakdir, f'fragments_{ck[0]}.tsv.gz')
+                    fmerge = os.path.join(self.peakdir, f'cluster_{ck[0]}.tsv.gz')
                     with open(fmerge, 'wb') as out:
                         for f in files:
                             with open(f, 'rb') as file:
@@ -314,6 +315,15 @@ if __name__ == '__main__':
                 ## Smoooth over NN graph
                 Smooth = GeneSmooth()
                 Smooth.fit(ds)
+
+                ## Aggregate GA file and annotate based on markers
+                GA_agg_file = os.path.join(subset_dir, name + '_GA.agg.loom')
+                Aggregator = GA_Aggregator()
+                Aggregator.fit(ds, GA_agg_file)
+
+                logging.info(f'Transferring column attributes and column graphs back to bin file')
+                with loompy.connect(binfile) as dsb:
+                    transfer_ca(ds, dsb, 'CellID')
 
         if 'peak_calling' in config.steps:
             ## Call peaks

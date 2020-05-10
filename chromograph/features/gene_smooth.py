@@ -55,7 +55,7 @@ class GeneSmooth:
             progress.update(self.config.params.batch_size)
         progress.close()
 
-        logging.info(f'Loading the network')
+        ## Loading the network
         bnn = BalancedKNN(k=self.config.params.k, metric='euclidean', maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
         bnn.bknn = ds.col_graphs.KNN
 
@@ -68,6 +68,7 @@ class GeneSmooth:
         progress.close()
 
         ## Set FPKM as main matrix
+        logging.info('Set FPKM as main matrix')
         ds['raw'] = ds[''][:,:]
         ds[''] = np.nan_to_num(ds['FPKM'][:,:])
         logging.info(f'Finished smoothing') 

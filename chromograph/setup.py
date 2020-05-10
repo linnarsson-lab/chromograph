@@ -29,8 +29,8 @@ setup(
 		'opentsne',
         'pybedtools',
         'cytograph',
-        'macs2',
-	],
+        'macs2'
+		],
 	include_package_data=True,
 	author="Linnarsson Lab",
 	author_email="camiel.mannens@ki.se",
