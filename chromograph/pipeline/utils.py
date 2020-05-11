@@ -24,7 +24,7 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
     else:
         ## Align the datasets
         logging.info('Permuting dataset 2 based on order of dataset 1')
-        match = {k:v for v, k in enumerate(ds.ca[key])}
+        match = {k:v for v, k in enumerate(ds1.ca[key])}
         new_index = np.array([match[x] for x in ds2.ca[key]]).argsort()
         ds2.permute(new_index, axis=1)
         logging.info(f'Finished permuting datasets')
