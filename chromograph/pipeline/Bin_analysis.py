@@ -111,16 +111,17 @@ class Bin_analysis:
                 logging.info(f'Finished fitting TF-IDF')
 
         if 'PCA' in self.config.params.factorization:
-            ## Fit PCA
-            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
-            pca.fit(ds)
+            if 'PCA' not in ds.ca:
+                ## Fit PCA
+                pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+                pca.fit(ds)
 
-            ## Decompose data
-            ds.ca.PCA = pca.transform(ds)
-            decomp = ds.ca.PCA
-            metric = "euclidean"
+                ## Decompose data
+                ds.ca.PCA = pca.transform(ds)
+                decomp = ds.ca.PCA
+                metric = "euclidean"
 
-            del pca
+                del pca
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) using the '{metric}' metric")
@@ -168,7 +169,7 @@ class Bin_analysis:
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
-        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", min_cells=self.config.params.min_cells_cluster)
+        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_cluster)
         labels = pl.fit_predict(ds)
         ds.ca.ClustersModularity = labels + min(labels)
         ds.ca.OutliersModularity = (labels == -1).astype('int')
@@ -176,7 +177,7 @@ class Bin_analysis:
         ds.ca.Outliers = (labels == -1).astype('int')
 
         logging.info("Performing Louvain Polished Surprise clustering")
-        ps = PolishedSurprise(graph="RNN", embedding="TSNE", min_cells=self.config.params.min_cells_cluster)
+        ps = PolishedSurprise(graph="RNN", embedding="TSNE", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_cluster)
         labels = ps.fit_predict(ds)
         ds.ca.ClustersSurprise = labels + min(labels)
         ds.ca.OutliersSurprise = (labels == -1).astype('int')

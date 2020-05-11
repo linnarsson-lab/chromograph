@@ -68,6 +68,7 @@ def load_config() -> Config:
 			"k": 25,
 			"batch_size": 512,
 			"k_pooling": 10,
+			"resolution": 1,
 			"Normalization": "TF-IDF", 
 			"factorization": "PCA",  # or "HPF" or "both"
 			"n_factors": 40,
@@ -81,9 +82,9 @@ def load_config() -> Config:
 			"min_fraction_good_cells": 0.4,
 			"max_fraction_MT_genes": 0.05,
 			# "max_doubletFinder_TH": 0.4,
-			"min_cells_cluster": 50,
+			"min_cells_cluster": 100,
 			"peak_depth": 2.5e7,
-			"peak_min_cells": 50,
+			"peak_min_cells": 100,
 			"reference_assembly": "GRCh38"
 		}),
 		# "steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
