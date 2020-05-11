@@ -319,7 +319,7 @@ if __name__ == '__main__':
                 ## Aggregate GA file and annotate based on markers
                 GA_agg_file = os.path.join(subset_dir, name + '_GA.agg.loom')
                 Aggregator = GA_Aggregator()
-                Aggregator.fit(ds, GA_agg_file)
+                Aggregator.fit(ds, out_file=GA_agg_file)
 
                 logging.info(f'Transferring column attributes and column graphs back to bin file')
                 with loompy.connect(binfile) as dsb:

@@ -33,7 +33,7 @@ class GA_Aggregator:
         self.f = f
         self.config = config.load_config() # Generic config, just to get the paths
 
-    def fit(self, ds: loompy.LoomConnection, *, out_file: str, agg_spec: Dict[str, str] = None) -> None:
+    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None) -> None:
         '''
         Aggregate the Gene-Accessibility signal, find markers and call the auto-annotater
         

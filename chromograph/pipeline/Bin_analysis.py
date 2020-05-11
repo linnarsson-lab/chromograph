@@ -118,12 +118,12 @@ class Bin_analysis:
 
                 ## Decompose data
                 ds.ca.PCA = pca.transform(ds)
-                decomp = ds.ca.PCA
 
                 del pca
 
-        decomp = ds.ca.PCA
-        metric = "euclidean"
+            ## Get correct embedding and metric
+            decomp = ds.ca.PCA
+            metric = "euclidean"
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) using the '{metric}' metric")
