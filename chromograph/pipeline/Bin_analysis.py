@@ -123,7 +123,7 @@ class Bin_analysis:
             del pca
 
         ## Construct nearest-neighbor graph
-        logging.info(f"Computing balanced KNN (k = {self.config.params.k}) in {self.config.params.nn_space} space using the '{metric}' metric")
+        logging.info(f"Computing balanced KNN (k = {self.config.params.k}) using the '{metric}' metric")
         bnn = BalancedKNN(k=self.config.params.k, metric=metric, maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
         bnn.fit(decomp)
         knn = bnn.kneighbors_graph(mode='distance')
