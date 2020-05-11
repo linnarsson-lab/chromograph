@@ -34,7 +34,7 @@ def call_MACS(data, pf, macs_path):
     bg = BedTool(f_bedgraph)
     outfile = os.path.join(pf, f'cluster_{str(clus)}.bw')
     pybedtools.contrib.bigwig.bedgraph_to_bigwig(bg, genome='hg38', output=outfile)
-    
+    pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     ## We only need the narrowPeak file, so clean up the rest
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
