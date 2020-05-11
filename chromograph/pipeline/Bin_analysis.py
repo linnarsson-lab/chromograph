@@ -122,6 +122,7 @@ class Bin_analysis:
 
                 del pca
 
+        decomp = ds.ca.PCA
         metric = "euclidean"
 
         ## Construct nearest-neighbor graph
