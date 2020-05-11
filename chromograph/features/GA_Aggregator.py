@@ -13,6 +13,7 @@ from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
 from cytograph.manifold import GraphSkeletonizer
+
 from typing import *
 
 import scipy.cluster.hierarchy as hc
@@ -42,6 +43,8 @@ class GA_Aggregator:
             outfile         Filename of aggregation file
             agg_spec        Dictionary containing numpy-groupies function to be applied to column attributes
         '''
+        self.outdir = '/' + os.path.join(*out_file.split('/')[:-1], 'exported')
+
         if agg_spec is None:
             agg_spec = {
                 "Age": "tally",
@@ -127,10 +130,16 @@ class GA_Aggregator:
                 dsout.layers["trinaries"] = trinaries
 
             logging.info("Computing auto-annotation")
-            AutoAnnotator(root=config.paths.autoannotation, ds=dsout).annotate(dsout)
+            AutoAnnotator(root=self.config.paths.autoannotation, ds=dsout).annotate(dsout)
 
             logging.info("Computing auto-auto-annotation")
             AutoAutoAnnotator(n_genes=6).annotate(dsout)
 
             logging.info("Graph skeletonization")
             GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
+
+            ## Plot results on manifold
+            logging.info("Plotting UMAP")
+            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
+            logging.info("Plotting TSNE")
+            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
