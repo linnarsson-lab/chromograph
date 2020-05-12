@@ -13,6 +13,7 @@ from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
 from cytograph.manifold import GraphSkeletonizer
+from cytograph.plotting import manifold
 
 from typing import *
 
