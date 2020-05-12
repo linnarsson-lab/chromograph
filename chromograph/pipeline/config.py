@@ -84,7 +84,7 @@ def load_config() -> Config:
 			"max_fraction_MT_genes": 0.05,
 			# "max_doubletFinder_TH": 0.4,
 			"min_cells_cluster": 100,
-			"N_most_enriched": 10,
+			"N_most_enriched": 6,
 			"peak_depth": 2.5e7,
 			"peak_min_cells": 100,
 			"reference_assembly": "GRCh38"

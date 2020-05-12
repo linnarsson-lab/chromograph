@@ -97,7 +97,7 @@ class Peak_caller:
                 chunks = []
                 for i in np.unique(ds.ca['Clusters']):
                     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
-                    files = [os.path.join(self.config.paths.samples, x[0], 'cluster', f'{x[1]}.tsv.gz') for x in cells]
+                    files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
                     if len(cells) > self.config.params.peak_min_cells:
                         chunks.append([i,files])
 
