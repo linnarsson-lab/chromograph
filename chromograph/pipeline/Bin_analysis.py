@@ -111,15 +111,15 @@ class Bin_analysis:
                 logging.info(f'Finished fitting TF-IDF')
 
         if 'PCA' in self.config.params.factorization:
-            if 'PCA' not in ds.ca:
-                ## Fit PCA
-                pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
-                pca.fit(ds)
+            ## Fit PCA
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            pca.fit(ds)
 
-                ## Decompose data
-                ds.ca.PCA = pca.transform(ds)
+            ## Decompose data
+            ds.ca.PCA = pca.transform(ds)
 
-                del pca
+            logging.info(f'Finished PCA transformation')
+            del pca
 
             ## Get correct embedding and metric
             decomp = ds.ca.PCA
