@@ -73,6 +73,7 @@ def load_config() -> Config:
 			"factorization": "PCA",  # or "HPF" or "both"
 			"n_factors": 40,
 			"HPF_factors": 48,
+			"autoannotater": False, 
 			"level": 5000,
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
@@ -83,6 +84,7 @@ def load_config() -> Config:
 			"max_fraction_MT_genes": 0.05,
 			# "max_doubletFinder_TH": 0.4,
 			"min_cells_cluster": 100,
+			"N_most_enriched": 10,
 			"peak_depth": 2.5e7,
 			"peak_min_cells": 100,
 			"reference_assembly": "GRCh38"
