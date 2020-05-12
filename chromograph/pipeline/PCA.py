@@ -46,7 +46,7 @@ class PCA:
         progress = tqdm(total=ds.shape[1])
         for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
             if len(selection) < self.n_components:
-				continue
+                continue
             self.PCA.partial_fit(view[self.layer][ds.ra.Valid==1, :].T)
             progress.update(self.config.params.batch_size)
         progress.close()
