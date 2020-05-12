@@ -76,6 +76,9 @@ class GA_Aggregator:
             markers = fe.fit(ds)
             dsout.layers["enrichment"] = fe.enrichment
 
+            ## Save top N most enriched genes
+            Most_enriched = [dsout.ra.Gene[dsout['enrichment'][:,i].argsort()[::-1][:self.config.params.N_most_enriched]].tolist() for i in range(dsout.shape[1])]
+            dsout.ca.Most_enriched = [" ".join(enr) for enr in Most_enriched]
             dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 
             # Renumber the clusters
@@ -130,17 +133,19 @@ class GA_Aggregator:
                 trinaries = Trinarizer(f=self.f).fit(ds)  # type:ignore
                 dsout.layers["trinaries"] = trinaries
 
-            logging.info("Computing auto-annotation")
-            AutoAnnotator(root=self.config.paths.autoannotation, ds=dsout).annotate(dsout)
+            if self.config.params.autoannotater == True:
+                logging.info("Computing auto-annotation")
+                AutoAnnotator(root=self.config.paths.autoannotation, ds=dsout).annotate(dsout)
 
-            logging.info("Computing auto-auto-annotation")
-            AutoAutoAnnotator(n_genes=6).annotate(dsout)
+                logging.info("Computing auto-auto-annotation")
+                AutoAutoAnnotator(n_genes=6).annotate(dsout)
 
             logging.info("Graph skeletonization")
             GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
 
             ## Plot results on manifold
+            name = out_file.split('/')[-1].split('_')[0]
             logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
+            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
+            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
