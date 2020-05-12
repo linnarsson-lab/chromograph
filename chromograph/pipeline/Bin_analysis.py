@@ -109,9 +109,12 @@ class Bin_analysis:
                 self.blayer = 'TF-IDF'
                 del tf_idf
                 logging.info(f'Finished fitting TF-IDF')
+            self.blayer = 'TF-IDF'
+
 
         if 'PCA' in self.config.params.factorization:
             ## Fit PCA
+            logging.info(f'Fitting PCA to layer {self.blayer}')
             pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
             pca.fit(ds)
 
