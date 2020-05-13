@@ -92,6 +92,8 @@ def bed_downsample(pile, level):
         logging.info(f'Total fragments: {frag_count} in cluster {pile[0]}, downsampled to {downsamp.count()}')
     else:
         logging.info(f'cluster {pile[0]} was not downsampled')
+
+    pybedtools.helpers.cleanup()
     return
 
 def Count_peaks(id, cells, sample_dir, peak_dir):
@@ -122,8 +124,6 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             ## Extract peak_IDs
             for line in pks:
                 cDict[line[3]] = 1
-            ## Cleanup
-            pybedtools.helpers.cleanup()
         except:
             logging.info(f'Problem counting {f}')
             Count_dict[x] = []
