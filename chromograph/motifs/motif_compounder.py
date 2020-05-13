@@ -47,6 +47,11 @@ class Motif_compounder:
         ## Get paths
         name = ds.filename.split(".")[0]
         
+        if 'NCells' not in ds.ra or 'NPeaks' not in ds.ca:
+            logging.info('Calculating peak and cell coverage')
+            ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
+            ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
+
         ## Load the annotated peaks
         cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))
         logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
@@ -84,7 +89,7 @@ class Motif_compounder:
             logging.info('Smoothing over the graph')
             dsout['smooth'] = 'float16'
             dsout['smooth'] = bnn.smooth_data(dsout['MMP'][:,:], only_increase=False)
-            logging.info(f'Finished smoothing')  
+            logging.info(f'Finished smoothing')
 
             ## Calculating modified Z-score
             logging.info('Generating modified Z-scores')
