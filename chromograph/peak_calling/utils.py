@@ -113,12 +113,15 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             cBed = BedTool(f) # Connect to fragment file
         except:
             logging.info(f"Can't find {f}")
+            logging.info(sys.exc_info()[0])
             Count_dict[x] = []
         try:
             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
         except:
             logging.info(f'Problem intersecting {f}')
+            logging.info(sys.exc_info()[0])
             Count_dict[x] = []
+            return
         try:
             cDict = {}
             ## Extract peak_IDs
@@ -126,7 +129,9 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
                 cDict[line[3]] = 1
         except:
             logging.info(f'Problem counting {f}')
+            logging.info(sys.exc_info()[0])
             Count_dict[x] = []
+            return
         try:
             ## Collect in output dictionary
             Count_dict[x] = cDict
@@ -134,6 +139,8 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             ## If file can't be found print the path to file
             Count_dict[x] = []
             logging.info(f" Problem collecting to main dict {f}")
+            logging.info(sys.exc_info()[0])
+            return
     logging.info(f'Completed job {id}')
     pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
     ## Cleanup
