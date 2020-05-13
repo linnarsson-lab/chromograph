@@ -63,7 +63,7 @@ class GeneSmooth:
         ds['smooth'] = 'float32'
         progress = tqdm(total = ds.shape[0])
         for (ix, selection, view) in ds.scan(axis=0, batch_size=self.config.params.batch_size):
-            ds['smooth'][selection,:] = bnn.smooth_data(view['FPKM'][:,:], only_increase=False)
+            ds['smooth'][selection,:] = bnn.smooth_data(view['FPKM'][:,:], only_increase=True)
             progress.update(self.config.params.batch_size)
         progress.close()
 

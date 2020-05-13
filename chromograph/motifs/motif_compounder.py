@@ -4,6 +4,7 @@ import numpy as np
 import sys
 
 import loompy
+from tqdm import tqdm
 
 sys.path.append('/home/camiel/chromograph')
 import chromograph
@@ -59,11 +60,12 @@ class Motif_compounder:
 
             ## Compound to motif enrichments
             logging.info(f'Compounding peaks to motif enrichments')
-            for (ix, selection, view) in ds.scan(axis=1):
+            progress = tqdm(total=ds.shape[1])
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 for x in range(len(TF_cols)):
                     dsout[x,selection] = np.sum(view[TFs[:,x], :], axis=0)
-                logging.info(f'finished {max(selection)}')
-
+                progress.update(self.config.params.batch_size)
+            progress.close()
             ## TF-IDF normalization agains motif prevalence and total identified motifs per cell
             tf_idf = TF_IDF()
             tf_idf.fit(ds)

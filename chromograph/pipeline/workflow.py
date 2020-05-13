@@ -234,6 +234,7 @@ class Peak_caller:
                     row_attrs=annot, 
                     col_attrs={'CellID': np.array(IDs)},
                     file_attrs=dict(ds.attrs))
+        logging.info(f'Transferring column attributes')
         with loompy.connect(self.loom) as ds2:
             ds2.attrs['peak_file'] = self.precomp
             transfer_ca(ds, ds2, 'CellID')
