@@ -13,7 +13,7 @@ from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
 from cytograph.manifold import GraphSkeletonizer
-from cytograph.plotting import manifold
+import cytograph.plotting as cgplot
 
 from typing import *
 
@@ -143,9 +143,16 @@ class GA_Aggregator:
             logging.info("Graph skeletonization")
             GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
 
-            ## Plot results on manifold
+            ## Plot results 
             name = out_file.split('/')[-1].split('_')[0]
             logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
+
+            cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))
+            cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap.pdf"), layer="")
+            cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap_smoothed.pdf"), layer="smooth")
+            cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap.pdf"), layer="")
+            cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap_smoothed.pdf"), layer="smooth")
+            cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'UMAP')

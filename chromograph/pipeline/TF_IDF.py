@@ -1,5 +1,5 @@
 import numpy as np
-
+from tqdm import tqdm
 import loompy
 
 from chromograph.pipeline.utils import div0
@@ -23,6 +23,7 @@ class TF_IDF:
         N = ds.shape[1]
 
         ## Scan over rows (all cells) and add to column totals
+        progress = tqdm(ds.shape[0])
         for _, selection, view in ds.scan(axis=0, items=items):
             vals = view[self.layer][:, :].astype("float16")
             self.totals += np.sum(vals, axis=0)
@@ -30,7 +31,9 @@ class TF_IDF:
             ## Set row totals
             NB = np.sum(view[self.layer][:, :]>0, axis=1)
             self.IDF[selection] = np.log10(div0(N,NB)+1)
+            progress.update(512)
             
+        progress.close()
         ## Set level to normalize to as the median
         self.level = np.median(self.totals)
 

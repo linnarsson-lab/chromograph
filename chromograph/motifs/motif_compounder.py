@@ -66,10 +66,12 @@ class Motif_compounder:
                     dsout[x,selection] = np.sum(view[TFs[:,x], :], axis=0)
                 progress.update(self.config.params.batch_size)
             progress.close()
+
             ## TF-IDF normalization agains motif prevalence and total identified motifs per cell
-            tf_idf = TF_IDF()
-            tf_idf.fit(ds)
-            dsout['TF_IDF'] = tf_idf.transform(ds[''][:,:])
+            # logging.info('Fitting TF-IDF to data')
+            # tf_idf = TF_IDF()
+            # tf_idf.fit(ds)
+            # dsout['TF_IDF'] = tf_idf.transform(ds[''][:,:])
 
             logging.info('Normalizing against total peaks')
             dsout.layers['MMP'] = div0(dsout[:,:], (1e-6 * ds.ca['NPeaks']))
