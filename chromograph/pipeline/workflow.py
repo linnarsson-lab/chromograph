@@ -343,6 +343,6 @@ if __name__ == '__main__':
             if 'peak_file' not in locals():
                 peak_file = os.path.join(subset_dir, name + '_peaks.loom')
 
-            with loompy.connect(peak_file, 'r') as ds:
+            with loompy.connect(peak_file) as ds:
                 motif_compounder = Motif_compounder(outdir=subset_dir)
                 motif_compounder.fit(ds)
