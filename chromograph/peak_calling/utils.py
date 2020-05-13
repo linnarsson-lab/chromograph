@@ -136,6 +136,8 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             logging.info(f" Problem collecting to main dict {f}")
     logging.info(f'Completed job {id}')
     pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
+    ## Cleanup
+    pybedtools.helpers.cleanup()
     return 
 
 def strFrags_to_list(frags):
