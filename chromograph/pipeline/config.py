@@ -65,6 +65,7 @@ def load_config() -> Config:
 		}),
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
+			"skip_attrs": [],
 			"k": 25,
 			"batch_size": 512,
 			"k_pooling": 10,

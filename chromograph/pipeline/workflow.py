@@ -280,7 +280,7 @@ if __name__ == '__main__':
             # ## Merge Bin files
             if not os.path.exists(binfile):
                 logging.info(f'Input samples {samples}')
-                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc')
+                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=config.params.skip_attrs)
                 # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
                 logging.info('Finished combining loom-files')
             else:
