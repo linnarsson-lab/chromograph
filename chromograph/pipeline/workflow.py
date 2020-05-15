@@ -342,7 +342,7 @@ if __name__ == '__main__':
                 # peak_analysis.fit(ds)
 
                 peak_aggregator = Peak_Aggregator()
-                peak_aggregator.fit(peak_file, peak_agg)
+                peak_aggregator.fit(ds, peak_agg)
 
         if 'motifs' in config.steps:
             if 'peak_file' not in locals():
