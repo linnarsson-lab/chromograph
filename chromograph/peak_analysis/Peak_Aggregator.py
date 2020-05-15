@@ -80,4 +80,6 @@ class Peak_Aggregator:
             for i in range(dsout.shape[1]):
                 idx = np.sort(dsout['enrichment'][:,i].argsort()[::-1][:1000])
                 dsout['marker_peaks'][idx,i] = 1
-            dsout.ra.markerPeaks = dsout.map([np.nonzero], axis=0)[0] > 0
+            dsout.ra.markerPeaks =dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
+
+            return

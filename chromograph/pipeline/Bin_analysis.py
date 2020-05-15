@@ -199,3 +199,4 @@ class Bin_analysis:
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting attributes")
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC_UMAP.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
