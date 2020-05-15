@@ -306,7 +306,7 @@ if __name__ == '__main__':
 
             if not os.path.exists(GA_file):
                 logging.info(f'Combining GA looms')
-                loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession')
+                loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession', skip_attrs=config.params.skip_attrs)
 
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
