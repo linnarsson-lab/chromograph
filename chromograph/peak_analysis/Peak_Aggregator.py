@@ -7,13 +7,10 @@ import loompy
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
-from chromograph.peak_analysis import *
+from chromograph.peak_analysis.utils import *
 
 import loompy
 from typing import *
-
-import scipy.cluster.hierarchy as hc
-from scipy.spatial.distance import pdist
 
 import logging
 logger = logging.getLogger()

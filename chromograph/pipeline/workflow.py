@@ -29,6 +29,7 @@ from chromograph.peak_calling.utils import *
 from chromograph.peak_calling.call_MACS import call_MACS
 from chromograph.plotting.peak_annotation_plot import *
 from chromograph.motifs.motif_compounder import Motif_compounder
+from chromograph.peak_analysis.Peak_Aggregator import Peak_Aggregator
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -335,9 +336,13 @@ if __name__ == '__main__':
         if 'peak_analysis' in config.steps:
             ## Analyse peak-file
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+            peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
             with loompy.connect(peak_file, 'r+') as ds:
-                peak_analysis = Peak_analysis(outdir=subset_dir)
-                peak_analysis.fit(ds)
+                # peak_analysis = Peak_analysis(outdir=subset_dir)
+                # peak_analysis.fit(ds)
+
+                peak_aggregator = Peak_Aggregator()
+                peak_aggregator.fit(peak_file, peak_agg)
 
         if 'motifs' in config.steps:
             if 'peak_file' not in locals():
