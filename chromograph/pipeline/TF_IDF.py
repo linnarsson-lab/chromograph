@@ -34,6 +34,10 @@ class TF_IDF:
             progress.update(512)
             
         progress.close()
+
+        ## Log normalize totals
+        self.totals = np.log10(self.totals+1)
+
         ## Set level to normalize to as the median
         self.level = np.median(self.totals)
 

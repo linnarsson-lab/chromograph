@@ -78,7 +78,7 @@ class Peak_Aggregator:
             ## Select top N enriched peaks per cluster by odss-ratio
             dsout['marker_peaks'] = 'int8'
             for i in range(dsout.shape[1]):
-                idx = np.sort(dsout['enrichment'][:,i].argsort()[::-1][:1000])
+                idx = np.sort(dsout['q_val'][:,i].argsort()[:1000])
                 dsout['marker_peaks'][idx,i] = 1
             dsout.ra.markerPeaks =dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
 
