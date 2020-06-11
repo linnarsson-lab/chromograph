@@ -51,10 +51,10 @@ class TF_IDF:
         if cells is None:
             cells = slice(None)
         vals = vals.astype("float")
-        vals = div0(vals, self.totals[cells]) * self.level
+        vals = np.log10(div0(vals, self.totals[cells]) * self.level + 1)
         
         ## Multiply by Inverse Data Frequency and log scale
-        vals = np.log10(vals*self.IDF[:,None] + 1)
+        vals = vals*self.IDF[:,None]
         
         return vals
 

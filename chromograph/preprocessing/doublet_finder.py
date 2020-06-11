@@ -31,6 +31,7 @@ import sys
 import matplotlib.pyplot as plt
 import loompy
 from scipy import sparse
+from tqdm import tqdm
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 from matplotlib.collections import LineCollection
@@ -102,9 +103,12 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         tf_idf = TF_IDF()
         tf_idf.fit(dsb)
         dsb.layers['TF_IDF'] = 'float16'
+
+        progress = tqdm(total=ds.shape[1])
         for (ix, selection, view) in dsb.scan(axis=1):
             dsb['TF_IDF'][:,selection] = tf_idf.transform(view[:,:], selection)
-            logging.info(f'transformed {max(selection)} cells')
+            progress.update(512)
+        progress.close()
         ## Fit PCA
         logging.info('Fitting PCA')
         pca = PCA(n_components=50).fit_transform(dsb['TF_IDF'][:,:].T)
