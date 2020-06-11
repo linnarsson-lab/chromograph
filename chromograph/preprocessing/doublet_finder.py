@@ -31,7 +31,6 @@ import sys
 import matplotlib.pyplot as plt
 import loompy
 from scipy import sparse
-from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 from matplotlib.collections import LineCollection
@@ -123,15 +122,6 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         knn_result1.fit(pca[0:num, :])
         knn_dist1, knn_idx1 = knn_result1.kneighbors(X=pca[num + 1:, :], n_neighbors=10)
         knn_dist_rc, knn_idx_rc = knn_result1.kneighbors(X=pca[0:num, :], return_distance=True)
-
-        logging.info(f'Plot TSNE of data with doublets')
-        tsne = TSNE(angle=0.5, perplexity= 30) ## perplexity at 30 because of small cell number
-        dsb.ca.TSNE = tsne.fit(dsb.ca.PCA).embedding_
-
-        plt.figure(figsize=(8,8))
-        plt.scatter(dsb.ca.TSNE[dsb.ca.Cell == 1, 0], dsb.ca.TSNE[dsb.ca.Cell == 1, 1], c='#8da0cb', s=5)
-        plt.scatter(dsb.ca.TSNE[dsb.ca.Cell == 0, 0], dsb.ca.TSNE[dsb.ca.Cell == 0, 1], c='#fc8d62', s=5)
-        plt.savefig(os.path.join(qc_dir, 'TSNE_with_doublets.png'))
         
     dist_th = np.mean(knn_dist1.flatten()) + 1.64 * np.std(knn_dist1.flatten())
 
