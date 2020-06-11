@@ -182,7 +182,7 @@ class Chromgen:
         small_summary = {k: summary[k] for k in keys}
         
         ## We retain only the bins that have no overlap with the ENCODE blacklist
-        cleaned_matrix = matrix.tocsr()[retain,:]
+        cleaned_matrix = matrix.tocsc()[retain,:]
         logging.info("Identified {} positive bins in {} cells before filtering blacklist".format(len(v), len(meta['barcode'])))
         logging.info("Identified {} positive bins in {} cells after filtering blacklist".format(len(cleaned_matrix.nonzero()[0]), len(meta['barcode'])))
 
@@ -260,7 +260,7 @@ class Chromgen:
                 v.append(float(Count_dict[cell][key]))
             cix+=1
 
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(g_dict.keys()), len(meta['barcode'])))
+        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(g_dict.keys()), len(meta['barcode']))).tocsr()
         logging.info(f'Shape matrix: {matrix.shape}. Number of elements: {matrix.nnz}')
         
         # Do some cleanup

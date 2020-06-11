@@ -35,9 +35,6 @@ class TF_IDF:
             
         progress.close()
 
-        ## Log normalize totals
-        self.totals = np.log10(self.totals+1)
-
         ## Set level to normalize to as the median
         self.level = np.median(self.totals)
 
@@ -56,8 +53,8 @@ class TF_IDF:
         vals = vals.astype("float")
         vals = div0(vals, self.totals[cells]) * self.level
         
-        ## Multiply by Inverse Data Frequency
-        vals = vals*self.IDF[:,None]
+        ## Multiply by Inverse Data Frequency and log scale
+        vals = np.log10(vals*self.IDF[:,None] + 1)
         
         return vals
 

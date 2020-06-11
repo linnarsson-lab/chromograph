@@ -162,3 +162,68 @@ def load_sample_metadata(path: str, sample_id: str) -> Dict[str, str]:
         if not sample_found:
             raise ValueError(f"SampleID '{sample_id}' not found in sample metadata file")
         return result
+
+def rebin(a, shape):
+    sh = shape[0],a.shape[0]//shape[0],shape[1],a.shape[1]//shape[1]
+    return a.reshape(sh).sum(-1).sum(1)
+
+def mergeBins(f, bin_size):
+    with loompy.connect(f, 'r') as ds:
+        factor = int(bin_size/5000)
+        
+        logging.info(f'Getting dense matrix')
+        data = ds[:,:].astype('int8')   
+        new_data = []
+
+        new_bins = {'chrom' : [], 'start': [], 'end': [], 'loc': []}
+        sizes = []
+        
+        ## Loop over chromosomes to compact bins
+        for i in np.unique(ds.ra.chrom):
+
+            ## If no remainder from dividing N original bins by factor
+            vals = data[ds.ra.chrom==i,:]
+            if vals.shape[0]%factor == 0:
+                X = rebin(vals, (int(vals.shape[0]/factor), vals.shape[1]))
+            else:
+                rem = vals.shape[0]%factor
+                X = rebin(vals[:-rem,:], (int(vals.shape[0]/factor), vals.shape[1]))
+                X2 = rebin(vals[-rem:,:], (1, vals.shape[1])) ## Merge the last (or last few) bins to one bin
+                X = np.vstack((X, X2))
+
+            new_data.append(X.astype('int8'))
+
+            for start, end in zip(ds.ra.start[ds.ra.chrom==i][::factor], ds.ra.end[ds.ra.chrom==i][(factor-1)::factor]):
+                new_bins['chrom'].append(i)
+                new_bins['start'].append(start)
+                new_bins['end'].append(end)
+                new_bins['loc'].append(f'{i}:{start}:{end}')
+
+            ## If there was a remainder, name of last bin will be the added to the dictionary
+            if len(ds.ra.end[ds.ra.chrom==i][(factor-1)::factor]) < X.shape[0]:
+                start = str(int(new_bins['end'][-1]) + 1)
+                end = np.max(ds.ra.end[ds.ra.chrom==i])
+                new_bins['chrom'].append(i)
+                new_bins['start'].append(start)
+                new_bins['end'].append(end)
+                new_bins['loc'].append(f'{i}:{start}:{end}')
+
+        logging.info(f'Generating sparse matrix')
+        matrix = sparse.coo_matrix(np.vstack(new_data)).tocsr()
+        
+        ## Create loomfile
+        logging.info("Constructing loomfile")
+        sampleid = f.split('/')[-2] + '_' + str(int(bin_size/1000)) + 'kb'
+        floom = os.path.join(os.path.dirname(f), sampleid + '.loom')
+        
+        loompy.create(filename=floom, 
+                      layers=matrix, 
+                      row_attrs=new_bins, 
+                      col_attrs=ds.ca,
+                      file_attrs=ds.attrs)
+        
+        ## Change bin_size in attributes
+        with loompy.connect(floom) as dsout:
+            dsout.attrs['bin_size'] = bin_size
+        
+        logging.info(f"Loom-file with {str(int(bin_size/1000)) + 'kb'} bins saved as {floom}")

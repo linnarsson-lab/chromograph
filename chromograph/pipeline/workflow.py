@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime
 import logging
 from typing import *
+from tqdm import tqdm
 
 import gzip
 import glob
@@ -21,7 +22,7 @@ from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
 from chromograph.pipeline.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
-from chromograph.preprocessing.utils import get_blacklist
+from chromograph.preprocessing.utils import get_blacklist, rebin
 from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.peak_calling.peak_caller import *
@@ -158,6 +159,14 @@ class Peak_caller:
             f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
             peaks_all = BedTool(f)
 
+            ## Generate bigwigs
+            pool = mp.Pool(20)
+            logging.info('Exporting bigwigs')
+            for cluster in tqdm(np.unique(ds.ca.Clusters)):
+                pool.apply_async(export_bigwig, args=(ds, self.config.paths.samples, self.peakdir, cluster,))
+            pool.close()
+            pool.join()
+
         ## Check All_peaks.loom exists, get subset
         all_peaks_loom = os.path.join(self.config.paths.build, 'All', 'All_peaks.loom')
         if os.path.exists(all_peaks_loom):
@@ -223,7 +232,7 @@ class Peak_caller:
                     cix+=1
                     IDs.append(cell)
         logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID'])))
+        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
         logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
 
         ## Create loomfile
@@ -274,6 +283,13 @@ if __name__ == '__main__':
             inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
             selections = []
             for file in inputfiles:
+
+                ## Check if file with right binning exists
+                if not os.path.exists(file):
+                    file_5kb = os.path.join(os.path.dirname(file), f'{file.split("/")[-2]}_5kb.loom')
+                    rebin(file_5kb, config.params.bin_size)
+
+                ## Get cells passing filters
                 with loompy.connect(file, 'r') as ds:
                     good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.promoter_region_fragments/ds.ca.passed_filters > 0.1)
                     selections.append(good_cells)
