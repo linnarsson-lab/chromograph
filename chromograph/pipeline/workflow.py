@@ -22,7 +22,7 @@ from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
 from chromograph.pipeline.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
-from chromograph.preprocessing.utils import get_blacklist, rebin
+from chromograph.preprocessing.utils import get_blacklist, mergeBins
 from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.peak_calling.peak_caller import *
@@ -287,7 +287,7 @@ if __name__ == '__main__':
                 ## Check if file with right binning exists
                 if not os.path.exists(file):
                     file_5kb = os.path.join(os.path.dirname(file), f'{file.split("/")[-2]}_5kb.loom')
-                    rebin(file_5kb, config.params.bin_size)
+                    mergeBins(file_5kb, config.params.bin_size)
 
                 ## Get cells passing filters
                 with loompy.connect(file, 'r') as ds:
