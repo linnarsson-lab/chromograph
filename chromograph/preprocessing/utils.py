@@ -169,9 +169,10 @@ def rebin(a, shape):
 
 def mergeBins(f, bin_size):
     with loompy.connect(f, 'r') as ds:
+        ## Assume that original file has bin sizes of size 5kb
         factor = int(bin_size/5000)
-        
-        logging.info(f'Getting dense matrix')
+
+        ## Retrieve dense matrix        
         data = ds[:,:].astype('int8')   
         new_data = []
 
@@ -202,17 +203,16 @@ def mergeBins(f, bin_size):
             ## If there was a remainder, name of last bin will be the added to the dictionary
             if len(ds.ra.end[ds.ra.chrom==i][(factor-1)::factor]) < X.shape[0]:
                 start = str(int(new_bins['end'][-1]) + 1)
-                end = np.max(ds.ra.end[ds.ra.chrom==i])
+                end = np.max(ds.ra.end[ds.ra.chrom==i].astype('int'))
                 new_bins['chrom'].append(i)
                 new_bins['start'].append(start)
                 new_bins['end'].append(end)
                 new_bins['loc'].append(f'{i}:{start}:{end}')
 
-        logging.info(f'Generating sparse matrix')
+        ## Make matrix sparse
         matrix = sparse.coo_matrix(np.vstack(new_data)).tocsr()
         
         ## Create loomfile
-        logging.info("Constructing loomfile")
         sampleid = f.split('/')[-2] + '_' + str(int(bin_size/1000)) + 'kb'
         floom = os.path.join(os.path.dirname(f), sampleid + '.loom')
         
