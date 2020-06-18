@@ -97,7 +97,6 @@ class Chromgen:
 
 
         logging.info("Total of {} valid cells".format(len(meta['barcode'])))
-        
         logging.info("Ref. assembly {}".format(summary['reference_assembly']))
 
         # Get Chromosome sizes
@@ -214,7 +213,10 @@ class Chromgen:
         logging.info(f'Detecting doublets in loom file')
 
         with loompy.connect(self.loom, 'r+') as ds:
-            ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
+            if ds.shape[1] > 1000:
+                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
+            else:
+                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, fixed_th=0.5)
             meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
             meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
 
