@@ -216,7 +216,7 @@ class Chromgen:
             if ds.shape[1] > 1000:
                 ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
             else:
-                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, fixed_th=0.5)
+                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)), np.zeros((ds.shape[1],))
             meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
             meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
 

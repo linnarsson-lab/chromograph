@@ -57,7 +57,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, qc_dir: object = ".", max_th: float= 1) -> np.ndarray:
+def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, qc_dir: object = ".", max_th: float= 1, min_th: float = 0.1) -> np.ndarray:
     '''
     '''
     ## Create n doublets
@@ -172,9 +172,10 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         #The TH shouldn't be higher than indicated
         if  doublet_th2 >max_th:
             doublet_th2= max_th
+
+        ## If no reasonable threshold from bimodal distribution, use threshold from expected doublet rate
         if  doublet_th1 >max_th:
             doublet_th1= max_th
-        if doublet_th1 == max_th:
             doublet_th = doublet_th2
         elif (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
             doublet_th = doublet_th2
