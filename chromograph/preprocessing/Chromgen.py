@@ -210,13 +210,13 @@ class Chromgen:
         del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin, matrix, cleaned_matrix, col, row, v
         
         ## Doublet detection
-        logging.info(f'Detecting doublets in loom file')
-
         with loompy.connect(self.loom, 'r+') as ds:
             if ds.shape[1] > 1000:
+                logging.info(f'Detecting doublets in loom file')
                 ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
             else:
-                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)), np.zeros((ds.shape[1],))
+                logging.info(f'Too few cells for doublet detections')
+                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(int), np.zeros((ds.shape[1],)).astype(int)
             meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
             meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
 
