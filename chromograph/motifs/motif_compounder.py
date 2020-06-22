@@ -27,7 +27,7 @@ class Motif_compounder:
         """
         self.config = chromograph.pipeline.config.load_config()
         self.peakdir = os.path.join(outdir, 'peaks')
-        self.out_file = os.path.join(outdir, f"{outdir.split('/')[0]}_motifs.loom")
+        self.outdir = outdir
         logging.info("Motif compounder initialised")
 
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -45,7 +45,9 @@ class Motif_compounder:
         '''
         
         ## Get paths
-        name = ds.filename.split(".")[0]
+        name = ds.filename.split('/')[-1].split(".")[0]
+        self.out_file = os.path.join(self.outdir, f"{name}_motifs.loom")
+
         
         if 'NCells' not in ds.ra or 'NPeaks' not in ds.ca:
             logging.info('Calculating peak and cell coverage')
