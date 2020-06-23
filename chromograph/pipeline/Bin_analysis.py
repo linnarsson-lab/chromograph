@@ -124,8 +124,8 @@ class Bin_analysis:
             logging.info(f'Finished PCA transformation')
             del pca
 
-            ## Get correct embedding and metric
-            decomp = ds.ca.PCA
+        ## Get correct embedding and metric
+        decomp = ds.ca.PCA
         metric = "euclidean"
 
         ## Construct nearest-neighbor graph
