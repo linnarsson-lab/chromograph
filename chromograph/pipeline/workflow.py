@@ -91,6 +91,14 @@ class Peak_caller:
                 if os.path.exists(path_pre_annot):
                     logging.info(f'Use annotation of precomputed peaks')
                     shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
+
+                ## Generate bigwigs
+                pool = mp.Pool(20)
+                logging.info('Exporting bigwigs')
+                for cluster in tqdm(np.unique(ds.ca.Clusters)):
+                    pool.apply_async(export_bigwig, args=(ds, self.config.paths.samples, self.peakdir, cluster,))
+                pool.close()
+                pool.join()
             
             else:
                 logging.info('No precomputed peak list. Calling peaks')

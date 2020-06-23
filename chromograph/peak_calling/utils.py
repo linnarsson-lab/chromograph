@@ -182,7 +182,7 @@ def export_bigwig(ds: loompy.LoomConnection, sample_dir, peak_dir, cluster):
     os.system(f'bedtools genomecov -i {f_sort} -g {f_genome} -scale {cov} -bg > {f_bg}')
     
     ## Convert to bigwig
-    outfile = os.path.join(peakdir, f'cluster_{str(cluster)}.bw')
+    outfile = os.path.join(peak_dir, f'cluster_{str(cluster)}.bw')
     pybedtools.contrib.bigwig.bedgraph_to_bigwig(BedTool(f_bg), genome='hg38', output=outfile)
     
     ## Clean up
