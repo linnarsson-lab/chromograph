@@ -126,7 +126,7 @@ class Bin_analysis:
 
             ## Get correct embedding and metric
             decomp = ds.ca.PCA
-            metric = "euclidean"
+        metric = "euclidean"
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) using the '{metric}' metric")
