@@ -80,9 +80,6 @@ class Peak_caller:
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
 
-        ## Ensure new processes are spawned and not forked
-        mp.set_start_method('spawn')
-
         ## Check if Compounded peaks already exists
         if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
             path_precomp = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
