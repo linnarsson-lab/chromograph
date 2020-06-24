@@ -1,5 +1,6 @@
 import loompy
 import os
+import gc
 import sys
 import numpy as np
 from datetime import datetime
@@ -79,6 +80,9 @@ class Peak_caller:
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
 
+        ## Ensure new processes are spawned and not forked
+        mp.set_start_method('spawn')
+
         ## Check if Compounded peaks already exists
         if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
             path_precomp = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
@@ -86,6 +90,7 @@ class Peak_caller:
                 logging.info(f'Use peaks computed for full dataset')
                 self.precomp = 'All'
                 shutil.copyfile(path_precomp, os.path.join(self.peakdir, 'Compounded_peaks.bed'))
+                f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
             
                 path_pre_annot = os.path.join(self.config.paths.build, 'All', 'peaks', 'annotated_peaks.txt')
                 if os.path.exists(path_pre_annot):
@@ -133,14 +138,20 @@ class Peak_caller:
                 pool.close()
                 pool.join()
 
+                ## Manually call garbage collection to prevent memory leaks from mp
+                gc.collect()
+
                 logging.info(f'Finished downsampling')
 
                 logging.info(f'Start calling peaks')
-                pool = mp.Pool(20) 
+                pool = mp.Pool(20,maxtasksperchild=1) 
                 for pile in piles:
                     pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
                 pool.close()
                 pool.join()
+
+                ## Manually call garbage collection to prevent memory leaks from mp
+                gc.collect()
                     
                 ## Compound the peak lists
                 peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
