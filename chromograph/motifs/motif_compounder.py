@@ -45,7 +45,7 @@ class Motif_compounder:
         '''
         
         ## Get paths
-        name = ds.filename.split('/')[-1].split(".")[0]
+        name = ds.filename.split('/')[-1].split(".")[0].split('_')[0]
         self.out_file = os.path.join(self.outdir, f"{name}_motifs.loom")
 
         
@@ -91,6 +91,8 @@ class Motif_compounder:
             logging.info('Generating modified Z-scores')
             dsout.ra['Median'] = dsout['smooth'].map([np.median], axis=0)[0]
             dsout.ra['MADS'] = np.median(abs(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1])), axis=1)
-            dsout['MZ'] = 0.6745 * div0(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1]), dsout.ra['MADS'].reshape([dsout.shape[0],1]))  
+            dsout['MZ'] = 0.6745 * div0(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1]), dsout.ra['MADS'].reshape([dsout.shape[0],1]))
+            dsout['counts'] = dsout['']
+            dsout[''] = dsout['MZ']  
         return self.out_file
 
