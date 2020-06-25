@@ -152,7 +152,7 @@ def export_bigwig(ds: loompy.LoomConnection, sample_dir, peak_dir, cluster):
     '''
     Calculates coverage for a cluster and exports as a bigwig file
     '''
-    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
+    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
     files = np.array([os.path.join(sample_dir, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
 
     ## Check if all files exist
