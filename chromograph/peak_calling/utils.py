@@ -1,6 +1,7 @@
 import numpy as np
 import sys
 import os
+import subprocess
 import loompy
 import multiprocessing
 import pickle as pkl
@@ -150,11 +151,10 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
     pybedtools.helpers.cleanup()
     return 
 
-def export_bigwig(ds: loompy.LoomConnection, sample_dir, peak_dir, cluster):
+def export_bigwig(cells, sample_dir, peak_dir, cluster):
     '''
     Calculates coverage for a cluster and exports as a bigwig file
     '''
-    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
     files = np.array([os.path.join(sample_dir, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
 
     ## Check if all files exist
@@ -190,6 +190,14 @@ def export_bigwig(ds: loompy.LoomConnection, sample_dir, peak_dir, cluster):
     ## Clean up
     os.system(f'rm {f_bg} {f_sort}')    
     return
+
+def homer_motif_call(homer, f, motifs, out_file):
+    '''
+    Wrapper for calling HOMER annotatePeaks from python
+    '''
+    subprocess.call([homer, f, 'hg38', '-noann', '-nogene', '-m', motifs], stdout = open(out_file, 'wb'))
+    return
+
 
 def strFrags_to_list(frags):
     '''

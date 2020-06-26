@@ -1,5 +1,6 @@
 import loompy
 import os
+import subprocess
 import gc
 import sys
 import numpy as np
@@ -98,7 +99,8 @@ class Peak_caller:
                 pool = mp.Pool(20)
                 logging.info('Exporting bigwigs')
                 for cluster in tqdm(np.unique(ds.ca.Clusters)):
-                    pool.apply_async(export_bigwig, args=(ds, self.config.paths.samples, self.peakdir, cluster,))
+                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+                    pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
                 pool.close()
                 pool.join()
             
@@ -179,6 +181,7 @@ class Peak_caller:
             pool = mp.Pool(20)
             logging.info('Exporting bigwigs')
             for cluster in tqdm(np.unique(ds.ca.Clusters)):
+                cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
                 pool.apply_async(export_bigwig, args=(ds, self.config.paths.samples, self.peakdir, cluster,))
             pool.close()
             pool.join()
@@ -209,9 +212,30 @@ class Peak_caller:
             cmd = f'{homer} {f} hg38 -gtf {genes} -m {motifs} > {f_annot}'  ## Command to call HOMER
             os.system(cmd)  ## Actually call HOMER
 
+            ## Annotate motifs
+            split_dir = os.path.join(self.peakdir, 'compound_split')
+            out_motifs = os.path.join(self.peakdir, 'out_motifs')
+            os.mkdir(split_dir)
+            subprocess.run(['awk', '{print $0 >>' + f'"{split_dir}/"' + '$1".bed"}', 'compound_peaks.bed']) ## Split by chromosome since motif annotation takes a lot of RAM
+
+            pool = mp.Pool(5,maxtasksperchild=1)
+            logging.info('Annotating motifs')
+            for chrom_file in tqdm(os.listdir(split_dir)):
+                out_file = os.path.join(out_motifs, f'{chrom_file.split("/")[-1].split(".")[0]}.txt')
+                pool.apply_async(homer_motif_call, args=(homer,chrom_file, motifs, out_file,))
+            pool.close()
+            pool.join()
+
+            ## Merge motif outputs
+            motif_outputs = [os.path.join(out_motifs, x) for x in os.listdir(out_motifs)]
+            motif_annotation = os.path.join(peakdir, 'motif_annotation.txt')
+            subprocess.call(['head', '-1', motif_outputs[0]], stdout = open(motif_annotation, 'wb'))
+            for x in motif_outputs:
+                subprocess.call(['tail', '-n', '+2', '-q',x], stdout = open(motif_annotation, 'wb'))
+
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
-        cols, table, TF_cols, TFs = read_HOMER_annotation(f_annot)
+        cols, table, _, _ = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}
