@@ -161,8 +161,6 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster):
     ex = np.array([os.path.exists(x) for x in files])
     files = files[ex]
 
-    logging.info(f'Found {len(files)} files for cluster: {cluster}')
-
     fmerge = os.path.join(peak_dir, f'fragments_{cluster}.tsv.gz')
     with open(fmerge, 'wb') as out:
         for f in files:
@@ -177,7 +175,7 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster):
     f_sort = f'{fmerge.split(".")[0]}_sorted.bed'
     os.system(f'gunzip {fmerge}')
     os.system(f'sort -k 1,1 -k2,2n {f_unzip} > {f_sort}')
-    os.system(f'rm {fmerge} {f_unzip}')
+    os.system(f'rm {f_unzip}')
 
     ## Calculate coverage and scale to CPM
     cov = 1e6 / BedTool(f_sort).count()
