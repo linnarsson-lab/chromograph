@@ -235,7 +235,7 @@ class Peak_caller:
 
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
-        cols, table, _, _ = read_HOMER_annotation(f_annot)
+        cols, table = read_HOMER_annotation(f_annot)
         peak_IDs = np.array([x[3] for x in peaks_all])
         table = reorder_by_IDs(table, peak_IDs)
         annot = {cols[i]: table[:,i] for i in range(table.shape[1])}

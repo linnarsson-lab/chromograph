@@ -54,6 +54,25 @@ def read_HOMER_annotation(file):
                 cols = ['ID'] + line.split('\t')[1:]
                 cols = [x.rstrip() for x in cols]
                 cols = np.array([x.replace('/', '-',) for x in cols])
+            if i> 0:
+                table.append([x.rstrip() for x in line.split('\t')])
+            i += 1
+
+    return cols, np.array(table)
+
+def read_HOMER_TFs(file):
+    '''
+    Read the output of HOMER TF annotation into a numpy array
+    '''
+    table = []
+    TFs = []
+    with open(file) as f:
+        i = 0
+        for line in f:
+            if i == 0:
+                cols = ['ID'] + line.split('\t')[1:]
+                cols = [x.rstrip() for x in cols]
+                cols = np.array([x.replace('/', '-',) for x in cols])
                 clim = np.where(cols == 'GC%')[0][0] + 1
                 TF_cols = [x.split(' ')[0] for x in cols[clim:]]
             if i> 0:
@@ -63,7 +82,7 @@ def read_HOMER_annotation(file):
                 TFs.append(tline)
             i += 1
 
-    return cols[:clim], np.array(table), TF_cols, np.array(TFs)
+        return cols[:clim], np.array(table), TF_cols, np.array(TFs)
 
 
 def reorder_by_IDs(mat: np.ndarray, IDs):
