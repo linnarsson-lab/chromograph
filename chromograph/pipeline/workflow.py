@@ -228,7 +228,7 @@ class Peak_caller:
 
             ## Merge motif outputs
             motif_outputs = [os.path.join(out_motifs, x) for x in os.listdir(out_motifs)]
-            motif_annotation = os.path.join(peakdir, 'motif_annotation.txt')
+            motif_annotation = os.path.join(self.peakdir, 'motif_annotation.txt')
             subprocess.call(['head', '-1', motif_outputs[0]], stdout = open(motif_annotation, 'wb'))
             for x in motif_outputs:
                 subprocess.call(['tail', '-n', '+2', '-q',x], stdout = open(motif_annotation, 'wb'))
