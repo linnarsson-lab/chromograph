@@ -216,7 +216,7 @@ class Peak_caller:
             split_dir = os.path.join(self.peakdir, 'compound_split')
             out_motifs = os.path.join(self.peakdir, 'out_motifs')
             [os.mkdir(x) for x in [split_dir, out_motifs] if not os.path.exists(x)]
-            subprocess.run(['awk', '{print $0 >>' + f'"{split_dir}/"' + '$1".bed"}', 'Compound_peaks.bed']) ## Split by chromosome since motif annotation takes a lot of RAM
+            subprocess.run(['awk', '{print $0 >>' + f'"{split_dir}/"' + '$1".bed"}', 'Compounded_peaks.bed']) ## Split by chromosome since motif annotation takes a lot of RAM
 
             pool = mp.Pool(5,maxtasksperchild=1)
             logging.info('Annotating motifs')
