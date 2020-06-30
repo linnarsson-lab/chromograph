@@ -15,6 +15,7 @@ from tqdm import tqdm
 from cytograph.decomposition import HPF
 from scipy.stats import poisson
 from cytograph.manifold import BalancedKNN
+from cytograph.enrichment import FeatureSelectionByVariance
 from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
@@ -23,6 +24,7 @@ from cytograph.plotting import manifold
 # sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.pipeline import config
+from chromograph.pipeline.utils import *
 from chromograph.pipeline.TF_IDF import TF_IDF
 
 from umap import UMAP
@@ -69,8 +71,21 @@ class Peak_analysis:
 
         del cov, mu, sd
 
-        ## Select peaks for manifold learning
-        ds.ra.Valid = np.array(ds.ra['NCells'] > np.quantile(ds.ra['NCells'], self.config.params.peak_quantile))
+        ## Select peaks for manifold learning based on variance between pre-clusters
+        logging.info('Select Peaks for HPF by variance in preclusters')
+        temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
+        ds.aggregate(temporary_aggregate, None, "Clusters", "mean")
+        with loompy.connect(temporary_aggregate) as dsout:
+            ## Normalize peak counts by total fragments per cluster
+            dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
+            logging.info('Convert to CPMs')
+            dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
+            logging.info('Selecting peaks for clustering')
+            ds.ra.mu, ds.ra.sd = dsout['CPM'].map((np.mean, np.std), axis=0)
+            fs = FeatureSelectionByVariance(n_genes=self.config.params.peak_cluster_N, layer='CPM')
+            ds.ra.Valid = fs.fit(dsout)
+        ## Delete temporary file
+        os.remove(temporary_aggregate)
 
         ## Create binary layer
         if 'Binary' not in ds.layers:
@@ -166,7 +181,12 @@ class Peak_analysis:
         ds.col_graphs.RNN = rnn
 
         del knn, mknn, rnn
-    
+
+        ## Save clusters and embedding from bin analysis as clusters_bin
+        ds.ca.Clusters_bin, ds.ca.ClustersModularity_bin, ds.ca.OutliersModularity_bin = ds.ca.Clusters, ds.ca.ClustersModularity, ds.ca.OutliersModularity
+        ds.ca.ClustersSurprise_bin, ds.ca.OutliersSurprise_bin = ds.ca.ClustersSurprise, ds.ca.OutliersSurprise
+        ds.ca.TSNE_bin, ds.ca.UMAP_bin, ds.ca.UMAP3D_bin = ds.ca.TSNE, ds.ca.UMAP, ds.ca.UMAP3D
+
         ## Perform tSNE and UMAP
         logging.info(f"Computing 2D and 3D embeddings from latent space")
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
@@ -184,10 +204,6 @@ class Peak_analysis:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=25 // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
-
-        ## Save clusters from bin analysis as clusters_bin
-        ds.ca.Clusters_bin, ds.ca.ClustersModularity_bin, ds.ca.OutliersModularity_bin = ds.ca.Clusters, ds.ca.ClustersModularity, ds.ca.OutliersModularity
-        ds.ca.ClustersSurprise_bin, ds.ca.OutliersSurprise_bin = ds.ca.ClustersSurprise, ds.ca.OutliersSurprise
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
@@ -212,3 +228,4 @@ class Peak_analysis:
         manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting attributes")
         QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])

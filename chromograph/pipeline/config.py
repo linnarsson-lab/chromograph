@@ -78,7 +78,7 @@ def load_config() -> Config:
 			"level": 5000,
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
-			"peak_quantile": 0.75,
+			"peak_cluster_N": 20000,
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,

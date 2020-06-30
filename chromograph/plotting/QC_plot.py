@@ -74,7 +74,14 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']), s=1)
         ax[1].set_title("Fragments per cell v. positive peaks per cell")
         ax[1].set_ylabel("Log10 Positive peaks")
-        ax[1].set_xlabel("Log10 fragmentss")
+        ax[1].set_xlabel("Log10 fragments")
+
+        ## Plot the variance an clustermeans used for feature selection
+        ax[2].scatter(ds.ra.mu, ds.ra.sd**2, s=1, c='grey')
+        ax[2].scatter(ds.ra.mu[ds.ra.Valid], ds.ra.sd[ds.ra.Valid]**2, s=1, c='red')
+        ax[2].set_title("Selection of peaks by variance")
+        ax[2].set_ylabel("Variance across preclusters")
+        ax[2].set_xlabel("Mean positive peaks across preclusters")
 
     else:
         ax[0].hist(ds.ca['NBins'], bins=100, alpha=0.5)
@@ -87,16 +94,14 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[1].set_ylabel("Log10 Positive Bins")
         ax[1].set_xlabel("Log10 fragmentss")
     
-
-    ## Histogram of Feature Coverage
-    ax[2].hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
-    
-    ## Plot min and max coverage
-    ax[2].axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
-    ax[2].axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
-    ax[2].set_title("Coverage")
-    ax[2].set_ylabel("Number of features")
-    ax[2].set_xlabel("Log10 Coverage")
+        ## Histogram of Feature Coverage
+        ax[2].hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
+        ## Plot min and max coverage
+        ax[2].axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+        ax[2].axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+        ax[2].set_title("Coverage")
+        ax[2].set_ylabel("Number of features")
+        ax[2].set_xlabel("Log10 Coverage")
     
     ## Plot the number of fragments per cell
     # Draw edges

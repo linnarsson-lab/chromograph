@@ -22,7 +22,7 @@ sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
-from chromograph.pipeline.peak_analysis import Peak_analysis
+from chromograph.peak_analysis.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
 from chromograph.preprocessing.utils import get_blacklist, mergeBins
 from chromograph.features.gene_smooth import GeneSmooth
@@ -348,7 +348,28 @@ if __name__ == '__main__':
             with loompy.connect(binfile, 'r+') as ds:
                 bin_analysis = Bin_analysis(outdir=subset_dir)
                 bin_analysis.fit(ds)
-        
+
+        if 'peak_calling' in config.steps:
+            ## Call peaks
+            with loompy.connect(binfile, 'r+') as ds:
+                peak_caller = Peak_caller(outdir=subset_dir)
+                peak_caller.fit(ds)
+
+        if 'peak_analysis' in config.steps:
+            ## Analyse peak-file
+            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+            peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
+            with loompy.connect(peak_file, 'r+') as ds:
+                # peak_analysis = Peak_analysis(outdir=subset_dir)
+                # peak_analysis.fit(ds)
+
+                peak_aggregator = Peak_Aggregator()
+                peak_aggregator.fit(ds, peak_agg)
+
+                logging.info(f'Transferring column attributes and column graphs back to bin file')
+                with loompy.connect(binfile) as dsb:
+                    transfer_ca(ds, dsb, 'CellID')
+
         if 'GA' in config.steps:
             ## Merge GA files
             GA_file = os.path.join(subset_dir, name + '_GA.loom')
@@ -383,23 +404,6 @@ if __name__ == '__main__':
                 logging.info(f'Transferring column attributes and column graphs back to bin file')
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
-
-        if 'peak_calling' in config.steps:
-            ## Call peaks
-            with loompy.connect(binfile, 'r+') as ds:
-                peak_caller = Peak_caller(outdir=subset_dir)
-                peak_caller.fit(ds)
-
-        if 'peak_analysis' in config.steps:
-            ## Analyse peak-file
-            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-            peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
-            with loompy.connect(peak_file, 'r+') as ds:
-                # peak_analysis = Peak_analysis(outdir=subset_dir)
-                # peak_analysis.fit(ds)
-
-                peak_aggregator = Peak_Aggregator()
-                peak_aggregator.fit(ds, peak_agg)
 
         if 'motifs' in config.steps:
             if 'peak_file' not in locals():

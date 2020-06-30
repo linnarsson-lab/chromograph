@@ -4,13 +4,20 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import loompy
+from typing import *
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
 
-import loompy
-from typing import *
+from cytograph.species import Species
+from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
+from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment
+from cytograph.manifold import GraphSkeletonizer
+import cytograph.plotting as cgplot
+
+import scipy.cluster.hierarchy as hc
+from scipy.spatial.distance import pdist
 
 import logging
 logger = logging.getLogger()
@@ -80,6 +87,43 @@ class Peak_Aggregator:
             for i in range(dsout.shape[1]):
                 idx = np.sort(dsout['q_val'][:,i].argsort()[:1000])
                 dsout['marker_peaks'][idx,i] = 1
-            dsout.ra.markerPeaks =dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
+            markers =dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
+            dsout.ra.markerPeaks = markers
+
+            # Renumber the clusters
+            logging.info("Renumbering clusters by similarity, and permuting columns")
+
+            data = np.log(dsout[:, :] + 1)[markers, :].T
+            D = pdist(data, 'correlation')
+            Z = hc.linkage(D, 'ward', optimal_ordering=True)
+            ordering = hc.leaves_list(Z)
+
+            # Permute the aggregated file, and renumber
+            dsout.permute(ordering, axis=1)
+            dsout.ca.Clusters = np.arange(n_labels)
+
+            # Redo the Ward's linkage just to get a tree that corresponds with the new ordering
+            data = np.log(dsout[:, :] + 1)[markers, :].T
+            D = pdist(data, 'correlation')
+            dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
+
+            # Renumber the original file, and permute
+            d = dict(zip(ordering, np.arange(n_labels)))
+            new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
+            ds.ca.Clusters = new_clusters
+            ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
+
+            # logging.info("Graph skeletonization")
+            GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
+
+            ## Plot results 
+            name = out_file.split('/')[-1].split('_')[0]
+            logging.info("Plotting UMAP")
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
+            logging.info("Plotting TSNE")
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
+
+            cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))
+            cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'UMAP')
 
             return
