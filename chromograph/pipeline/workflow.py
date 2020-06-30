@@ -220,8 +220,9 @@ class Peak_caller:
 
             pool = mp.Pool(5,maxtasksperchild=1)
             logging.info('Annotating motifs')
-            for chrom_file in tqdm(os.listdir(split_dir)):
-                out_file = os.path.join(out_motifs, f'{chrom_file.split("/")[-1].split(".")[0]}.txt')
+            for file in tqdm(os.listdir(split_dir)):
+                chrom_file = os.path.join(split_dir, file)
+                out_file = os.path.join(out_motifs, f'{file.split("/")[-1].split(".")[0]}.txt')
                 pool.apply_async(homer_motif_call, args=(homer,chrom_file, motifs, out_file,))
             pool.close()
             pool.join()
