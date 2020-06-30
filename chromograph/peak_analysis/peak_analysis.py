@@ -72,9 +72,10 @@ class Peak_analysis:
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
             logging.info('Convert to CPMs')
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
-            logging.info('Selecting peaks for clustering')
+            logging.info('Calculating variance')
             (ds.ra.mu, ds.ra.sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
-            fs = FeatureSelectionByVariance(n_genes=self.config.params.peak_cluster_N, layer='CPM')
+            logging.info('Selecting peaks for clustering')
+            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
             ds.ra.Valid = fs.fit(dsout)
         ## Delete temporary file
         os.remove(temporary_aggregate)
