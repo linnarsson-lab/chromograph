@@ -360,8 +360,8 @@ if __name__ == '__main__':
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
             peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
             with loompy.connect(peak_file, 'r+') as ds:
-                # peak_analysis = Peak_analysis(outdir=subset_dir)
-                # peak_analysis.fit(ds)
+                peak_analysis = Peak_analysis(outdir=subset_dir)
+                peak_analysis.fit(ds)
 
                 peak_aggregator = Peak_Aggregator()
                 peak_aggregator.fit(ds, peak_agg)
