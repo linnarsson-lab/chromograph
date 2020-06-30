@@ -62,26 +62,18 @@ class Peak_analysis:
         logging.info('Calculating peak and cell coverage')
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
-        
-        ## Calculate coverage
-        cov = np.log10(ds.ra['NCells']+1)
-        mu = np.mean(cov)
-        sd = np.std(cov)
-        ds.ra['Coverage'] = (cov - mu) / sd
-
-        del cov, mu, sd
 
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for HPF by variance in preclusters')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
-        ds.aggregate(temporary_aggregate, None, "Clusters", "mean")
+        ds.aggregate(temporary_aggregate, None, "Clusters", "sum", {"Clusters": "first"})
         with loompy.connect(temporary_aggregate) as dsout:
             ## Normalize peak counts by total fragments per cluster
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
             logging.info('Convert to CPMs')
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
             logging.info('Selecting peaks for clustering')
-            ds.ra.mu, ds.ra.sd = dsout['CPM'].map((np.mean, np.std), axis=0)
+            (ds.ra.mu, ds.ra.sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
             fs = FeatureSelectionByVariance(n_genes=self.config.params.peak_cluster_N, layer='CPM')
             ds.ra.Valid = fs.fit(dsout)
         ## Delete temporary file
