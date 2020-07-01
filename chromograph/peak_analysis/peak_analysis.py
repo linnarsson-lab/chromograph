@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import os
 import sys
 import collections
@@ -30,6 +31,7 @@ from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelec
 from umap import UMAP
 import sklearn.metrics
 from scipy.spatial import distance
+from harmony import harmonize
 import community
 import networkx as nx
 from scipy import sparse
@@ -106,6 +108,10 @@ class Peak_analysis:
             logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
             hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
             hpf.fit(data)
+
+            logging.info(f'Batch correcting using Harmony')
+            keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.batch_keys})
+            hpf.theta = harmonize(hpf.theta, keys_df, batch_key=self.batch_keys, n_jobs_kmeans=1)
 
             logging.info("Adding Betas and Thetas to loom file")
             beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
