@@ -15,7 +15,6 @@ from tqdm import tqdm
 from cytograph.decomposition import HPF
 from scipy.stats import poisson
 from cytograph.manifold import BalancedKNN
-from cytograph.enrichment import FeatureSelectionByVariance
 from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
@@ -26,6 +25,7 @@ from chromograph.plotting.QC_plot import QC_plot
 from chromograph.pipeline import config
 from chromograph.pipeline.utils import *
 from chromograph.pipeline.TF_IDF import TF_IDF
+from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
 
 from umap import UMAP
 import sklearn.metrics
