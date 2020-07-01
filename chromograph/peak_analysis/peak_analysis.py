@@ -110,8 +110,8 @@ class Peak_analysis:
             hpf.fit(data)
 
             logging.info(f'Batch correcting using Harmony')
-            keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.batch_keys})
-            hpf.theta = harmonize(hpf.theta, keys_df, batch_key=self.batch_keys, n_jobs_kmeans=1)
+            keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.config.params.batch_keys})
+            hpf.theta = harmonize(hpf.theta, keys_df, batch_key=self.config.params.batch_keys, n_jobs_kmeans=1)
 
             logging.info("Adding Betas and Thetas to loom file")
             beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
