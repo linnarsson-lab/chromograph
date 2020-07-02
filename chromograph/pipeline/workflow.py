@@ -95,14 +95,14 @@ class Peak_caller:
                     logging.info(f'Use annotation of precomputed peaks')
                     shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
 
-                ## Generate bigwigs
-                pool = mp.Pool(20)
-                logging.info('Exporting bigwigs')
-                for cluster in tqdm(np.unique(ds.ca.Clusters)):
-                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                    pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
-                pool.close()
-                pool.join()
+                # ## Generate bigwigs
+                # pool = mp.Pool(20)
+                # logging.info('Exporting bigwigs')
+                # for cluster in tqdm(np.unique(ds.ca.Clusters)):
+                #     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+                #     pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
+                # pool.close()
+                # pool.join()
             
             else:
                 logging.info('No precomputed peak list. Calling peaks')
@@ -177,14 +177,14 @@ class Peak_caller:
             f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
             peaks_all = BedTool(f)
 
-            ## Generate bigwigs
-            pool = mp.Pool(20)
-            logging.info('Exporting bigwigs')
-            for cluster in tqdm(np.unique(ds.ca.Clusters)):
-                cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
-            pool.close()
-            pool.join()
+            # ## Generate bigwigs
+            # pool = mp.Pool(20)
+            # logging.info('Exporting bigwigs')
+            # for cluster in tqdm(np.unique(ds.ca.Clusters)):
+            #     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+            #     pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
+            # pool.close()
+            # pool.join()
 
         ## Check All_peaks.loom exists, get subset
         all_peaks_loom = os.path.join(self.config.paths.build, 'All', 'All_peaks.loom')
@@ -369,6 +369,16 @@ if __name__ == '__main__':
                 logging.info(f'Transferring column attributes and column graphs back to bin file')
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
+
+                ## Export bigwigs by cluster
+                pool = mp.Pool(20)
+                logging.info('Exporting bigwigs')
+                for cluster in tqdm(np.unique(ds.ca.Clusters)):
+                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+                    pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
+                pool.close()
+                pool.join()
+
 
         if 'GA' in config.steps:
             ## Merge GA files

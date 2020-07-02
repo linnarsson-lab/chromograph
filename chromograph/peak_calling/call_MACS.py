@@ -29,11 +29,11 @@ def call_MACS(data, pf, macs_path):
     cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {fpeaks}'
     os.system(cmd)
 
-    logging.info(f'Called peaks for cluster {clus}, exporting bigwig')
-    f_bedgraph = os.path.join(pf, f'cluster_{str(clus)}_treat_pileup.bdg')
-    bg = BedTool(f_bedgraph)
-    outfile = os.path.join(pf, f'cluster_{str(clus)}.bw')
-    pybedtools.contrib.bigwig.bedgraph_to_bigwig(bg, genome='hg38', output=outfile)
+    # logging.info(f'Called peaks for cluster {clus}, exporting bigwig')
+    # f_bedgraph = os.path.join(pf, f'cluster_{str(clus)}_treat_pileup.bdg')
+    # bg = BedTool(f_bedgraph)
+    # outfile = os.path.join(pf, f'cluster_{str(clus)}.bw')
+    # pybedtools.contrib.bigwig.bedgraph_to_bigwig(bg, genome='hg38', output=outfile)
     pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     
     ## We only need the narrowPeak file, so clean up the rest
