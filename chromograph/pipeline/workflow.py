@@ -244,8 +244,8 @@ class Peak_caller:
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
         logging.info(f'Start counting peaks')
-        pool = mp.Pool(20)
-        chunks = np.array_split(ds.ca['CellID'], 100)
+        pool = mp.Pool(20, maxtasksperchild=1)
+        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
         for i, cells in enumerate(chunks):
             pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
         pool.close()

@@ -9,6 +9,7 @@ from typing import *
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
+from chromograph.plotting import manifold
 
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
@@ -119,9 +120,9 @@ class Peak_Aggregator:
             ## Plot results 
             name = out_file.split('/')[-1].split('_')[0]
             logging.info("Plotting UMAP")
-            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
+            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
+            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
 
             cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))
             cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'UMAP')
