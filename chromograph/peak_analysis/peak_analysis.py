@@ -123,7 +123,7 @@ class Peak_analysis:
         ## Correct the normalized theta values using Harmony
         logging.info(f'Batch correcting using Harmony')
         keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.config.params.batch_keys})
-        theta = harmonize(hpf.theta, keys_df, batch_key=self.config.params.batch_keys, n_jobs_kmeans=1)
+        theta = harmonize(theta, keys_df, batch_key=self.config.params.batch_keys, n_jobs_kmeans=1)
 
         # Save the normalized factors
         ds.ra.HPF = beta_all
@@ -152,7 +152,7 @@ class Peak_analysis:
         # ds.ca.HPF_LogPP = log_posterior_proba
         
         decomp = ds.ca['HPF']
-        metric = "js" # js euclidean correlation
+        metric = self.config.params.f_metric # js euclidean correlation
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) space using the '{metric}' metric")

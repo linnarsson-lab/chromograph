@@ -79,6 +79,7 @@ def load_config() -> Config:
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
 			"N_peaks_decomp": 20000,
+			"f_metric": 'js',
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
