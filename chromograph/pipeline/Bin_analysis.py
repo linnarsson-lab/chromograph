@@ -22,6 +22,7 @@ from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline.PCA import PCA
+from chromograph.pipeline.SVD import SVD
 from chromograph.pipeline import config
 
 from umap import UMAP
@@ -124,9 +125,25 @@ class Bin_analysis:
             logging.info(f'Finished PCA transformation')
             del pca
 
-        ## Get correct embedding and metric
-        decomp = ds.ca.PCA
-        metric = "euclidean"
+            ## Get correct embedding and metric
+            decomp = ds.ca.PCA
+            metric = "euclidean"
+
+        elif 'SVD' in self.self.config.params.factorization:
+            ## Fit SVD
+            logging.info(f'Fitting SVD to layer {self.blayer}')
+            svd = SVD(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            svd.fit(ds)
+
+            ## Decompose data
+            ds.ca.LSI = svd.transform(ds)
+
+            logging.info(f'Finished SVD transformation')
+            del svd
+
+            ## Get correct embedding and metric
+            decomp = ds.ca.LSI
+            metric = "euclidean"
 
         ## Construct nearest-neighbor graph
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) using the '{metric}' metric")

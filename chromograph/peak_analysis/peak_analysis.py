@@ -124,6 +124,7 @@ class Peak_analysis:
         logging.info(f'Batch correcting using Harmony')
         keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.config.params.batch_keys})
         theta = harmonize(theta, keys_df, batch_key=self.config.params.batch_keys, n_jobs_kmeans=1)
+        theta = (theta.T / theta.sum(axis=1)).T
 
         # Save the normalized factors
         ds.ra.HPF = beta_all
