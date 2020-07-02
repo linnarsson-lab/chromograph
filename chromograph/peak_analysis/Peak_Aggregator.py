@@ -9,13 +9,13 @@ from typing import *
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
-from chromograph.plotting import manifold
 
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment
 from cytograph.manifold import GraphSkeletonizer
 import cytograph.plotting as cgplot
+from cytograph.plotting import manifold
 
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
