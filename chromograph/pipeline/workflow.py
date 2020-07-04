@@ -229,10 +229,10 @@ class Peak_caller:
 
             ## Merge motif outputs
             motif_outputs = [os.path.join(out_motifs, x) for x in os.listdir(out_motifs)]
-            motif_annotation = os.path.join(self.peakdir, 'motif_annotation.txt')
-            subprocess.call(['head', '-1', motif_outputs[0]], stdout = open(motif_annotation, 'wb'))
+            motif_annotation = open(os.path.join(self.peakdir, 'motif_annotation.txt'), 'a')
+            subprocess.call(['head', '-1', motif_outputs[0]], stdout = motif_annotation)
             for x in motif_outputs:
-                subprocess.call(['tail', '-n', '+2', '-q',x], stdout = open(motif_annotation, 'wb'))
+                subprocess.call(['tail', '-n', '+2', '-q',x], stdout = motif_annotation)
 
         ## Load and reorder HOMER output
         logging.info(f'Reordering annotation file')
