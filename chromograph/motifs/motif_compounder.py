@@ -9,7 +9,7 @@ from tqdm import tqdm
 sys.path.append('/home/camiel/chromograph')
 import chromograph
 from chromograph.pipeline import config
-from chromograph.peak_calling.utils import read_HOMER_annotation
+from chromograph.peak_calling.utils import read_HOMER_TFs
 from chromograph.pipeline.utils import div0
 from chromograph.pipeline.TF_IDF import TF_IDF
 from cytograph.manifold import BalancedKNN
@@ -55,7 +55,7 @@ class Motif_compounder:
             ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
 
         ## Load the annotated peaks
-        cols, table, TF_cols, TFs = read_HOMER_annotation(os.path.join(self.peakdir, 'annotated_peaks.txt'))
+        cols, table, TF_cols, TFs = read_HOMER_TFs(os.path.join(self.peakdir, 'annotated_peaks.txt'))
         logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
         
         with loompy.new(self.out_file) as dsout:
