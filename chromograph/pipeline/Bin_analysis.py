@@ -129,7 +129,7 @@ class Bin_analysis:
             decomp = ds.ca.PCA
             metric = "euclidean"
 
-        elif 'SVD' in self.self.config.params.factorization:
+        elif 'SVD' in self.config.params.factorization:
             ## Fit SVD
             logging.info(f'Fitting SVD to layer {self.blayer}')
             svd = SVD(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
