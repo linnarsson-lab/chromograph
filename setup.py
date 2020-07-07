@@ -19,7 +19,7 @@ setup(
 		'pyyaml',
 		'statsmodels',  # for multiple testing
 		'numpy-groupies==0.9.6',
-		'numba=0.46.0', ## Version is important, others throw errors
+		#'numba=0.46.0', ## Version is important, others throw errors
 		'tqdm',
 		'umap-learn',  # imported as "umap"
 		'torch',
