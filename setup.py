@@ -12,23 +12,28 @@ setup(
 		'numpy',
 		'scikit-learn',
 		'scipy',
+		'matplotlib',
 		'networkx',
 		'python-louvain',  # is imported as "community"
 		'hdbscan',
 		'pyyaml',
 		'statsmodels',  # for multiple testing
 		'numpy-groupies==0.9.6',
+		'numba=0.46.0', ## Version is important, others throw errors
 		'tqdm',
 		'umap-learn',  # imported as "umap"
 		'torch',
 		'harmony-pytorch',
-		'pynndescent',
+		'pynndescent==0.4.7',
 		'click',
 		'leidenalg',
 		'unidip',
 		'opentsne',
         'pybedtools',
-        'macs2'
+        'macs2',
+		'pygenometracks',
+		'fisher'
+		## Install through bioconda ucsc-bedgraphtobigwig ucsc-genepredtobed ucsc-gtftogenepred
 		],
 	include_package_data=True,
 	author="Linnarsson Lab",
