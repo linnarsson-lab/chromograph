@@ -24,7 +24,7 @@ setup(
 		'umap-learn',  # imported as "umap"
 		'torch',
 		'harmony-pytorch',
-		'pynndescent=0.3.3',
+		'pynndescent==0.3.3',
 		'click',
 		'leidenalg',
 		'unidip',
