@@ -11,7 +11,7 @@ setup(
 		'loompy',
 		'numpy',
 		'scikit-learn',
-		'scipy',
+		'scipy==1.4.1',
 		'matplotlib',
 		'networkx',
 		'python-louvain',  # is imported as "community"
@@ -24,7 +24,7 @@ setup(
 		'umap-learn',  # imported as "umap"
 		'torch',
 		'harmony-pytorch',
-		'pynndescent==0.4.7',
+		'pynndescent=0.3.3',
 		'click',
 		'leidenalg',
 		'unidip',
@@ -32,7 +32,8 @@ setup(
         'pybedtools',
         'macs2',
 		'pygenometracks',
-		'fisher'
+		'fisher',
+		'kneed'
 		## Install through bioconda ucsc-bedgraphtobigwig ucsc-genepredtobed ucsc-gtftogenepred
 		],
 	include_package_data=True,
