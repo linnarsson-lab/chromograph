@@ -21,7 +21,7 @@ setup(
 		'numpy-groupies==0.9.6',
 		#'numba=0.46.0', ## Version is important, others throw errors
 		'tqdm',
-		'umap-learn',  # imported as "umap"
+		'umap-learn==0.3.9',  # imported as "umap"
 		'torch',
 		'harmony-pytorch',
 		'pynndescent==0.3.3',

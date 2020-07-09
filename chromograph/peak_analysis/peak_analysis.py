@@ -76,9 +76,10 @@ class Peak_analysis:
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
             logging.info('Calculating variance')
             (ds.ra.mu, ds.ra.sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
-            logging.info('Selecting peaks for clustering')
-            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
-            ds.ra.Valid = fs.fit(dsout)
+            logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks for clustering')
+            # fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
+            # ds.ra.Valid = fs.fit(dsout)
+            ds.ra.Valid = ds.ra.sd**2 > np.quantile(ds.ra.sd**2, 1-(self.config.params.N_peaks_decomp/ds.shape[0]))
         ## Delete temporary file
         os.remove(temporary_aggregate)
 
@@ -216,7 +217,7 @@ class Peak_analysis:
         ds.ca.Outliers = (labels == -1).astype('int')
 
         logging.info("Performing Louvain Polished Surprise clustering")
-        ps = PolishedSurprise(graph="RNN", embedding="TSNE")
+        ps = PolishedSurprise(graph="RNN", embedding="TSNE", min_cells=self.config.params.min_cells_cluster)
         labels = ps.fit_predict(ds)
         ds.ca.ClustersSurprise = labels + min(labels)
         ds.ca.OutliersSurprise = (labels == -1).astype('int')
