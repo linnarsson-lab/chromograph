@@ -71,7 +71,7 @@ def load_config() -> Config:
 			"k_pooling": 10,
 			"resolution": 1,
 			"Normalization": "TF-IDF", 
-			"factorization": "SVD",  # or "HPF" or "both"
+			"factorization": "SVD",  # or "PCA"
 			"n_factors": 40,
 			"HPF_factors": 48,
 			"autoannotater": False, 
@@ -79,6 +79,7 @@ def load_config() -> Config:
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
 			"N_peaks_decomp": 20000,
+			"peak_fraction": 0.01,
 			"f_metric": 'euclidean',
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),

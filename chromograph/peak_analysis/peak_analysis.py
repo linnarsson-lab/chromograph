@@ -65,6 +65,18 @@ class Peak_analysis:
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
 
+        ## Create binary layer
+        if 'Binary' not in ds.layers:
+            logging.info("Binarizing the matrix")
+            ds.layers['Binary'] = 'int8'
+
+            ## Binarize in loop
+            progress = tqdm(total=ds.shape[1])
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+                ds['Binary'][:,selection] = view[:,:] > 0
+                progress.update(self.config.params.batch_size)
+            progress.close()
+
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for HPF by variance in preclusters')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
@@ -77,23 +89,12 @@ class Peak_analysis:
             logging.info('Calculating variance')
             (ds.ra.mu, ds.ra.sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
             logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks for clustering')
-            # fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
-            # ds.ra.Valid = fs.fit(dsout)
-            ds.ra.Valid = ds.ra.sd**2 > np.quantile(ds.ra.sd**2, 1-(self.config.params.N_peaks_decomp/ds.shape[0]))
+            dsout.ra.Valid = (ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction
+            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
+            ds.ra.Valid = fs.fit(dsout)
+            # ds.ra.Valid = ds.ra.sd**2 > np.quantile(ds.ra.sd**2, 1-(self.config.params.N_peaks_decomp/ds.shape[0]))
         ## Delete temporary file
         os.remove(temporary_aggregate)
-
-        ## Create binary layer
-        if 'Binary' not in ds.layers:
-            logging.info("Binarizing the matrix")
-            ds.layers['Binary'] = 'int8'
-
-            ## Binarize in loop
-            progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                ds['Binary'][:,selection] = view[:,:] > 0
-                progress.update(self.config.params.batch_size)
-            progress.close()
         
         logging.info(f'Performing HPF, layer = {self.layer}')
         
