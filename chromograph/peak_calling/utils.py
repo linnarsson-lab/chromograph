@@ -9,6 +9,7 @@ import logging
 import shutil
 import pybedtools
 from pybedtools import BedTool
+import traceback
 sys.path.append('/home/camiel/chromograph/')
 import chromograph
 
@@ -136,13 +137,13 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             cBed = BedTool(f) # Connect to fragment file
         except:
             logging.info(f"Can't find {f}")
-            logging.info(sys.exc_info()[0])
+            logging.info(traceback.format_exc())
             Count_dict[x] = []
         try:
             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
         except:
             logging.info(f'Problem intersecting {f}')
-            logging.info(sys.exc_info()[0])
+            logging.info(traceback.format_exc())
             Count_dict[x] = []
             return
         try:
@@ -152,7 +153,7 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
                 cDict[line[3]] = 1
         except:
             logging.info(f'Problem counting {f}')
-            logging.info(sys.exc_info()[0])
+            logging.info(traceback.format_exc())
             Count_dict[x] = []
             return
         try:
@@ -162,7 +163,7 @@ def Count_peaks(id, cells, sample_dir, peak_dir):
             ## If file can't be found print the path to file
             Count_dict[x] = []
             logging.info(f" Problem collecting to main dict {f}")
-            logging.info(sys.exc_info()[0])
+            logging.info(traceback.format_exc())
             return
     logging.info(f'Completed job {id}')
     pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
