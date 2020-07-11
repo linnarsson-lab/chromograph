@@ -77,8 +77,8 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[1].set_xlabel("Log10 fragments")
 
         ## Plot the variance an clustermeans used for feature selection
-        ax[2].scatter(ds.ra.mu, ds.ra.sd, s=1, c='grey')
-        ax[2].scatter(ds.ra.mu[np.where(ds.ra.Valid)], ds.ra.sd[np.where(ds.ra.Valid)], s=1, c='red')
+        ax[2].scatter(ds.ra.mu, ds.ra.sd, s=1, c='grey', marker='.')
+        ax[2].scatter(ds.ra.mu[np.where(ds.ra.Valid)], ds.ra.sd[np.where(ds.ra.Valid)], s=1, c='red', marker='.')
         ax[2].set_title("Selection of peaks by variance")
         ax[2].set_ylabel("Standard deviation across preclusters")
         ax[2].set_xlabel("Mean peak count (CPM) across preclusters")

@@ -92,7 +92,7 @@ class Motif_compounder:
             dsout.ra['Median'] = dsout['smooth'].map([np.median], axis=0)[0]
             dsout.ra['MADS'] = np.median(abs(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1])), axis=1)
             dsout['MZ'] = 0.6745 * div0(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1]), dsout.ra['MADS'].reshape([dsout.shape[0],1]))
-            dsout['counts'] = dsout['']
-            dsout[''] = dsout['MZ']  
+            dsout['counts'] = dsout[''][:,:]
+            dsout[''] = dsout['MZ'][:,:]
         return self.out_file
 

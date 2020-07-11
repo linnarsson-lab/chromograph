@@ -95,7 +95,6 @@ class Chromgen:
         for k,v in m.items():
             meta[k] = np.array([v] * len(meta['barcode']))
 
-
         logging.info("Total of {} valid cells".format(len(meta['barcode'])))
         logging.info("Ref. assembly {}".format(summary['reference_assembly']))
 
@@ -216,7 +215,7 @@ class Chromgen:
                 ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
             else:
                 logging.info(f'Too few cells for doublet detections')
-                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(int), np.zeros((ds.shape[1],)).astype(int)
+                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.int64), np.zeros((ds.shape[1],)).astype(np.int64)
             meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
             meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
 

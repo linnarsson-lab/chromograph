@@ -134,9 +134,9 @@ class GA_Aggregator:
             ## Update Manifolds with markers
             name = out_file.split('/')[-1].split('_')[0]
             logging.info("Plotting UMAP")
-            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
 
             ## Other gene related plots
             cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap.pdf"), layer="")
