@@ -94,7 +94,7 @@ class Peak_caller:
                 if os.path.exists(path_pre_annot):
                     logging.info(f'Use annotation of precomputed peaks')
                     shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
-                    shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'motif_annotation.txt'))
+                    shutil.copyfile(os.path.join(self.config.paths.build, 'All', 'peaks', 'motif_annotation.txt'), os.path.join(self.peakdir, 'motif_annotation.txt'))
 
                 # ## Generate bigwigs
                 # pool = mp.Pool(20)
