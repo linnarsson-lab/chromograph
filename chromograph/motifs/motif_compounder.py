@@ -61,7 +61,7 @@ class Motif_compounder:
         with loompy.new(self.out_file) as dsout:
             ## Transferring column attributes and grapsh from peak-file
             logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
-            dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array(TF_cols), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
+            dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array([x.split('_')[0] for x in TF_cols]), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
             dsout.col_graphs = ds.col_graphs
             logging.info(f'New loom file has shape {dsout.shape}')
 
@@ -94,5 +94,7 @@ class Motif_compounder:
             dsout['MZ'] = 0.6745 * div0(dsout['smooth'][:,:] - dsout.ra['Median'].reshape([dsout.shape[0],1]), dsout.ra['MADS'].reshape([dsout.shape[0],1]))
             dsout['counts'] = dsout[''][:,:]
             dsout[''] = dsout['MZ'][:,:]
+
+            logging.info(f'Finished compounding motifs')
         return self.out_file
 

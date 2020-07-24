@@ -34,7 +34,7 @@ setup(
 		'pygenometracks',
 		'fisher',
 		'kneed'
-		## Install through bioconda ucsc-bedgraphtobigwig ucsc-genepredtobed ucsc-gtftogenepred
+		## Install through bioconda ucsc-bedgraphtobigwig ucsc-genepredtobed ucsc-gtftogenepred ucsc-bigwigaverageoverbed
 		],
 	include_package_data=True,
 	author="Linnarsson Lab",

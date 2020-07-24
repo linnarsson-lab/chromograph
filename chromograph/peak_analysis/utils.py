@@ -91,3 +91,25 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
         valid = vals > kn.knee
         peaks[:,dsagg.ca.Clusters==cls] = valid
     return peaks, CPM_thres
+
+def get_conservation_score(ds):
+    '''
+    Overlays peaks of PeakxCell matrix with phastcon100way reference to estimate estimate evolutionaryconservation.
+    
+    Args:
+        ds        LoomConnection with 'ID', 'Chr', 'Start' and 'End' row attributes
+        
+    Returns
+        out       np.array or shape ds.shape[1] containing conservation scores
+    '''
+    BedTool([(ds.ra['Chr'][x], str(ds.ra['Start'][x]), str(ds.ra['End'][x]), str(ds.ra['ID'][x])) for x in range(ds.shape[0])]).saveas('input.bed')
+    try:
+        subprocess.call(['bigWigAverageOverBed', '/data/proj/scATAC/ref/hg38.phastCons100way.bw', 'input.bed', 'out.tab'])
+        tab = np.loadtxt('out.tab', dtype=str, delimiter='\t')
+
+    except:
+        logging.info(f'Could not find bigWigAverageOverBed on path')
+    ## Cleanup
+    subprocess.call(['rm', 'input.bed', 'out.tab'])
+
+    return np.array(tab[:,-1].astype('float'))

@@ -68,8 +68,7 @@ class Peak_Aggregator:
             if n_labels <= 1:
                 return
 
-            logging.info('Calculate coverag metrics')
-            dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
+            logging.info('Calculate coverage metrics')
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
             dsout.ra.NCells = dsout.map([np.sum], axis=0)[0]
 

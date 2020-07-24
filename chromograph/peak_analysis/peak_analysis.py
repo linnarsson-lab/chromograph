@@ -58,7 +58,7 @@ class Peak_analysis:
     
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Peak_analysis on {ds.shape[1]} cells with {ds.shape[0]} peaks")
-        name = ds.filename.split(".")[0]
+        name = ds.filename.split(".")[0].split("_")[0]
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
