@@ -91,6 +91,7 @@ def load_config() -> Config:
 			"N_most_enriched": 6,
 			"peak_depth": 2.5e7,
 			"peak_min_cells": 100,
+			"FRIP": 0.1,
 			"reference_assembly": "GRCh38"
 		}),
 		# "steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
