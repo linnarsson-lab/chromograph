@@ -181,9 +181,9 @@ class Bin_analysis:
         logging.info(f"  Art of tSNE with {metric} distance metric")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
         logging.info("Generating UMAP from decomposition")
-        ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
+        ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, verbose=True).fit_transform(decomp)
         logging.info("Generating 3D UMAP from decomposition")
-        ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(decomp)
+        ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, verbose=True).fit_transform(decomp)
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
