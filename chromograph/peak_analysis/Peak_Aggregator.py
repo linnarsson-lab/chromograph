@@ -71,6 +71,7 @@ class Peak_Aggregator:
             logging.info('Calculate coverage metrics')
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
             dsout.ra.NCells = dsout.map([np.sum], axis=0)[0]
+            dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 
             ## Normalize peak counts by total fragments per cluster
             logging.info('Convert to CPMs')
