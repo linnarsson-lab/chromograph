@@ -61,7 +61,7 @@ class Bin_analysis:
         logging.info(f'Running Chromograph Bin-analysis on {ds.shape[1]} cells with {self.blayer}')
 
         ## Get the output folder
-        name = ds.filename.split(".")[0]
+        name = ds.filename.split("/")[-1].split(".")[0].split("_")[0]
     
         if not os.path.isdir(self.outdir):
             logging.info(f'Creating dir {self.outdir}')
