@@ -20,31 +20,31 @@
 ## Installation instruction
 
 Create a new environments:
-`
+```
 conda create --name chromo python=3.7
-`
+```
 
 Make sure to install the right versions of pynndescent, numba and umap since we will install cytograph before chromograph
-`
+```
 pip install nndescent==0.3.3 umap-learn==0.3.9 numba==0.49.1
-`
+```
 
 Next git clone cytograph-dev and move into the folder
-`
+```
 git clone https://github.com/linnarsson-lab/cytograph-dev.git
 cd cytograph-dev
 pip install -e .
 cd ..
-`
+```
 
 Next we install some bioconda packages from ucsc
-`
+```
 conda install ucsc-bedgraphtobigwig ucsc-genepredtobed ucsc-gtftogenepred ucsc-bigwigaverageoverbed
-`
+```
 
 Then we can clone chromograph and install it 
-`
+```
 git clone https://github.com/linnarsson-lab/chromograph.git
 cd chromograph
 pip install -e .
-`
+```
