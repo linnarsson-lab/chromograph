@@ -1,9 +1,11 @@
 #import
 import loompy
+import os
 import sys
 import numpy as np
 from tqdm import tqdm
 from typing import *
+import subprocess
 
 sys.path.append('/home/camiel/chromograph/')
 import chromograph
@@ -113,3 +115,33 @@ def get_conservation_score(ds):
     subprocess.call(['rm', 'input.bed', 'out.tab'])
 
     return np.array(tab[:,-1].astype('float'))
+
+    
+def Homer_find_motifs(bed, outdir, homer_path, motifs):
+    """
+    Call Homer find motifs to identiy the most enriched motifs per cluster for the top N most enriched peaks.
+
+    args:
+        data        list of [clustername, path to BED-file]
+        pf          path to peaks directory
+        macs_path   path to MACS
+
+    return:
+        location of aggregated peaks file
+    """
+    homer = os.path.join(homer_path, 'findMotifsGenome.pl')
+
+    ## Call Peaks
+    cmd = f'{homer_path}/findMotifsGenome.pl {bed} hg38 {outdir} -mknown {motifs} -p 4 -nomotif'
+    subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', '4', '-nomotif'])
+    
+    # ## We only need the narrowPeak file, so clean up the rest
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))  ## Convert this track to BigWig
+
+    return f'Completed {outdir}'
+
+def retrieve_enrichments():
+    

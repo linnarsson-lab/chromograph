@@ -5,6 +5,9 @@ import sys
 import matplotlib.pyplot as plt
 import loompy
 from typing import *
+import multiprocessing as mp
+import pybedtools
+from pybedtools import BedTool
 
 sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
@@ -30,13 +33,13 @@ logging.basicConfig(
 class Peak_Aggregator:
     def __init__(self) -> None:
         '''
-        Aggregate the Gene-Accessibility signal, find markers and call the auto-annotater
+        Aggregate the Gene-Accessibility signal, find markers and 
         '''
         self.config = config.load_config() # Generic config, just to get the paths
 
     def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None) -> None:
         '''
-        Aggregate the Gene-Accessibility signal, find markers and call the auto-annotater
+        Aggregate the Gene-Accessibility signal, find markers and annotate enriched motifs by homer
         
         Args:
             ds              LoomConnection. Dataset must contain ds.ra.Gene and ds.ca.Clusters
@@ -44,6 +47,7 @@ class Peak_Aggregator:
             agg_spec        Dictionary containing numpy-groupies function to be applied to column attributes
         '''
         self.outdir = '/' + os.path.join(*out_file.split('/')[:-1], 'exported')
+        self.motifdir = '/' + os.path.join(*out_file.split('/')[:-1], 'motifs')
 
         agg_spec = {
             "Age": "tally",
@@ -86,7 +90,7 @@ class Peak_Aggregator:
             ## Select top N enriched peaks per cluster by odss-ratio
             dsout['marker_peaks'] = 'int8'
             for i in range(dsout.shape[1]):
-                idx = np.sort(dsout['q_val'][:,i].argsort()[:1000])
+                idx = np.sort(dsout['q_val'][:,i].argsort()[:2000])
                 dsout['marker_peaks'][idx,i] = 1
             markers =dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
             dsout.ra.markerPeaks = markers
@@ -113,6 +117,27 @@ class Peak_Aggregator:
             new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
             ds.ca.Clusters = new_clusters
             ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
+
+            ## Run Homer findMotifs to find the top 5 motifs per cluster
+            logging.info(f'Finding enriched motifs among marker peaks')
+            
+            if not os.path.isdir(self.motifdir):
+                os.mkdir(self.motifdir) 
+
+            piles = []
+            for x in range(dsout.shape[1]):
+                Valids = dsout.layers['marker_peaks'][:,x]
+                bed_file = os.path.join(self.motifdir, f'Cluster_{x}.bed')
+                peaks = BedTool([(dsout.ra['Chr'][x], str(dsout.ra['Start'][x]), str(dsout.ra['End'][x]), str(dsout.ra['ID'][x]), '.', '+') for x in np.where(Valids)[0]]).saveas(bed_file)
+                piles.append([bed_file, os.path.join(self.motifdir, f'Cluster_{x}')])
+
+            pool = mp.Pool(10,maxtasksperchild=1) 
+            for pile in piles:
+                pool.apply_async(Homer_find_motifs, args=(pile[0], pile[1], self.config.paths.HOMER, os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'),))
+            pool.close()
+            pool.join()
+
+            # dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir)
 
             # logging.info("Graph skeletonization")
             GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
