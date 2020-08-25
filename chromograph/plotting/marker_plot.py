@@ -4,7 +4,7 @@ import loompy
 from sklearn.neighbors import NearestNeighbors
 from matplotlib.collections import LineCollection
 
-def marker_plot(ds: loompy.LoomConnection, out_file: str, markers: list, lay: str = 'smooth', embedding: str = "TSNE") -> None:
+def marker_plot(ds: loompy.LoomConnection, out_file: str, markers: list, lay: str = 'smooth', embedding: str = "TSNE", q: list = [0.01, 0.99]) -> None:
     '''
     Generates a multi-panel plot to inspect UMI and Bin counts.
     
@@ -12,6 +12,7 @@ def marker_plot(ds: loompy.LoomConnection, out_file: str, markers: list, lay: st
         ds                    Connection to the .loom file to use
         out_file              Name and location of the output file
         embedding             The embedding to use for UMI manifold plot (TSNE or UMAP)
+        q                     Minimum and maximum quantile for plotting
         
     Remarks:
     
@@ -56,10 +57,9 @@ def marker_plot(ds: loompy.LoomConnection, out_file: str, markers: list, lay: st
         v = ds[lay][ds.ra['Gene'] == m, :][0]
         k = v > 0
         GA = v[k]
-        q = np.quantile(v, 0.99)
-        
+
         ax.scatter(pos[:,0], pos[:,1],s=epsilon, marker = '.', c = 'lightgrey', alpha=.5)
-        im = ax.scatter(pos[k,0], pos[k,1], cmap='viridis', c=GA, vmax = q, marker='.', lw=0, s=epsilon)
+        im = ax.scatter(pos[k,0], pos[k,1], cmap='viridis', c=GA, vmin = np.quantile(v, q[0]), vmax = np.quantile(v, q[1]), marker='.', lw=0, s=epsilon)
         
         fig.colorbar(im, ax=ax, orientation='vertical', shrink = 0.5)
         ax.set_title(f'{m}:  {ds.ra.loc[ds.ra.Gene == m]}', fontdict={'fontsize': 8, 'fontweight': 'medium'})
