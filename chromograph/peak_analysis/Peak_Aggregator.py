@@ -9,7 +9,6 @@ import multiprocessing as mp
 import pybedtools
 from pybedtools import BedTool
 
-sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
 

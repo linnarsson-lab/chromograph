@@ -143,5 +143,5 @@ def Homer_find_motifs(bed, outdir, homer_path, motifs):
 
     return f'Completed {outdir}'
 
-def retrieve_enrichments():
-    
+# def retrieve_enrichments():
+
