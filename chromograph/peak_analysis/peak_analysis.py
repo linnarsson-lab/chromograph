@@ -30,6 +30,7 @@ from chromograph.pipeline.utils import *
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
 
+from pynndescent import NNDescent
 from umap import UMAP
 import sklearn.metrics
 from scipy.spatial import distance
@@ -67,17 +68,39 @@ class Peak_analysis:
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
 
-        ## Create binary layer
-        if 'Binary' not in ds.layers:
-            logging.info("Binarizing the matrix")
-            ds.layers['Binary'] = 'int8'
+        # ## Create binary layer
+        # if 'Binary' not in ds.layers:
+        #     logging.info("Binarizing the matrix")
+        #     ds.layers['Binary'] = 'int8'
 
-            ## Binarize in loop
-            progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                ds['Binary'][:,selection] = view[:,:] > 0
-                progress.update(self.config.params.batch_size)
-            progress.close()
+        #     ## Binarize in loop
+        #     progress = tqdm(total=ds.shape[1])
+        #     for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+        #         ds['Binary'][:,selection] = view[:,:] > 0
+        #         progress.update(self.config.params.batch_size)
+        #     progress.close()
+
+        ## Poisson pooling
+        if 'LSI' in ds.ca:
+            decomp = ds.ca.LSI
+        elif 'PCA' in ds.ca:
+            decomp = ds.ca.PCA
+        nn = NNDescent(data=decomp, metric="euclidean")
+        indices, distances = nn.query(ds.ca.LSI, k=self.config.params.k_pooling)
+        # Note: we convert distances to similarities here, to support Poisson smoothing below
+        knn = sparse.csr_matrix(
+            (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
+        max_d = knn.data.max()
+        knn.data = (max_d - knn.data) / max_d
+        knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
+        knn = knn.astype("bool")
+
+        logging.info(f"Poisson pooling")
+        ds["pooled"] = 'int32'
+
+        for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
+            ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+        self.layer = "pooled"
 
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for HPF by variance in preclusters')
@@ -94,7 +117,6 @@ class Peak_analysis:
             dsout.ra.Valid = (ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction
             fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
             ds.ra.Valid = fs.fit(dsout)
-            # ds.ra.Valid = ds.ra.sd**2 > np.quantile(ds.ra.sd**2, 1-(self.config.params.N_peaks_decomp/ds.shape[0]))
         ## Delete temporary file
         os.remove(temporary_aggregate)
         
@@ -107,7 +129,7 @@ class Peak_analysis:
 
         # HPF factorization
         
-        cpus = 4
+        cpus = 8
         logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
         hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
         hpf.fit(data)
@@ -133,30 +155,8 @@ class Peak_analysis:
         # Save the normalized factors
         ds.ra.HPF = beta_all
         ds.ca.HPF = theta
-
-        # logging.info("Calculating posterior probabilities")
-        # # Expected values
-        # exp = "{}_expected".format(self.layer)
-        # n_samples = ds.shape[1]
-
-        # ds[exp] = 'float32'  # Create a layer of floats
-        # log_posterior_proba = np.zeros(n_samples)
-        # theta_unnormalized = hpf.theta
-        # data = data.toarray()
-        # start = 0
-        # batch_size = 6400
-        # beta_all = ds.ra.HPF_beta  # The unnormalized beta
-
-        # while start < n_samples:
-        #     # Compute PPV (using normalized theta)
-        #     ds[exp][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
-        #     # Compute PPV using raw theta, for calculating posterior probability of the observations
-        #     ppv_unnormalized = beta @ theta_unnormalized[start: start + batch_size, :].T
-        #     log_posterior_proba[start: start + batch_size] = poisson.logpmf(data.T[:, start: start + batch_size], ppv_unnormalized).sum(axis=0)
-        #     start += batch_size
-        # ds.ca.HPF_LogPP = log_posterior_proba
         
-        decomp = ds.ca['HPF']
+        decomp = ds.ca.HPF
         metric = self.config.params.f_metric # js euclidean correlation
 
         ## Construct nearest-neighbor graph

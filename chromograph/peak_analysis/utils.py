@@ -136,12 +136,19 @@ def Homer_find_motifs(bed, outdir, homer_path, motifs):
     subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', '4', '-nomotif'])
     
     # ## We only need the narrowPeak file, so clean up the rest
-    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
-    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
-    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
-    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))  ## Convert this track to BigWig
-
+    subprocess.run(['rm', bed])
     return f'Completed {outdir}'
 
-# def retrieve_enrichments():
-
+def retrieve_enrichments(ds, motif_dir, N=5):
+    '''
+    Retrieved the top N motifs from Homer findMotifs results
+    '''
+    ld = os.listdir(motif_dir)
+    c_dict = {}
+    for d in ld:
+        n = int(d.split('_')[-1])
+        mat = np.loadtxt(os.path.join(motif_dir, d, 'knownResults.txt'), dtype=str, skiprows=1)
+        c_dict[n] = ' '.join([x.split('_')[0] for x in mat[:N,0]])
+    
+    motif_markers = np.array([c_dict[x] for x in ds.ca.Clusters])
+    return motif_markers
