@@ -34,7 +34,7 @@ class Peak_Aggregator:
         '''
         Aggregate the Gene-Accessibility signal, find markers and 
         '''
-        self.config = config.load_config() # Generic config, just to get the paths
+        self.config = config.load_config()
 
     def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None) -> None:
         '''
@@ -136,7 +136,7 @@ class Peak_Aggregator:
             pool.close()
             pool.join()
 
-            dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir)
+            dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir, N=self.config.params.N_most_enriched)
 
             # logging.info("Graph skeletonization")
             GraphSkeletonizer(min_pct=1).abstract(ds, dsout)

@@ -81,6 +81,7 @@ class Peak_analysis:
         #     progress.close()
 
         ## Poisson pooling
+        logging.info(f"Poisson pooling")
         if 'LSI' in ds.ca:
             decomp = ds.ca.LSI
         elif 'PCA' in ds.ca:
@@ -95,9 +96,8 @@ class Peak_analysis:
         knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
         knn = knn.astype("bool")
 
-        logging.info(f"Poisson pooling")
+        ## Start pooling over the network
         ds["pooled"] = 'int32'
-
         for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
             ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
         self.layer = "pooled"
@@ -129,7 +129,7 @@ class Peak_analysis:
 
         # HPF factorization
         
-        cpus = 8
+        cpus = 4
         logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
         hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
         hpf.fit(data)
@@ -214,7 +214,10 @@ class Peak_analysis:
         ds.ca.Outliers = (labels == -1).astype('int')
 
         logging.info("Performing Louvain Polished Surprise clustering")
-        ps = PolishedSurprise(graph="RNN", embedding="UMAP", min_cells=self.config.params.min_cells_cluster)
+        try:
+            ps = PolishedSurprise(graph="RNN", embedding="UMAP", min_cells=self.config.params.min_cells_cluster)
+        except:
+            logging.info('Error in polished surprise')
         labels = ps.fit_predict(ds)
         ds.ca.ClustersSurprise = labels + min(labels)
         ds.ca.OutliersSurprise = (labels == -1).astype('int')

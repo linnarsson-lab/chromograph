@@ -2,6 +2,8 @@
 ## Due to high dimensionality of scATAC data it is better to use a linear 
 ## method than regular SVR which scales quadraticly
 import numpy as np
+import warnings
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.svm import LinearSVR
 
 import loompy
@@ -39,6 +41,7 @@ class FeatureSelectionByVariance:
 		log2_m = np.log2(mu[ok])
 		log2_cv = np.log2(cv)
 
+		warnings.simplefilter("ignore", category=ConvergenceWarning)  # Suppress warnings about convergence
 		clf = LinearSVR(tol=1e-5, max_iter=2000)
 		clf.fit(log2_m[:, np.newaxis], log2_cv)
 		fitted_fun = clf.predict
