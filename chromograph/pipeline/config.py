@@ -68,6 +68,7 @@ def load_config() -> Config:
 			"skip_attrs": [],
 			"k": 25,
 			"batch_size": 512,
+			"poisson_pooling": False,
 			"k_pooling": 10,
 			"resolution": 1,
 			"Normalization": "TF-IDF", 
@@ -94,8 +95,7 @@ def load_config() -> Config:
 			"FRIP": 0.1,
 			"reference_assembly": "GRCh38"
 		}),
-		# "steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
-		"steps": ("nn", "embeddings", "clustering"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "GA", "motifs"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 52,

@@ -80,27 +80,28 @@ class Peak_analysis:
         #         progress.update(self.config.params.batch_size)
         #     progress.close()
 
-        ## Poisson pooling
-        logging.info(f"Poisson pooling")
-        if 'LSI' in ds.ca:
-            decomp = ds.ca.LSI
-        elif 'PCA' in ds.ca:
-            decomp = ds.ca.PCA
-        nn = NNDescent(data=decomp, metric="euclidean")
-        indices, distances = nn.query(ds.ca.LSI, k=self.config.params.k_pooling)
-        # Note: we convert distances to similarities here, to support Poisson smoothing below
-        knn = sparse.csr_matrix(
-            (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
-        max_d = knn.data.max()
-        knn.data = (max_d - knn.data) / max_d
-        knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
-        knn = knn.astype("bool")
+        if self.config.params.poisson_pooling:
+            ## Poisson pooling
+            logging.info(f"Poisson pooling")
+            if 'LSI' in ds.ca:
+                decomp = ds.ca.LSI
+            elif 'PCA' in ds.ca:
+                decomp = ds.ca.PCA
+            nn = NNDescent(data=decomp, metric="euclidean")
+            indices, distances = nn.query(ds.ca.LSI, k=self.config.params.k_pooling)
+            # Note: we convert distances to similarities here, to support Poisson smoothing below
+            knn = sparse.csr_matrix(
+                (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
+            max_d = knn.data.max()
+            knn.data = (max_d - knn.data) / max_d
+            knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
+            knn = knn.astype("bool")
 
-        ## Start pooling over the network
-        ds["pooled"] = 'int32'
-        for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
-            ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
-        self.layer = "pooled"
+            ## Start pooling over the network
+            ds["pooled"] = 'int32'
+            for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
+                ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+            self.layer = "pooled"
 
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for HPF by variance in preclusters')
