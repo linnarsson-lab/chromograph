@@ -383,9 +383,10 @@ if __name__ == '__main__':
 
 
         if 'GA' in config.steps:
-            # ## Merge GA files
-            Promoter_generator = Generate_promoter(outdir=subset_dir)
-            GA_file = Promoter_generator.fit(ds)
+            ## Generate promoter file
+            with loompy.connect(binfile, 'r') as ds:
+                Promoter_generator = Generate_promoter(outdir=subset_dir)
+                GA_file = Promoter_generator.fit(ds)
 
             # inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
 

@@ -15,6 +15,7 @@ import pybedtools
 from pybedtools import BedTool
 import shutil
 import multiprocessing as mp
+from pynndescent import NNDescent
 
 ## Import chromograph
 sys.path.append('/home/camiel/chromograph/')
@@ -119,7 +120,6 @@ class Generate_promoter:
                     file_attrs=dict(ds.attrs))
         logging.info(f'Transferring column attributes')
         with loompy.connect(self.loom) as ds2:
-            ds2.attrs['peak_file'] = self.precomp
             transfer_ca(ds, ds2, 'CellID')
         logging.info(f'Loom peaks file saved as {self.loom}')
 
