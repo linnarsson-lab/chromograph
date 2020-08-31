@@ -54,7 +54,7 @@ class Peak_analysis:
         """
         self.config = config.load_config()
         self.outdir = os.path.join(outdir, 'exported')
-        self.layer = 'Binary'
+        self.layer = ''
         logging.info("Peak_analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -79,6 +79,7 @@ class Peak_analysis:
         #         ds['Binary'][:,selection] = view[:,:] > 0
         #         progress.update(self.config.params.batch_size)
         #     progress.close()
+        #     self.layer = "Binary"
 
         if self.config.params.poisson_pooling:
             ## Poisson pooling
