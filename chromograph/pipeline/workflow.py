@@ -25,6 +25,7 @@ from chromograph.pipeline import config
 from chromograph.peak_analysis.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
 from chromograph.preprocessing.utils import get_blacklist, mergeBins
+from chromograph.features.Generate_promoter import Generate_promoter
 from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.peak_calling.peak_caller import *
@@ -248,7 +249,7 @@ class Peak_caller:
         pool = mp.Pool(20, maxtasksperchild=1)
         chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
         for i, cells in enumerate(chunks):
-            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, ))
+            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
         pool.close()
         pool.join()
         
@@ -382,37 +383,39 @@ if __name__ == '__main__':
 
 
         if 'GA' in config.steps:
-            ## Merge GA files
-            GA_file = os.path.join(subset_dir, name + '_GA.loom')
-            inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
+            # ## Merge GA files
+            Promoter_generator = Generate_promoter(outdir=subset_dir)
+            GA_file = Promoter_generator.fit(ds)
 
-            ## Check if cells have been selected
-            selections = []
-            with loompy.connect(binfile, 'r') as ds:
-                IDs = set(ds.ca.CellID)
-                for f in inputfiles:
-                    with loompy.connect(f, 'r') as dsg:
-                        selections.append(np.array([x in IDs for x in dsg.ca.CellID]))
+            # inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
 
-            if not os.path.exists(GA_file):
-                logging.info(f'Combining GA looms')
-                loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession', skip_attrs=config.params.skip_attrs)
+            # ## Check if cells have been selected
+            # selections = []
+            # with loompy.connect(binfile, 'r') as ds:
+            #     IDs = set(ds.ca.CellID)
+            #     for f in inputfiles:
+            #         with loompy.connect(f, 'r') as dsg:
+            #             selections.append(np.array([x in IDs for x in dsg.ca.CellID]))
+
+            # if not os.path.exists(GA_file):
+            #     logging.info(f'Combining GA looms')
+            #     loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession', skip_attrs=config.params.skip_attrs)
 
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
-                logging.info(f'Transferring column attributes and column graphs to GA file')
-                with loompy.connect(binfile) as dsb:
-                    transfer_ca(dsb, ds, 'CellID')
-                ## Smoooth over NN graph
-                Smooth = GeneSmooth()
-                Smooth.fit(ds)
+                # logging.info(f'Transferring column attributes and column graphs to GA file')
+                # with loompy.connect(binfile) as dsb:
+                #     transfer_ca(dsb, ds, 'CellID')
+                # ## Smoooth over NN graph
+                # Smooth = GeneSmooth()
+                # Smooth.fit(ds)
 
                 ## Aggregate GA file and annotate based on markers
                 GA_agg_file = os.path.join(subset_dir, name + '_GA.agg.loom')
                 Aggregator = GA_Aggregator()
                 Aggregator.fit(ds, out_file=GA_agg_file)
 
-                logging.info(f'Transferring column attributes and column graphs back to bin file')
+                logging.info(f'Transferring column attributes back to bin file')
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
 

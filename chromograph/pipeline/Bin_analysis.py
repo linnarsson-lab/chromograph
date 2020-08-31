@@ -122,13 +122,13 @@ class Bin_analysis:
             pca.fit(ds)
 
             ## Decompose data
-            ds.ca.PCA = pca.transform(ds)
+            ds.ca.LSI = pca.transform(ds)
 
             logging.info(f'Finished PCA transformation')
             del pca
 
             ## Get correct embedding and metric
-            decomp = ds.ca.PCA
+            decomp = ds.ca.LSI
             metric = "euclidean"
 
         elif 'SVD' in self.config.params.factorization:
