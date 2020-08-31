@@ -120,12 +120,11 @@ def bed_downsample(pile, level):
     pybedtools.helpers.cleanup()
     return
 
-def Count_peaks(id, cells, sample_dir, peak_dir):
+def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks):
     '''
     Count peaks
     '''
     Count_dict = {k: {} for k in cells}
-    f_peaks = os.path.join(peak_dir, 'Compounded_peaks.bed')
     peaks = BedTool(f_peaks).saveas()  # Connect to peaks file, save temp to prevent io issues
 
     ## Separate cells and get paths to fragment files
