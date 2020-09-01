@@ -78,7 +78,7 @@ class Generate_promoter:
             with loompy.connect(all_prom_loom) as dsp:
                 selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
             
-            loompy.combine_faster([all_prom_loom], self.loom, selections=[selection], key = 'ID')
+            loompy.combine_faster([all_prom_loom], self.loom, selections=[selection], key = 'CellID')
             
             with loompy.connect(self.loom) as ds2:
                 transfer_ca(ds, ds2, 'CellID')
