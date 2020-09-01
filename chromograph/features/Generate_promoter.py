@@ -135,14 +135,13 @@ class Generate_promoter:
             logging.info(f'Transferring column attributes')
             with loompy.connect(self.loom) as ds2:
                 transfer_ca(ds, ds2, 'CellID')
-            logging.info(f'Loom peaks file saved as {self.loom}')
+            logging.info(f'Loom promoter file saved as {self.loom}')
 
             for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
                 os.system(f'rm {file}')
 
             ## Clean up stranded pybedtools tmp files
             pybedtools.helpers.cleanup(verbose=True, remove_all=True)
-            return self.loom
     
         ## Generate pooled layer
         with loompy.connect(self.loom) as ds:

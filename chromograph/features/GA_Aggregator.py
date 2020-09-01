@@ -11,7 +11,7 @@ from chromograph.pipeline import config
 import loompy
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
-from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
+from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment
 from cytograph.manifold import GraphSkeletonizer
 import cytograph.plotting as cgplot
 
@@ -81,29 +81,6 @@ class GA_Aggregator:
             dsout.ca.Most_enriched = [" ".join(enr) for enr in Most_enriched]
             dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 
-            # # Renumber the clusters
-            # logging.info("Renumbering clusters by similarity, and permuting columns")
-
-            # data = np.log(dsout[:, :] + 1)[markers, :].T
-            # D = pdist(data, 'correlation')
-            # Z = hc.linkage(D, 'ward', optimal_ordering=True)
-            # ordering = hc.leaves_list(Z)
-
-            # # Permute the aggregated file, and renumber
-            # dsout.permute(ordering, axis=1)
-            # dsout.ca.Clusters = np.arange(n_labels)
-
-            # # Redo the Ward's linkage just to get a tree that corresponds with the new ordering
-            # data = np.log(dsout[:, :] + 1)[markers, :].T
-            # D = pdist(data, 'correlation')
-            # dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
-
-            # # Renumber the original file, and permute
-            # d = dict(zip(ordering, np.arange(n_labels)))
-            # new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
-            # ds.ca.Clusters = new_clusters
-            # ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
-
             # Reorder the genes, markers first, ordered by enrichment in clusters
             logging.info("Permuting rows")
             mask = np.zeros(ds.shape[0], dtype=bool)
@@ -140,8 +117,8 @@ class GA_Aggregator:
 
             ## Other gene related plots
             cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap.pdf"), layer="")
-            cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap_smoothed.pdf"), layer="smooth")
+            cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap_pooled.pdf"), layer="pooled")
             cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap.pdf"), layer="")
-            cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap_smoothed.pdf"), layer="smooth")
+            cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap_pooled.pdf"), layer="pooled")
             # cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'UMAP')
             # cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))
