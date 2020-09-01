@@ -79,7 +79,7 @@ def load_config() -> Config:
 			"level": 5000,
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
-			"N_peaks_decomp": 20000,
+			"N_peaks_decomp": 10000,
 			"peak_fraction": 0.01,
 			"f_metric": 'euclidean',
 			# "doublets_action": "remove",
