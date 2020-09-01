@@ -153,9 +153,9 @@ class Generate_promoter:
                 decomp = ds.ca.LSI
             logging.info(f'Create NN graph')
             nn = NNDescent(data=decomp, metric="euclidean")
+            logging.info(f'Query NN graph')
             indices, distances = nn.query(ds.ca.LSI, k=self.config.params.k_pooling)
             # Note: we convert distances to similarities here, to support Poisson smoothing below
-            logging.info(f'Generate sparse matrix')
             knn = sparse.csr_matrix(
                 (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
             max_d = knn.data.max()
@@ -170,7 +170,6 @@ class Generate_promoter:
                 ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
 
             logging.info(f'Converting to CPM')  # divide by GA_colsum/1e6
-            
             ds.ca['GA_colsum'] = ds[''].map([np.sum], axis=1)[0]
             ds.ca['GA_pooled_colsum'] = ds['pooled'].map([np.sum], axis=1)[0]
             
