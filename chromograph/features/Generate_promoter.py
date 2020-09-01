@@ -151,9 +151,11 @@ class Generate_promoter:
                 decomp = ds.ca.HPF
             elif 'LSI' in ds.ca:
                 decomp = ds.ca.LSI
+            logging.info(f'Create NN graph')
             nn = NNDescent(data=decomp, metric="euclidean")
             indices, distances = nn.query(ds.ca.LSI, k=self.config.params.k_pooling)
             # Note: we convert distances to similarities here, to support Poisson smoothing below
+            logging.info(f'Generate sparse matrix')
             knn = sparse.csr_matrix(
                 (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
             max_d = knn.data.max()
@@ -162,6 +164,7 @@ class Generate_promoter:
             knn = knn.astype("bool")
 
             ## Start pooling over the network
+            logging.info(f'Start pooling over network')
             ds["pooled"] = 'int32'
             for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
                 ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
