@@ -89,7 +89,7 @@ class Generate_promoter:
             pool = mp.Pool(20, maxtasksperchild=1)
             chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
             for i, cells in enumerate(chunks):
-                pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, ))
+                pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
             pool.close()
             pool.join()
 

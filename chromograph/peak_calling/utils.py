@@ -120,9 +120,13 @@ def bed_downsample(pile, level):
     pybedtools.helpers.cleanup()
     return
 
-def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks):
+def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks'):
     '''
     Count peaks
+
+    Args:
+
+    type                peaks or genes
     '''
     Count_dict = {k: {} for k in cells}
     peaks = BedTool(f_peaks).saveas()  # Connect to peaks file, save temp to prevent io issues
@@ -139,7 +143,10 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks):
             logging.info(traceback.format_exc())
             Count_dict[x] = []
         try:
-            pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+            if ref_type == 'peaks':
+                pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+            elif ref_type == 'genes':
+                pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
         except:
             logging.info(f'Problem intersecting {f}')
             logging.info(traceback.format_exc())
@@ -149,7 +156,15 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks):
             cDict = {}
             ## Extract peak_IDs
             for line in pks:
-                cDict[line[3]] = 1
+                if ref_type == 'peaks':
+                    k = line[3]
+                elif ref_type == 'genes':
+                    k = line.attrs['gene_name']
+                ## Add count to dict
+                if k not in cDict.keys():
+                    cDict[k] = 1
+                else:
+                    cDict[k] += 1
         except:
             logging.info(f'Problem counting {f}')
             logging.info(traceback.format_exc())

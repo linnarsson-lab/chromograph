@@ -384,6 +384,7 @@ if __name__ == '__main__':
 
         if 'GA' in config.steps:
             ## Generate promoter file
+            logging.info(f'Generating promoter file')
             with loompy.connect(binfile, 'r') as ds:
                 Promoter_generator = Generate_promoter(outdir=subset_dir)
                 GA_file = Promoter_generator.fit(ds)
