@@ -119,8 +119,8 @@ class Peak_analysis:
             dsout.ra.Valid = (ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction
             # fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
             # ds.ra.Valid = fs.fit(dsout)
-            q = np.quantile(ds.ra.sd[dsout.ra.Valid], 1-(self.config.params.N_peaks_decomp/np.sum(dsout.ra.Valid)))
-            ds.ra.Valid = np.array((ds.ra.sd > q) & dsout.ra.Valid)
+            q = np.quantile(ds.ra.sd[dsout.ra.Valid==1], 1-(self.config.params.N_peaks_decomp/np.sum(dsout.ra.Valid)))
+            ds.ra.Valid = np.array((ds.ra.sd > q) & dsout.ra.Valid==1)
         ## Delete temporary file
         os.remove(temporary_aggregate)
         
