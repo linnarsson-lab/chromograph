@@ -159,7 +159,7 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks
                 if ref_type == 'peaks':
                     k = line[3]
                 elif ref_type == 'genes':
-                    k = line.attrs['gene_name']
+                    k = line.attrs['gene_id']
                 ## Add count to dict
                 if k not in cDict.keys():
                     cDict[k] = 1
