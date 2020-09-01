@@ -89,7 +89,7 @@ class Peak_analysis:
             elif 'PCA' in ds.ca:
                 decomp = ds.ca.PCA
             nn = NNDescent(data=decomp, metric="euclidean")
-            indices, distances = nn.query(ds.ca.LSI, k=self.config.params.k_pooling)
+            indices, distances = nn.query(decomp, k=self.config.params.k_pooling)
             # Note: we convert distances to similarities here, to support Poisson smoothing below
             knn = sparse.csr_matrix(
                 (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
