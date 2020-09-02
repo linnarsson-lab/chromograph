@@ -152,9 +152,9 @@ class Generate_promoter:
             elif 'LSI' in ds.ca:
                 decomp = ds.ca.LSI
             logging.info(f'Create NN graph')
-            nn = NNDescent(data=decomp, metric="euclidean")
+            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling)
             logging.info(f'Query NN graph')
-            indices, distances = nn.query(decomp, k=self.config.params.k_pooling)
+            indices, distances = nn.query(decomp)
             # Note: we convert distances to similarities here, to support Poisson smoothing below
             knn = sparse.csr_matrix(
                 (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
