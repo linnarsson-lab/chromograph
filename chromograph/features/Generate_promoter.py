@@ -9,6 +9,7 @@ import logging
 from typing import *
 from tqdm import tqdm
 
+import pickle as pkl
 import gzip
 import glob
 import pybedtools
@@ -155,7 +156,6 @@ class Generate_promoter:
             logging.info(f'Create NN graph')
             nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling)
             ## temp
-            import pickle as pkl
             pkl.dump(nn, open('/home/camiel/misc/nn.pkl', 'wb'))
             ##
             logging.info(f'Query NN graph')
