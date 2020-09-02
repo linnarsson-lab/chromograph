@@ -168,22 +168,22 @@ class Peak_analysis:
         if self.config.params.peak_factorization == 'LSI':
             if 'TF-IDF' not in ds.layers:
                 logging.info(f'Performing TF-IDF')
-                tf_idf = TF_IDF(layer=self.blayer)
+                tf_idf = TF_IDF(layer=self.layer)
                 tf_idf.fit(ds, items=ds.ra.Valid)
                 ds.layers['TF-IDF'] = 'float16'
                 progress = tqdm(total=ds.shape[1])
                 for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
+                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.layer][:,:], selection)
                     progress.update(self.config.params.batch_size)
                 progress.close()
-                self.blayer = 'TF-IDF'
+                self.layer = 'TF-IDF'
                 del tf_idf
                 logging.info(f'Finished fitting TF-IDF')
-            self.blayer = 'TF-IDF'
+            self.layer = 'TF-IDF'
 
             ## Fit PCA
-            logging.info(f'Fitting PCA to layer {self.blayer}')
-            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            logging.info(f'Fitting PCA to layer {self.layer}')
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.layer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
             pca.fit(ds)
 
             ## Decompose data
