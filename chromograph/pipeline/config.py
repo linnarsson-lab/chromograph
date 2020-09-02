@@ -73,13 +73,14 @@ def load_config() -> Config:
 			"resolution": 1,
 			"Normalization": "TF-IDF", 
 			"factorization": "SVD",  # or "PCA"
+			"peak_factorization": "LSI", # or HPF
 			"n_factors": 40,
 			"HPF_factors": 48,
 			"autoannotater": False, 
 			"level": 5000,
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
-			"N_peaks_decomp": 10000,
+			"N_peaks_decomp": 20000,
 			"peak_fraction": 0.01,
 			"f_metric": 'euclidean',
 			# "doublets_action": "remove",

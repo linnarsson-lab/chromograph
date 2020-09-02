@@ -68,26 +68,24 @@ class Peak_analysis:
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
         ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
 
-        # ## Create binary layer
-        # if 'Binary' not in ds.layers:
-        #     logging.info("Binarizing the matrix")
-        #     ds.layers['Binary'] = 'int8'
+        ## Create binary layer
+        if 'Binary' not in ds.layers:
+            logging.info("Binarizing the matrix")
+            ds.layers['Binary'] = 'int8'
 
-        #     ## Binarize in loop
-        #     progress = tqdm(total=ds.shape[1])
-        #     for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-        #         ds['Binary'][:,selection] = view[:,:] > 0
-        #         progress.update(self.config.params.batch_size)
-        #     progress.close()
-        #     self.layer = "Binary"
+            ## Binarize in loop
+            progress = tqdm(total=ds.shape[1])
+            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+                ds['Binary'][:,selection] = view[:,:] > 0
+                progress.update(self.config.params.batch_size)
+            progress.close()
+            self.layer = "Binary"
 
         if self.config.params.poisson_pooling:
             ## Poisson pooling
             logging.info(f"Poisson pooling")
             if 'LSI' in ds.ca:
                 decomp = ds.ca.LSI
-            elif 'PCA' in ds.ca:
-                decomp = ds.ca.PCA
             nn = NNDescent(data=decomp, metric="euclidean")
             indices, distances = nn.query(decomp, k=self.config.params.k_pooling)
             # Note: we convert distances to similarities here, to support Poisson smoothing below
@@ -117,51 +115,86 @@ class Peak_analysis:
             (ds.ra.mu, ds.ra.sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
             logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks for clustering')
             dsout.ra.Valid = ((ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction) & (ds.ra.NCells < np.quantile(ds.ra.NCells, 0.99))
-            # fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
-            # ds.ra.Valid = fs.fit(dsout)
-            q = np.quantile(ds.ra.sd[dsout.ra.Valid==1], 1-(self.config.params.N_peaks_decomp/np.sum(dsout.ra.Valid)))
-            ds.ra.Valid = np.array((ds.ra.sd > q) & dsout.ra.Valid==1)
+            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
+            ds.ra.Valid = fs.fit(dsout)
+            # q = np.quantile(ds.ra.sd[dsout.ra.Valid==1], 1-(self.config.params.N_peaks_decomp/np.sum(dsout.ra.Valid)))
+            # ds.ra.Valid = np.array((ds.ra.sd > q) & dsout.ra.Valid==1)
         ## Delete temporary file
         os.remove(temporary_aggregate)
-        
-        logging.info(f'Performing HPF, layer = {self.layer}')
-        
-        # Load the data for the selected genes
-        logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} peaks")
-        data = ds[self.layer].sparse(rows=np.array(ds.ra.Valid==1)).T
-        logging.info(f"Shape data: {data.shape} with {data.nnz} values")
+            
+        ## HPF for manifold learning
+        if self.config.params.peak_factorization == 'HPF':
+            logging.info(f'Performing HPF, layer = {self.layer}')
+            
+            # Load the data for the selected genes
+            logging.info(f"Selecting data for HPF factorization: {ds.shape[1]} cells and {sum(ds.ra.Valid)} peaks")
+            data = ds[self.layer].sparse(rows=np.array(ds.ra.Valid==1)).T
+            logging.info(f"Shape data: {data.shape} with {data.nnz} values")
 
-        # HPF factorization
-        
-        cpus = 4
-        logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
-        hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
-        hpf.fit(data)
+            # HPF factorization
+            
+            cpus = 4
+            logging.info(f'Performing HPF factorization with {self.config.params.HPF_factors} factors')
+            hpf = HPF(k=self.config.params.HPF_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=cpus)
+            hpf.fit(data)
 
-        logging.info("Adding Betas and Thetas to loom file")
-        beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-        beta_all[ds.ra.Valid==1] = hpf.beta
-        # Save the unnormalized factors
-        ds.ra.HPF_beta = beta_all
-        ds.ca.HPF_theta = hpf.theta
-        # Here we normalize so the sums over components are one, because JSD requires it
-        # and because otherwise the components will be exactly proportional to cell size
-        theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
-        beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
-        beta_all[ds.ra.Valid==1] = beta
+            logging.info("Adding Betas and Thetas to loom file")
+            beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
+            beta_all[ds.ra.Valid==1] = hpf.beta
+            # Save the unnormalized factors
+            ds.ra.HPF_beta = beta_all
+            ds.ca.HPF_theta = hpf.theta
+            # Here we normalize so the sums over components are one, because JSD requires it
+            # and because otherwise the components will be exactly proportional to cell size
+            theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
+            beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
+            beta_all[ds.ra.Valid==1] = beta
 
-        ## Correct the normalized theta values using Harmony
-        logging.info(f'Batch correcting using Harmony')
-        keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.config.params.batch_keys})
-        theta = harmonize(theta, keys_df, batch_key=self.config.params.batch_keys, n_jobs_kmeans=1)
-        theta = (theta.T / theta.sum(axis=1)).T
+            ## Correct the normalized theta values using Harmony
+            logging.info(f'Batch correcting using Harmony')
+            keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.config.params.batch_keys})
+            theta = harmonize(theta, keys_df, batch_key=self.config.params.batch_keys, n_jobs_kmeans=1)
+            theta = (theta.T / theta.sum(axis=1)).T
 
-        # Save the normalized factors
-        ds.ra.HPF = beta_all
-        ds.ca.HPF = theta
-        del hpf
+            # Save the normalized factors
+            ds.ra.HPF = beta_all
+            ds.ca.HPF = theta
+            del hpf
 
-        decomp = ds.ca.HPF
+            decomp = ds.ca.HPF
+
+        ## Term-Frequence Inverse-Data-Frequency ##
+        if self.config.params.peak_factorization == 'LSI':
+            if 'TF-IDF' not in ds.layers:
+                logging.info(f'Performing TF-IDF')
+                tf_idf = TF_IDF(layer=self.blayer)
+                tf_idf.fit(ds, items=ds.ra.Valid)
+                ds.layers['TF-IDF'] = 'float16'
+                progress = tqdm(total=ds.shape[1])
+                for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
+                    progress.update(self.config.params.batch_size)
+                progress.close()
+                self.blayer = 'TF-IDF'
+                del tf_idf
+                logging.info(f'Finished fitting TF-IDF')
+            self.blayer = 'TF-IDF'
+
+            ## Fit PCA
+            logging.info(f'Fitting PCA to layer {self.blayer}')
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            pca.fit(ds)
+
+            ## Decompose data
+            ds.ca.LSI = pca.transform(ds)
+
+            logging.info(f'Finished PCA transformation')
+            del pca
+
+            ## Get correct embedding and metric
+            decomp = ds.ca.LSI
+            metric = "euclidean"
+
         metric = self.config.params.f_metric # js euclidean correlation
 
         ## Construct nearest-neighbor graph
