@@ -72,7 +72,8 @@ class Generate_promoter:
 
         ## Check All_peaks.loom exists, get subset
         all_prom_loom = os.path.join(self.config.paths.build, 'All', 'All_prom.loom')
-        if os.path.exists(all_prom_loom):
+
+        if os.path.exists(all_prom_loom) & (all_prom_loom != self.loom):
             logging.info(f'Main promoter matrix already exists')
             
             with loompy.connect(all_prom_loom) as dsp:
