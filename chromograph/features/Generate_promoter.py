@@ -154,8 +154,12 @@ class Generate_promoter:
                 decomp = ds.ca.LSI
             logging.info(f'Create NN graph')
             nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling)
+            ## temp
+            import pickle as pkl
+            pkl.dump(nn, open('/home/camiel/misc/nn.pkl', 'wb'))
+            ##
             logging.info(f'Query NN graph')
-            indices, distances = nn.query(decomp)
+            indices, distances = nn._neighbor_graph
             # Note: we convert distances to similarities here, to support Poisson smoothing below
             knn = sparse.csr_matrix(
                 (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
