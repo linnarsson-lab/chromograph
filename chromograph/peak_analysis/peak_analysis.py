@@ -28,6 +28,7 @@ from chromograph.plotting.QC_plot import QC_plot
 from chromograph.pipeline import config
 from chromograph.pipeline.utils import *
 from chromograph.pipeline.TF_IDF import TF_IDF
+from chromograph.pipeline.PCA import PCA
 from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
 
 from pynndescent import NNDescent
