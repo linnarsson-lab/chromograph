@@ -128,7 +128,7 @@ class Bin_analysis:
             del pca
 
             ## Get correct embedding and metric
-            decomp = ds.ca.LSI
+            decomp = ds.ca.LSI_b
             metric = "euclidean"
 
         elif 'SVD' in self.config.params.factorization:
@@ -144,7 +144,7 @@ class Bin_analysis:
             del svd
 
             ## Get correct embedding and metric
-            decomp = ds.ca.LSI
+            decomp = ds.ca.LSI_b
             metric = "euclidean"
 
         ## Construct nearest-neighbor graph

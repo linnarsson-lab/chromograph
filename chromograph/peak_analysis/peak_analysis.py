@@ -86,8 +86,7 @@ class Peak_analysis:
         if self.config.params.poisson_pooling:
             ## Poisson pooling
             logging.info(f"Poisson pooling")
-            if 'LSI' in ds.ca:
-                decomp = ds.ca.LSI
+            decomp = ds.ca.LSI_b
             nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling)
             indices, distances = [x.copy() for x in nn.neighbor_graph]
             # Note: we convert distances to similarities here, to support Poisson smoothing below
