@@ -87,7 +87,8 @@ class Peak_analysis:
             ## Poisson pooling
             logging.info(f"Poisson pooling")
             decomp = ds.ca.LSI_b
-            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling)
+            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, n_jobs=1)
+            logging.info(f'Query graph')
             indices, distances = [x.copy() for x in nn.neighbor_graph]
             # Note: we convert distances to similarities here, to support Poisson smoothing below
             knn = sparse.csr_matrix(

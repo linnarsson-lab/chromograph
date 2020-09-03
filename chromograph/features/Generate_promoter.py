@@ -156,7 +156,7 @@ class Generate_promoter:
                 decomp = ds.ca.LSI
                 decomp_type = 'LSI'
             logging.info(f'Create NN graph using {decomp_type}')
-            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling)
+            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, n_jobs=1)
             logging.info(f'Query NN graph')
             indices, distances = [x.copy() for x in nn.neighbor_graph]
             # Note: we convert distances to similarities here, to support Poisson smoothing below
