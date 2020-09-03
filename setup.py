@@ -21,10 +21,10 @@ setup(
 		'numpy-groupies==0.9.6',
 		#'numba=0.49.1', ## Version is important, others throw errors
 		'tqdm',
-		'umap-learn==0.3.9',  # imported as "umap"
+		'umap-learn==0.4.6',  # imported as "umap"
 		'torch',
 		'harmony-pytorch',
-		'pynndescent==0.3.3',
+		'pynndescent==0.4.8',
 		'click',
 		'leidenalg',
 		'unidip',
