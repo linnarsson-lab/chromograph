@@ -122,7 +122,7 @@ class Bin_analysis:
             pca.fit(ds)
 
             ## Decompose data
-            ds.ca.LSI = pca.transform(ds)
+            ds.ca.LSI_b = pca.transform(ds)
 
             logging.info(f'Finished PCA transformation')
             del pca
@@ -138,7 +138,7 @@ class Bin_analysis:
             svd.fit(ds)
 
             ## Decompose data
-            ds.ca.LSI = svd.transform(ds)
+            ds.ca.LSI_b = svd.transform(ds)
 
             logging.info(f'Finished SVD transformation')
             del svd

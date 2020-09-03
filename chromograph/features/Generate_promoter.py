@@ -95,6 +95,7 @@ class Generate_promoter:
                     pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
                 pool.close()
                 pool.join()
+                pool.terminate()
 
                 ## Generate row attributes
                 row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
