@@ -56,6 +56,7 @@ class Peak_analysis:
         self.config = config.load_config()
         self.outdir = os.path.join(outdir, 'exported')
         self.layer = ''
+        self.depth_key = 'NPeaks'
         logging.info("Peak_analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -101,7 +102,10 @@ class Peak_analysis:
             ds["pooled"] = 'int32'
             for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
                 ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+            ds.ca['NPeaks_pooled'] = ds[self.layer].map([np.count_nonzero], axis=1)[0]
+
             self.layer = "pooled"
+            self.depth_key = 'NPeaks_pooled'
 
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for HPF by variance in preclusters')
@@ -183,7 +187,7 @@ class Peak_analysis:
 
             ## Fit PCA
             logging.info(f'Fitting PCA to layer {self.layer}')
-            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.layer, key_depth= 'NPeaks', batch_keys = self.config.params.batch_keys)
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.layer, key_depth= self.depth_key, batch_keys = self.config.params.batch_keys)
             pca.fit(ds)
 
             ## Decompose data

@@ -42,7 +42,7 @@ class SVD:
         Fit SVD to dataset
         '''
         self.SVD = TruncatedSVD(n_components=self.n_components)
-        logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.n_components} components')
+        logging.info(f'Fitting {sum(ds.ra.Valid)} features from {ds.shape[1]} cells to {self.n_components} components')
         self.SVD.fit(ds.layers['TF-IDF'].sparse(rows=np.where(ds.ra.Valid)[0]).T)
 
     def transform(self, ds: loompy.LoomConnection) -> np.ndarray:

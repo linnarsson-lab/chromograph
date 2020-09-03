@@ -42,7 +42,7 @@ class PCA:
         Fit incremental PCA to dataset
         '''
         self.PCA = IncrementalPCA(n_components=self.n_components)
-        logging.info(f'Fitting {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.n_components} components')
+        logging.info(f'Fitting {sum(ds.ra.Valid)} features from {ds.shape[1]} cells to {self.n_components} components')
         progress = tqdm(total=ds.shape[1])
         for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
             if len(selection) < self.n_components:
@@ -55,7 +55,7 @@ class PCA:
         '''
         Transforming dataset. Must contain row attribute Valid
         '''
-        logging.info(f'Transforming {sum(ds.ra.Valid)} bins from {ds.shape[1]} cells to {self.config.params.n_factors} components')
+        logging.info(f'Transforming {sum(ds.ra.Valid)} features from {ds.shape[1]} cells to {self.config.params.n_factors} components')
         transformed = np.zeros((ds.shape[1], self.n_components))
 
         progress = tqdm(total=ds.shape[1])
