@@ -183,7 +183,7 @@ class Peak_analysis:
 
             ## Fit PCA
             logging.info(f'Fitting PCA to layer {self.layer}')
-            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.layer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.layer, key_depth= 'NPeaks', batch_keys = self.config.params.batch_keys)
             pca.fit(ds)
 
             ## Decompose data
