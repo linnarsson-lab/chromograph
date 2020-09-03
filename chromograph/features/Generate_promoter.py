@@ -71,79 +71,80 @@ class Generate_promoter:
         if not os.path.isdir(self.peakdir):
             os.mkdir(self.peakdir)   
 
-        ## Check All_peaks.loom exists, get subset
-        all_prom_loom = os.path.join(self.config.paths.build, 'All', 'All_prom.loom')
+        if not os.path.exists(self.loom):
+            ## Check All_peaks.loom exists, get subset
+            all_prom_loom = os.path.join(self.config.paths.build, 'All', 'All_prom.loom')
 
-        if os.path.exists(all_prom_loom) & (all_prom_loom != self.loom):
-            logging.info(f'Main promoter matrix already exists')
+            if os.path.exists(all_prom_loom) & (all_prom_loom != self.loom):
+                logging.info(f'Main promoter matrix already exists')
+                
+                with loompy.connect(all_prom_loom) as dsp:
+                    selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
+                
+                loompy.combine_faster([all_prom_loom], self.loom, selections=[selection], key = 'CellID')
+                
+                with loompy.connect(self.loom) as ds2:
+                    transfer_ca(ds, ds2, 'CellID')
+                logging.info(f'Finished creating promoter file')
             
-            with loompy.connect(all_prom_loom) as dsp:
-                selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
-            
-            loompy.combine_faster([all_prom_loom], self.loom, selections=[selection], key = 'CellID')
-            
-            with loompy.connect(self.loom) as ds2:
-                transfer_ca(ds, ds2, 'CellID')
-            logging.info(f'Finished creating promoter file')
-        
-        else:
-            logging.info(f'Start counting peaks')
-            pool = mp.Pool(20, maxtasksperchild=1)
-            chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
-            for i, cells in enumerate(chunks):
-                pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
-            pool.close()
-            pool.join()
+            else:
+                logging.info(f'Start counting peaks')
+                pool = mp.Pool(20, maxtasksperchild=1)
+                chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
+                for i, cells in enumerate(chunks):
+                    pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
+                pool.close()
+                pool.join()
 
-            ## Generate row attributes
-            row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
-            for x in BedTool(self.gene_ref):
-                row_attrs['Accession'].append(x.attrs['gene_id'])
-                row_attrs['Gene'].append(x.attrs['gene_name'])
-                row_attrs['loc'].append(f'{x[0]}:{x[3]}-{x[4]}')
-                row_attrs['BPs'].append(int(abs(int(x[3])-int(x[4]))))
+                ## Generate row attributes
+                row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
+                for x in BedTool(self.gene_ref):
+                    row_attrs['Accession'].append(x.attrs['gene_id'])
+                    row_attrs['Gene'].append(x.attrs['gene_name'])
+                    row_attrs['loc'].append(f'{x[0]}:{x[3]}-{x[4]}')
+                    row_attrs['BPs'].append(int(abs(int(x[3])-int(x[4]))))
 
-            r_dict = {k: v for v,k in enumerate(row_attrs['Accession'])} 
+                r_dict = {k: v for v,k in enumerate(row_attrs['Accession'])} 
 
-            logging.info("Generating Sparse matrix")
-            col = []
-            row = []
-            v = []
+                logging.info("Generating Sparse matrix")
+                col = []
+                row = []
+                v = []
 
-            cix = 0
-            IDs = []
-            dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
-            for file in dict_files:
-                Counts = pkl.load(open(file, 'rb'))
-                for cell in Counts:
-                    if len(Counts[cell]) > 0:
-                        for key in (Counts[cell]):
-                            col.append(cix)
-                            row.append(r_dict[key])
-                            v.append(np.int8(Counts[cell][key]))
-                        cix+=1
-                        IDs.append(cell)
-            logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
-            matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
-            logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
+                cix = 0
+                IDs = []
+                dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
+                for file in dict_files:
+                    Counts = pkl.load(open(file, 'rb'))
+                    for cell in Counts:
+                        if len(Counts[cell]) > 0:
+                            for key in (Counts[cell]):
+                                col.append(cix)
+                                row.append(r_dict[key])
+                                v.append(np.int8(Counts[cell][key]))
+                            cix+=1
+                            IDs.append(cell)
+                logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
+                matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
+                logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
 
-            ## Create loomfile
-            logging.info("Constructing loomfile")
-            loompy.create(filename=self.loom, 
-                        layers=matrix, 
-                        row_attrs=row_attrs, 
-                        col_attrs={'CellID': np.array(IDs)},
-                        file_attrs=dict(ds.attrs))
-            logging.info(f'Transferring column attributes')
-            with loompy.connect(self.loom) as ds2:
-                transfer_ca(ds, ds2, 'CellID')
-            logging.info(f'Loom promoter file saved as {self.loom}')
+                ## Create loomfile
+                logging.info("Constructing loomfile")
+                loompy.create(filename=self.loom, 
+                            layers=matrix, 
+                            row_attrs=row_attrs, 
+                            col_attrs={'CellID': np.array(IDs)},
+                            file_attrs=dict(ds.attrs))
+                logging.info(f'Transferring column attributes')
+                with loompy.connect(self.loom) as ds2:
+                    transfer_ca(ds, ds2, 'CellID')
+                logging.info(f'Loom promoter file saved as {self.loom}')
 
-            for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
-                os.system(f'rm {file}')
+                for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
+                    os.system(f'rm {file}')
 
-            ## Clean up stranded pybedtools tmp files
-            pybedtools.helpers.cleanup(verbose=True, remove_all=True)
+                ## Clean up stranded pybedtools tmp files
+                pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     
         ## Generate pooled layer
         with loompy.connect(self.loom) as ds:
@@ -156,7 +157,7 @@ class Generate_promoter:
                 decomp = ds.ca.LSI
                 decomp_type = 'LSI'
             logging.info(f'Create NN graph using {decomp_type}')
-            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, n_jobs=1)
+            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
             logging.info(f'Query NN graph')
             indices, distances = [x.copy() for x in nn.neighbor_graph]
             # Note: we convert distances to similarities here, to support Poisson smoothing below
