@@ -252,6 +252,7 @@ class Peak_caller:
             pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
         pool.close()
         pool.join()
+        pool.terminate()
         
         # Order dict for rows
         r_dict = {k: v for v,k in enumerate(annot['ID'])} 
