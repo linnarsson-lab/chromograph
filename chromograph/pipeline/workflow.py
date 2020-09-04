@@ -376,7 +376,7 @@ if __name__ == '__main__':
                 ## Export bigwigs by cluster
                 pool = mp.Pool(20)
                 logging.info('Exporting bigwigs')
-                for cluster in tqdm(np.unique(ds.ca.Clusters)):
+                for cluster in np.unique(ds.ca.Clusters):
                     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
                     pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
                 pool.close()
@@ -390,28 +390,8 @@ if __name__ == '__main__':
                 Promoter_generator = Generate_promoter(outdir=subset_dir)
                 GA_file = Promoter_generator.fit(ds)
 
-            # inputfiles = [os.path.join(config.paths.samples, '10X' + sample, f'10X{sample}_GA.loom') for sample in samples]
-
-            # ## Check if cells have been selected
-            # selections = []
-            # with loompy.connect(binfile, 'r') as ds:
-            #     IDs = set(ds.ca.CellID)
-            #     for f in inputfiles:
-            #         with loompy.connect(f, 'r') as dsg:
-            #             selections.append(np.array([x in IDs for x in dsg.ca.CellID]))
-
-            # if not os.path.exists(GA_file):
-            #     logging.info(f'Combining GA looms')
-            #     loompy.combine_faster(inputfiles, GA_file, selections=selections, key = 'Accession', skip_attrs=config.params.skip_attrs)
-
             ## Transer column attributes
             with loompy.connect(GA_file) as ds:
-                # logging.info(f'Transferring column attributes and column graphs to GA file')
-                # with loompy.connect(binfile) as dsb:
-                #     transfer_ca(dsb, ds, 'CellID')
-                # ## Smoooth over NN graph
-                # Smooth = GeneSmooth()
-                # Smooth.fit(ds)
 
                 ## Aggregate GA file and annotate based on markers
                 GA_agg_file = os.path.join(subset_dir, name + '_GA.agg.loom')

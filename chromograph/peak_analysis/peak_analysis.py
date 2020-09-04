@@ -272,5 +272,5 @@ class Peak_analysis:
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
         logging.info("plotting attributes")
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])

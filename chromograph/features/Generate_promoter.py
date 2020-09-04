@@ -63,6 +63,9 @@ class Generate_promoter:
         Remarks:
         
         '''
+        ## Set multiprocessing backend
+        mp.set_start_method("spawn")
+
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
         self.loom = os.path.join(self.outdir, f'{name}_prom.loom')

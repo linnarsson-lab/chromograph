@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = "0.0.0"
+__version__ = "0.0.1"
 exec(open('chromograph/_version.py').read())
 
 setup(
