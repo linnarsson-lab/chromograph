@@ -1,6 +1,7 @@
 import os
 import logging
 import numpy as np
+from typing import *
 import sys
 
 import loompy
