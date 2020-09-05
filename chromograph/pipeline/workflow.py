@@ -373,6 +373,7 @@ if __name__ == '__main__':
                     transfer_ca(ds, dsb, 'CellID')
 
                 ## Export bigwigs by cluster
+                ctx = mp.get_context('spawn')
                 pool = ctx.Pool(20)
                 logging.info('Exporting bigwigs')
                 for cluster in np.unique(ds.ca.Clusters):

@@ -55,10 +55,6 @@ class Motif_compounder:
             logging.info('Calculating peak and cell coverage')
             ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
             ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
-
-        ## Load the annotated peaks
-        cols, table, TF_cols, TFs = read_HOMER_TFs(os.path.join(self.peakdir, 'motif_annotation.txt'))
-        logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
         
         ## Check All_peaks.loom exists, get subset
         all_motif = os.path.join(self.config.paths.build, 'All', 'All_motifs.loom')
@@ -76,6 +72,10 @@ class Motif_compounder:
             logging.info(f'Finished creating promoter file')
 
         else:
+            ## Load the annotated peaks
+            cols, table, TF_cols, TFs = read_HOMER_TFs(os.path.join(self.peakdir, 'motif_annotation.txt'))
+            logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
+
             with loompy.new(self.out_file) as dsout:
                 ## Transferring column attributes and grapsh from peak-file
                 logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
