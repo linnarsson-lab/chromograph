@@ -14,6 +14,7 @@ from chromograph.peak_calling.utils import read_HOMER_TFs
 from chromograph.pipeline.utils import div0
 from chromograph.pipeline.TF_IDF import TF_IDF
 from cytograph.manifold import BalancedKNN
+from chromograph.pipeline.utils import transfer_ca
 
 class Motif_compounder:
     def __init__(self, outdir) -> None:

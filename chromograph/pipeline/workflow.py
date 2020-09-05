@@ -75,11 +75,13 @@ class Peak_caller:
         Remarks:
         
         '''
-        ## Set multiprocessing backend
-        try:
-            mp.set_start_method('spawn')
-        except RuntimeError:
-            pass
+        # ## Set multiprocessing backend
+        # try:
+        #     mp.set_start_method('spawn')
+        # except RuntimeError:
+        #     pass
+
+        ctx = mp.get_context('spawn')
 
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
@@ -104,7 +106,7 @@ class Peak_caller:
                     shutil.copyfile(os.path.join(self.config.paths.build, 'All', 'peaks', 'motif_annotation.txt'), os.path.join(self.peakdir, 'motif_annotation.txt'))
 
                 # ## Generate bigwigs
-                # pool = mp.Pool(20)
+                # pool = ctx.Pool(20)
                 # logging.info('Exporting bigwigs')
                 # for cluster in tqdm(np.unique(ds.ca.Clusters)):
                 #     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
@@ -139,7 +141,7 @@ class Peak_caller:
                     logging.info(f'Finished with cluster {ck[0]}')
 
                 logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
-                pool = mp.Pool(20) 
+                pool = ctx.Pool(20) 
                 for pile in piles:
                     pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
                 pool.close()
@@ -151,7 +153,7 @@ class Peak_caller:
                 logging.info(f'Finished downsampling')
 
                 logging.info(f'Start calling peaks')
-                pool = mp.Pool(20,maxtasksperchild=1) 
+                pool = ctx.Pool(20,maxtasksperchild=1) 
                 for pile in piles:
                     pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
                 pool.close()
@@ -185,15 +187,6 @@ class Peak_caller:
             f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
             peaks_all = BedTool(f)
 
-            # ## Generate bigwigs
-            # pool = mp.Pool(20)
-            # logging.info('Exporting bigwigs')
-            # for cluster in tqdm(np.unique(ds.ca.Clusters)):
-            #     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-            #     pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
-            # pool.close()
-            # pool.join()
-
         ## Check All_peaks.loom exists, get subset
         all_peaks_loom = os.path.join(self.config.paths.build, 'All', 'All_peaks.loom')
         if os.path.exists(all_peaks_loom):
@@ -226,7 +219,7 @@ class Peak_caller:
             [os.mkdir(x) for x in [split_dir, out_motifs] if not os.path.exists(x)]
             subprocess.run(['awk', '{print $0 >>' + f'"{split_dir}/"' + '$1".bed"}', os.path.join(self.peakdir, 'Compounded_peaks.bed')]) ## Split by chromosome since motif annotation takes a lot of RAM
 
-            pool = mp.Pool(5,maxtasksperchild=1)
+            pool = ctx.Pool(10,maxtasksperchild=1)
             logging.info('Annotating motifs')
             for file in tqdm(os.listdir(split_dir)):
                 chrom_file = os.path.join(split_dir, file)
@@ -252,7 +245,7 @@ class Peak_caller:
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
         logging.info(f'Start counting peaks')
-        pool = mp.Pool(20, maxtasksperchild=1)
+        pool = ctx.Pool(20, maxtasksperchild=1)
         chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
         for i, cells in enumerate(chunks):
             pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
@@ -380,7 +373,7 @@ if __name__ == '__main__':
                     transfer_ca(ds, dsb, 'CellID')
 
                 ## Export bigwigs by cluster
-                pool = mp.Pool(20)
+                pool = ctx.Pool(20)
                 logging.info('Exporting bigwigs')
                 for cluster in np.unique(ds.ca.Clusters):
                     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
