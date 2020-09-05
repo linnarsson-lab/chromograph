@@ -30,7 +30,7 @@ class Motif_compounder:
         self.outdir = outdir
         logging.info("Motif compounder initialised")
 
-    def fit(self, ds: loompy.LoomConnection) -> None:
+    def fit(self, ds: loompy.LoomConnection, agg_spec: Dict[str, str] = None) -> None:
         '''
         Generates loom-file with Motif enrichments based on HOMER-annotated peaks
         and peaks loomfile.
@@ -47,7 +47,7 @@ class Motif_compounder:
         ## Get paths
         name = ds.filename.split('/')[-1].split(".")[0].split('_')[0]
         self.out_file = os.path.join(self.outdir, f"{name}_motifs.loom")
-
+        self.agg_file = os.path.join(self.outdir, f"{name}_motifs.agg.loom")
         
         if 'NCells' not in ds.ra or 'NPeaks' not in ds.ca:
             logging.info('Calculating peak and cell coverage')
@@ -58,25 +58,42 @@ class Motif_compounder:
         cols, table, TF_cols, TFs = read_HOMER_TFs(os.path.join(self.peakdir, 'motif_annotation.txt'))
         logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
         
-        with loompy.new(self.out_file) as dsout:
-            ## Transferring column attributes and grapsh from peak-file
-            logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
-            dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array([x.split('_')[0] for x in TF_cols]), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
-            dsout.col_graphs = ds.col_graphs
-            logging.info(f'New loom file has shape {dsout.shape}')
+        ## Check All_peaks.loom exists, get subset
+        all_motif = os.path.join(self.config.paths.build, 'All', 'All_motifs.loom')
 
-            ## Compound to motif enrichments
-            logging.info(f'Compounding peaks to motif enrichments')
-            progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                for x in range(len(TF_cols)):
-                    dsout[x,selection] = np.sum(view[TFs[:,x], :], axis=0)
-                progress.update(self.config.params.batch_size)
-            progress.close()
+        if os.path.exists(all_motif) & (all_motif != self.out_file):
+            logging.info(f'Main motif matrix already exists')
+            
+            with loompy.connect(all_motif) as dsp:
+                selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
+            
+            loompy.combine_faster([all_motif], self.out_file, selections=[selection])
+            
+            with loompy.connect(self.out_file) as ds2:
+                transfer_ca(ds, ds2, 'CellID')
+            logging.info(f'Finished creating promoter file')
 
-            logging.info('Normalizing against total peaks')
-            dsout.layers['MMP'] = div0(dsout[:,:], (1e-6 * ds.ca['NPeaks']))
+        else:
+            with loompy.new(self.out_file) as dsout:
+                ## Transferring column attributes and grapsh from peak-file
+                logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
+                dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array([x.split('_')[0] for x in TF_cols]), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
+                dsout.col_graphs = ds.col_graphs
+                logging.info(f'New loom file has shape {dsout.shape}')
 
+                ## Compound to motif enrichments
+                logging.info(f'Compounding peaks to motif enrichments')
+                progress = tqdm(total=ds.shape[1])
+                for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
+                    for x in range(len(TF_cols)):
+                        dsout[x,selection] = np.sum(view[TFs[:,x], :], axis=0)
+                    progress.update(self.config.params.batch_size)
+                progress.close()
+
+                logging.info('Normalizing against total peaks')
+                dsout.layers['MMP'] = div0(dsout[:,:], (1e-6 * ds.ca['NPeaks']))
+
+        with loompy.connect(self.out_file) as dsout:
             ## Smooth motif enrichments
             logging.info(f'Loading the network')
             bnn = BalancedKNN(k=self.config.params.k, metric='euclidean', maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
@@ -96,5 +113,26 @@ class Motif_compounder:
             dsout[''] = dsout['MZ'][:,:]
 
             logging.info(f'Finished compounding motifs')
+
+            if agg_spec is None:
+                agg_spec = {
+                    "Age": "tally",
+                    "Clusters": "first",
+                    "Class": "mode",
+                    "Total": "mean",
+                    "Sex": "tally",
+                    "Tissue": "tally",
+                    "SampleID": "tally",
+                    "TissuePool": "first",
+                    "Outliers": "mean",
+                    "PCW": "mean"
+                }
+            cells = dsout.col_attrs["Clusters"] >= 0
+            labels = dsout.col_attrs["Clusters"][cells]
+            n_labels = len(set(labels))
+
+            logging.info("Aggregating clusters")
+            dsout.aggregate(self.agg_file, None, "Clusters", "mean", agg_spec)
+
         return self.out_file
 

@@ -76,7 +76,10 @@ class Peak_caller:
         
         '''
         ## Set multiprocessing backend
-        mp.set_start_method("spawn")
+        try:
+            mp.set_start_method('spawn')
+        except RuntimeError:
+            pass
 
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
