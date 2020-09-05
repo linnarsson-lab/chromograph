@@ -75,6 +75,9 @@ class Peak_caller:
         Remarks:
         
         '''
+        ## Set multiprocessing backend
+        mp.set_start_method("spawn")
+
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
 
@@ -196,7 +199,7 @@ class Peak_caller:
                 selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
                 
             self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
-            loompy.combine_faster([all_peaks_loom], self.loom, selections=[selection], key = 'CellID')
+            loompy.combine_faster([all_peaks_loom], self.loom, selections=[selection])
             logging.info(f'Finished creating peak file')
 
             with loompy.connect(self.loom, 'r+') as ds_out:
