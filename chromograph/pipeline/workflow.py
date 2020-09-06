@@ -363,7 +363,7 @@ if __name__ == '__main__':
 
                 ## Export bigwigs by cluster
                 logging.info('Exporting bigwigs')
-                with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+                with mp.get_context("fork").Pool(20, maxtasksperchild=1) as pool:
                     for cluster in np.unique(ds.ca.Clusters):
                         cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
                         pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
