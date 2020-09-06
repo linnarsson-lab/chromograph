@@ -96,15 +96,6 @@ class Peak_caller:
                     logging.info(f'Use annotation of precomputed peaks')
                     shutil.copyfile(path_pre_annot, os.path.join(self.peakdir, 'annotated_peaks.txt'))
                     shutil.copyfile(os.path.join(self.config.paths.build, 'All', 'peaks', 'motif_annotation.txt'), os.path.join(self.peakdir, 'motif_annotation.txt'))
-
-                # ## Generate bigwigs
-                # pool = ctx.Pool(20)
-                # logging.info('Exporting bigwigs')
-                # for cluster in tqdm(np.unique(ds.ca.Clusters)):
-                #     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                #     pool.apply_async(export_bigwig, args=(cells, self.config.paths.samples, self.peakdir, cluster,))
-                # pool.close()
-                # pool.join()
             
             else:
                 logging.info('No precomputed peak list. Calling peaks')
@@ -366,13 +357,12 @@ if __name__ == '__main__':
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
             with loompy.connect(peak_file, 'r') as ds:
                 logging.info('Exporting bigwigs')
-                with mp.get_context("fork").Pool(20, maxtasksperchild=1) as pool:
+                with mp.get_context("spawn").Pool(20) as pool:
                     for cluster in np.unique(ds.ca.Clusters):
                         cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
                         pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
                     pool.close()
                     pool.join()
-
 
         if 'GA' in config.steps:
             ## Generate promoter file
