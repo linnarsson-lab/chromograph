@@ -63,13 +63,8 @@ class Generate_promoter:
         Remarks:
         
         '''
-        # ## Set multiprocessing backend
-        # try:
-        #     mp.set_start_method('spawn')
-        # except RuntimeError:
-        #     pass
-
-        ctx = mp.get_context('spawn')
+        ## Set context
+        ctx = mp.get_context('spawn', True)
 
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]

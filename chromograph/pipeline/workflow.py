@@ -75,13 +75,8 @@ class Peak_caller:
         Remarks:
         
         '''
-        # ## Set multiprocessing backend
-        # try:
-        #     mp.set_start_method('spawn')
-        # except RuntimeError:
-        #     pass
-
-        ctx = mp.get_context('spawn')
+        ## Set context
+        ctx = mp.get_context('spawn', True)
 
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
@@ -373,7 +368,7 @@ if __name__ == '__main__':
                     transfer_ca(ds, dsb, 'CellID')
 
                 ## Export bigwigs by cluster
-                ctx = mp.get_context('spawn')
+                ctx = mp.get_context('spawn', True)
                 pool = ctx.Pool(20)
                 logging.info('Exporting bigwigs')
                 for cluster in np.unique(ds.ca.Clusters):
