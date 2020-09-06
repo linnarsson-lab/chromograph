@@ -96,7 +96,7 @@ def load_config() -> Config:
 			"FRIP": 0.1,
 			"reference_assembly": "GRCh38"
 		}),
-		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "GA", "motifs"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "bigwig", "GA", "motifs"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 52,

@@ -361,7 +361,10 @@ if __name__ == '__main__':
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
 
-                ## Export bigwigs by cluster
+        if 'bigwig' in config.steps:
+            ## Export bigwigs by cluster
+            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+            with loompy.connect(peak_file, 'r') as ds:
                 logging.info('Exporting bigwigs')
                 with mp.get_context("fork").Pool(20, maxtasksperchild=1) as pool:
                     for cluster in np.unique(ds.ca.Clusters):
