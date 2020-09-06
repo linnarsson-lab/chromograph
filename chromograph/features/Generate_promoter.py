@@ -63,9 +63,6 @@ class Generate_promoter:
         Remarks:
         
         '''
-        ## Set context
-        ctx = mp.get_context('spawn', True)
-
         ## Get sample name from loom-file
         name = ds.filename.split(".")[0]
         self.loom = os.path.join(self.outdir, f'{name}_prom.loom')
@@ -92,13 +89,12 @@ class Generate_promoter:
             
             else:
                 logging.info(f'Start counting peaks')
-                pool = ctx.Pool(20, maxtasksperchild=1)
-                chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
-                for i, cells in enumerate(chunks):
-                    pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
-                pool.close()
-                pool.join()
-                pool.terminate()
+                with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+                    chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
+                    for i, cells in enumerate(chunks):
+                        pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
+                    pool.close()
+                    pool.join()
 
                 ## Generate row attributes
                 row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
