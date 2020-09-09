@@ -103,7 +103,7 @@ def reorder_by_IDs(mat: np.ndarray, IDs):
 
     return np.array(table)
 
-def bed_downsample(pile, level):
+def bed_downsample(pile, level, verbose: bool = False):
     '''
     '''
     p = BedTool(pile[1])
@@ -113,10 +113,13 @@ def bed_downsample(pile, level):
     if fraction < 1:
         downsamp = p.random_subset(f=fraction)
         downsamp.saveas(pile[1])
-        logging.info(f'Total fragments: {frag_count} in cluster {pile[0]}, downsampled to {downsamp.count()}')
+        if verbose:
+            logging.info(f'Total fragments: {frag_count} in cluster {pile[0]}, downsampled to {downsamp.count()}')
     else:
-        logging.info(f'cluster {pile[0]} was not downsampled')
+        if verbose:
+            logging.info(f'cluster {pile[0]} was not downsampled')
 
+    logging.info(f'Exported cluster {pile[0]}')
     pybedtools.helpers.cleanup()
     return
 
