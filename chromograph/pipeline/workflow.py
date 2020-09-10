@@ -18,7 +18,6 @@ import shutil
 import multiprocessing as mp
 
 ## Import chromograph
-sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
@@ -124,7 +123,8 @@ class Peak_caller:
                     logging.info(f'Finished with cluster {ck[0]}')
 
                 logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
-                with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+                # with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+                with mp.get_context().Pool(20, maxtasksperchild=1) as pool:
                     for pile in piles:
                         pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
                     pool.close()
@@ -134,7 +134,7 @@ class Peak_caller:
                 gc.collect()
 
                 logging.info(f'Start calling peaks')
-                with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+                with mp.get_context().Pool(20, maxtasksperchild=1) as pool:
                     for pile in piles:
                         pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
                     pool.close()
@@ -201,7 +201,7 @@ class Peak_caller:
             subprocess.run(['awk', '{print $0 >>' + f'"{split_dir}/"' + '$1".bed"}', os.path.join(self.peakdir, 'Compounded_peaks.bed')]) ## Split by chromosome since motif annotation takes a lot of RAM
 
             logging.info('Annotating motifs')
-            with mp.get_context("spawn").Pool(10, maxtasksperchild=1) as pool:
+            with mp.get_context().Pool(10, maxtasksperchild=1) as pool:
                 for file in tqdm(os.listdir(split_dir)):
                     chrom_file = os.path.join(split_dir, file)
                     out_file = os.path.join(out_motifs, f'{file.split("/")[-1].split(".")[0]}.txt')
@@ -226,7 +226,7 @@ class Peak_caller:
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
         logging.info(f'Start counting peaks')
-        with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+        with mp.get_context().Pool(20, maxtasksperchild=1) as pool:
             chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
             for i, cells in enumerate(chunks):
                 pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
