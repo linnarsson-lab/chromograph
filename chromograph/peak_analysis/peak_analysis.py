@@ -13,6 +13,7 @@ import warnings
 import logging
 from tqdm import tqdm
 from numba.core.errors import NumbaPerformanceWarning
+import multiprocessing as mp
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
 
 from cytograph.decomposition import HPF
@@ -122,8 +123,6 @@ class Peak_analysis:
             dsout.ra.Valid = ((ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction) & (ds.ra.NCells < np.quantile(ds.ra.NCells, 0.99))
             fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
             ds.ra.Valid = fs.fit(dsout)
-            # q = np.quantile(ds.ra.sd[dsout.ra.Valid==1], 1-(self.config.params.N_peaks_decomp/np.sum(dsout.ra.Valid)))
-            # ds.ra.Valid = np.array((ds.ra.sd > q) & dsout.ra.Valid==1)
         ## Delete temporary file
         os.remove(temporary_aggregate)
             
@@ -240,12 +239,12 @@ class Peak_analysis:
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         # # metric_f = 'euclidean' # Use if js isn't working
 
-        logging.info(f"  Art of tSNE with {metric} distance metric")
+        logging.info(f"Art of tSNE with distance metrid: {metric_f}")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
         logging.info(f'Generating UMAP from decomposition using metric {metric_f}')
-        ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, verbose=True).fit_transform(decomp)
+        ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
         logging.info(f'Generating 3D UMAP from decomposition using metric {metric_f}')
-        ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, verbose=True).fit_transform(decomp)
+        ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
