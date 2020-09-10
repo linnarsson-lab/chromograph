@@ -357,12 +357,12 @@ if __name__ == '__main__':
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
             with loompy.connect(peak_file, 'r') as ds:
                 logging.info('Exporting bigwigs')
-                pool = mp.Pool(20)
-                for cluster in np.unique(ds.ca.Clusters):
-                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                    pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
-                pool.close()
-                pool.join()
+                with mp.get_context().Pool(20) as pool:
+                    for cluster in np.unique(ds.ca.Clusters):
+                        cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+                        pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
+                    pool.close()
+                    pool.join()
 
         if 'GA' in config.steps:
             ## Generate promoter file
