@@ -29,7 +29,6 @@ from chromograph.plotting.peak_annotation_plot import *
 from chromograph.motifs.motif_compounder import Motif_compounder
 
 ## Setup logger and load config
-config = config.load_config()
 logger = logging.getLogger()
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
