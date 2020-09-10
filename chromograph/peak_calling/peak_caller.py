@@ -16,10 +16,10 @@ from pybedtools import BedTool
 import MACS2
 import shutil
 import multiprocessing as mp
+import scipy.sparse as sparse
 
 ## Import chromograph
 import chromograph
-from chromograph.pipeline import config
 from chromograph.pipeline.utils import transfer_ca
 from chromograph.preprocessing.utils import get_blacklist
 from chromograph.peak_calling.peak_caller import *
