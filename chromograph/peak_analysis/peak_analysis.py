@@ -271,7 +271,7 @@ class Peak_analysis:
         logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
         
         ## Plot results on manifold
-        if 'UMAP' in ds.ca
+        if 'UMAP' in ds.ca:
             logging.info("Plotting UMAP")
             manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
             QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
