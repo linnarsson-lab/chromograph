@@ -19,7 +19,6 @@ import multiprocessing as mp
 from pynndescent import NNDescent
 
 ## Import chromograph
-sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config

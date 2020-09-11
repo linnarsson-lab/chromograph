@@ -17,7 +17,6 @@ import logging
 import pickle
 import importlib
 
-sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
 from chromograph.features.feature_count import *

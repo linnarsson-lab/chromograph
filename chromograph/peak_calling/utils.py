@@ -10,7 +10,6 @@ import shutil
 import pybedtools
 from pybedtools import BedTool
 import traceback
-sys.path.append('/home/camiel/chromograph/')
 import chromograph
 
 logger = logging.getLogger()

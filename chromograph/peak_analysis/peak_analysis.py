@@ -242,16 +242,18 @@ class Peak_analysis:
 
         logging.info(f"Art of tSNE with distance metrid: {metric_f}")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-        logging.info(f'Generating UMAP from decomposition using metric {metric_f}')
         
-        with parallel_backend('threading', n_jobs=8):
+        try:
+            logging.info(f'Generating UMAP from decomposition using metric {metric_f}')
             ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
             logging.info(f'Generating 3D UMAP from decomposition using metric {metric_f}')
             ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+        except:
+            logging.info("Failed to generate UMAP")
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
-        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="UMAP", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_cluster)
+        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_cluster)
         labels = pl.fit_predict(ds)
         ds.ca.ClustersModularity = labels + min(labels)
         ds.ca.OutliersModularity = (labels == -1).astype('int')
@@ -260,7 +262,7 @@ class Peak_analysis:
 
         logging.info("Performing Louvain Polished Surprise clustering")
         try:
-            ps = PolishedSurprise(graph="RNN", embedding="UMAP", min_cells=self.config.params.min_cells_cluster)
+            ps = PolishedSurprise(graph="RNN", embedding="TSNE", min_cells=self.config.params.min_cells_cluster)
         except:
             logging.info('Error in polished surprise')
         labels = ps.fit_predict(ds)
@@ -269,10 +271,10 @@ class Peak_analysis:
         logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
         
         ## Plot results on manifold
-        logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
+        if 'UMAP' in ds.ca
+            logging.info("Plotting UMAP")
+            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
-        logging.info("plotting attributes")
         QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])

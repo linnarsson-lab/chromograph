@@ -5,7 +5,6 @@ import loompy
 import warnings
 from tqdm import tqdm
 
-sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline import config
 from chromograph.pipeline.utils import div0

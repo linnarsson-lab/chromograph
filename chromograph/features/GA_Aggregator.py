@@ -5,7 +5,6 @@ import sys
 import matplotlib.pyplot as plt
 import loompy
 
-sys.path.append('/home/camiel/chromograph/')
 from chromograph.pipeline import config
 
 import loompy
@@ -105,13 +104,11 @@ class GA_Aggregator:
                 logging.info("Computing auto-auto-annotation")
                 AutoAutoAnnotator(n_genes=6).annotate(dsout)
 
-            # logging.info("Graph skeletonization")
-            # GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
-
             ## Update Manifolds with markers
             name = out_file.split('/')[-1].split('_')[0]
-            logging.info("Plotting UMAP")
-            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
+            if 'UMAP' in ds.ca:
+                logging.info("Plotting UMAP")
+                cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
             logging.info("Plotting TSNE")
             cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
 
@@ -120,5 +117,3 @@ class GA_Aggregator:
             cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap_pooled.pdf"), layer="pooled")
             cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap.pdf"), layer="")
             cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap_pooled.pdf"), layer="pooled")
-            # cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'UMAP')
-            # cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))

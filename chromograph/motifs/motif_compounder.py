@@ -7,7 +7,6 @@ import sys
 import loompy
 from tqdm import tqdm
 
-sys.path.append('/home/camiel/chromograph')
 import chromograph
 from chromograph.pipeline import config
 from chromograph.peak_calling.utils import read_HOMER_TFs

@@ -7,7 +7,6 @@ from tqdm import tqdm
 from typing import *
 import subprocess
 
-sys.path.append('/home/camiel/chromograph/')
 import chromograph
 from chromograph.pipeline.utils import *
 

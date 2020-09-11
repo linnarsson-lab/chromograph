@@ -19,7 +19,6 @@ from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold
 from cytograph.embedding import art_of_tsne
 
-sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
 from chromograph.pipeline.TF_IDF import TF_IDF
@@ -181,15 +180,17 @@ class Bin_analysis:
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         logging.info(f"  Art of tSNE with {metric} distance metric")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-        with parallel_backend('threading', n_jobs=8):
+        try:
             logging.info("Generating UMAP from decomposition")
             ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
             logging.info("Generating 3D UMAP from decomposition")
             ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+        except:
+            logging.info("Failed to generate UMAP")
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
-        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="UMAP", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_precluster)
+        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_precluster)
         labels = pl.fit_predict(ds)
         ds.ca.ClustersModularity = labels + min(labels)
         ds.ca.OutliersModularity = (labels == -1).astype('int')
@@ -197,7 +198,7 @@ class Bin_analysis:
         ds.ca.Outliers = (labels == -1).astype('int')
 
         logging.info("Performing Louvain Polished Surprise clustering")
-        ps = PolishedSurprise(graph="RNN", embedding="UMAP", min_cells=self.config.params.min_cells_precluster)
+        ps = PolishedSurprise(graph="RNN", embedding="TSNE", min_cells=self.config.params.min_cells_precluster)
         labels = ps.fit_predict(ds)
         ds.ca.ClustersSurprise = labels + min(labels)
         ds.ca.OutliersSurprise = (labels == -1).astype('int')
@@ -208,10 +209,10 @@ class Bin_analysis:
         Bin_annotation(ds, self.config.paths.ref)
         
         ## Plot results on manifold
-        logging.info("Plotting UMAP")
-        manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
+        if 'UMAP' in ds.ca:
+            logging.info("Plotting UMAP")
+            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC_UMAP.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
-        logging.info("plotting attributes")
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_QC_UMAP.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])

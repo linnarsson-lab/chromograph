@@ -143,12 +143,13 @@ class Peak_Aggregator:
 
             ## Plot results 
             name = out_file.split('/')[-1].split('_')[0]
-            logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
+            if 'UMAP' in ds.ca:
+                logging.info("Plotting UMAP")
+                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
             logging.info("Plotting TSNE")
             manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
 
             cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))
-            cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'UMAP')
+            cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'TSNE')
 
             return
