@@ -237,6 +237,7 @@ class Peak_caller:
         #     pool.close()
         #     pool.join()
         
+        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
         with parallel_backend('threading', n_jobs=20):
             Parallel()(delayed(Count_peaks)(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed')) for i, cells in enumerate(chunks))
 
