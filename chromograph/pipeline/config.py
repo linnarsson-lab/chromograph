@@ -83,6 +83,7 @@ def load_config() -> Config:
 			"N_peaks_decomp": 20000,
 			"peak_fraction": 0.01,
 			"f_metric": 'euclidean',
+			"UMAP": False,
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
