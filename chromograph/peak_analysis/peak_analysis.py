@@ -233,7 +233,11 @@ class Peak_analysis:
         ## Save clusters and embedding from bin analysis as clusters_bin
         ds.ca.Clusters_bin, ds.ca.ClustersModularity_bin, ds.ca.OutliersModularity_bin = ds.ca.Clusters, ds.ca.ClustersModularity, ds.ca.OutliersModularity
         ds.ca.ClustersSurprise_bin, ds.ca.OutliersSurprise_bin = ds.ca.ClustersSurprise, ds.ca.OutliersSurprise
-        ds.ca.TSNE_bin, ds.ca.UMAP_bin, ds.ca.UMAP3D_bin = ds.ca.TSNE, ds.ca.UMAP, ds.ca.UMAP3D
+        ds.ca.TSNE_bin = ds.ca.TSNE
+        if 'UMAP' in ds.ca:
+            ds.ca.UMAP_bin = ds.ca.UMAP
+        if 'UMAP3D' in ds.ca:
+            ds.ca.UMAP3D_bin = ds.ca.UMAP3D
 
         ## Perform tSNE and UMAP
         logging.info(f"Computing 2D and 3D embeddings from latent space")
