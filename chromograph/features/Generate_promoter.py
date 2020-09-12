@@ -147,42 +147,45 @@ class Generate_promoter:
     
         ## Generate pooled layer
         with loompy.connect(self.loom) as ds:
-            ## Poisson pooling
-            logging.info(f"Poisson pooling")
-            if 'HPF' in ds.ca:
-                decomp = ds.ca.HPF
-                decomp_type = 'HPF'
-            elif 'LSI' in ds.ca:
-                decomp = ds.ca.LSI
-                decomp_type = 'LSI'
-            logging.info(f'Create NN graph using {decomp_type}')
-            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
-            logging.info(f'Query NN graph')
-            indices, distances = [x.copy() for x in nn.neighbor_graph]
-            # Note: we convert distances to similarities here, to support Poisson smoothing below
-            knn = sparse.csr_matrix(
-                (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
-            max_d = knn.data.max()
-            knn.data = (max_d - knn.data) / max_d
-            knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
-            knn = knn.astype("bool")
-
-            ## Start pooling over the network
-            logging.info(f'Start pooling over network')
-            ds["pooled"] = 'int32'
-            for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
-                ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
-
+            
             logging.info(f'Converting to CPM')  # divide by GA_colsum/1e6
             ds.ca['GA_colsum'] = ds[''].map([np.sum], axis=1)[0]
-            ds.ca['GA_pooled_colsum'] = ds['pooled'].map([np.sum], axis=1)[0]
             
+            ## Poisson pooling
+            if self.config.params.poisson_pooling:
+                logging.info(f"Poisson pooling")
+                if 'HPF' in ds.ca:
+                    decomp = ds.ca.HPF
+                    decomp_type = 'HPF'
+                elif 'LSI' in ds.ca:
+                    decomp = ds.ca.LSI
+                    decomp_type = 'LSI'
+                logging.info(f'Create NN graph using {decomp_type}')
+                nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
+                logging.info(f'Query NN graph')
+                indices, distances = [x.copy() for x in nn.neighbor_graph]
+                # Note: we convert distances to similarities here, to support Poisson smoothing below
+                knn = sparse.csr_matrix(
+                    (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
+                max_d = knn.data.max()
+                knn.data = (max_d - knn.data) / max_d
+                knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
+                knn = knn.astype("bool")
+
+                ## Start pooling over the network
+                logging.info(f'Start pooling over network')
+                ds["pooled"] = 'int32'
+                for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
+                    ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+                ds.ca['GA_pooled_colsum'] = ds['pooled'].map([np.sum], axis=1)[0]
+                ds['pooled_CPM'] = 'float32'
+
             ds['CPM'] = 'float32'
-            ds['pooled_CPM'] = 'float32'
             progress = tqdm(total = ds.shape[1])
             for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 ds['CPM'][:,selection] = div0(view[''][:,:], 1e-6 * ds.ca['GA_colsum'][selection])
-                ds['pooled_CPM'][:,selection] = div0(view['pooled'][:,:], 1e-6 * ds.ca['GA_pooled_colsum'][selection])
+                if self.config.params.poisson_pooling:
+                    ds['pooled_CPM'][:,selection] = div0(view['pooled'][:,:], 1e-6 * ds.ca['GA_pooled_colsum'][selection])
                 progress.update(self.config.params.batch_size)
             progress.close()
             
