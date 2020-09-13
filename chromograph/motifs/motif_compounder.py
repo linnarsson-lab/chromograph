@@ -76,11 +76,11 @@ class Motif_compounder:
             logging.info(f'Creating a loom-file to fill with enrichments of {len(TF_cols)} motifs for {ds.shape[1]} cells')
 
             with loompy.new(self.out_file) as dsout:
-                ## Transferring column attributes and grapsh from peak-file
-                logging.info(f'Shape will be {TFs.shape[1]} rows by {ds.shape[1]} columns')
+                ## Transferring column attributes and graphs from peak-file
                 dsout.add_columns(np.zeros([TFs.shape[1], ds.shape[1]]), col_attrs=ds.ca, row_attrs={'Gene': np.array([x.split('_')[0] for x in TF_cols]), 'Total_peaks': np.array(np.sum(TFs, axis = 0))})
-                dsout.col_graphs = ds.col_graphs
-                logging.info(f'New loom file has shape {dsout.shape}')
+                for x in ds.col_graphs:
+                    dsout.col_graphs[x] = ds.col_graphs[x]
+                logging.info(f'New loom file has shape {dsout.shape} with {len(ds.ca.keys())} col attributes and {len(ds.col_graphs.keys())} col graphs')
 
                 ## Compound to motif enrichments
                 logging.info(f'Compounding peaks to motif enrichments')

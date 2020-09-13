@@ -114,6 +114,7 @@ class GA_Aggregator:
 
             ## Other gene related plots
             cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap.pdf"), layer="")
-            cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap_pooled.pdf"), layer="pooled")
             cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap.pdf"), layer="")
-            cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap_pooled.pdf"), layer="pooled")
+            if "pooled" in ds.layers:
+                cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap_pooled.pdf"), layer="pooled")
+                cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap_pooled.pdf"), layer="pooled")
