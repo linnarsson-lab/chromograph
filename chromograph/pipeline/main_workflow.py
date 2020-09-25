@@ -55,6 +55,9 @@ if __name__ == '__main__':
         name = subset.name
         samples = subset.include
 
+        if not name == 'All':
+            continue
+
         logging.info(f'Performing the following steps: {config.steps} for build {config.paths.build}')
         ## Check if directory exists
         if not os.path.isdir(config.paths.build):
@@ -93,7 +96,7 @@ if __name__ == '__main__':
 
             ## Run primary Clustering and embedding
             with loompy.connect(binfile, 'r+') as ds:
-                bin_analysis = Bin_analysis(outdir=subset_dir)
+                bin_analysis = Bin_analysis(outdir=subset_dir, do_UMAP=False)
                 bin_analysis.fit(ds)
 
         if 'peak_calling' in config.steps:
@@ -107,7 +110,7 @@ if __name__ == '__main__':
             peak_file = os.path.join(subset_dir, name + '_peaks.loom')
             peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
             with loompy.connect(peak_file, 'r+') as ds:
-                peak_analysis = Peak_analysis(outdir=subset_dir)
+                peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=False)
                 peak_analysis.fit(ds)
 
                 peak_aggregator = Peak_Aggregator()
@@ -117,41 +120,9 @@ if __name__ == '__main__':
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
 
-        if 'bigwig' in config.steps:
-            ## Export bigwigs by cluster
-            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-            with loompy.connect(peak_file, 'r') as ds:
-                logging.info('Exporting bigwigs')
-                with mp.get_context().Pool(20) as pool:
-                    for cluster in np.unique(ds.ca.Clusters):
-                        cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                        pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
-                    pool.close()
-                    pool.join()
-
         if 'GA' in config.steps:
             ## Generate promoter file
             logging.info(f'Generating promoter file')
             with loompy.connect(binfile, 'r') as ds:
-                Promoter_generator = Generate_promoter(outdir=subset_dir)
+                Promoter_generator = Generate_promoter(outdir=subset_dir, poisson_pooling=False)
                 GA_file = Promoter_generator.fit(ds)
-
-            ## Transer column attributes
-            with loompy.connect(GA_file) as ds:
-
-                ## Aggregate GA file and annotate based on markers
-                GA_agg_file = os.path.join(subset_dir, name + '_GA.agg.loom')
-                Aggregator = GA_Aggregator()
-                Aggregator.fit(ds, out_file=GA_agg_file)
-
-                logging.info(f'Transferring column attributes back to bin file')
-                with loompy.connect(binfile) as dsb:
-                    transfer_ca(ds, dsb, 'CellID')
-
-        if 'motifs' in config.steps:
-            if 'peak_file' not in locals():
-                peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-
-            with loompy.connect(peak_file) as ds:
-                motif_compounder = Motif_compounder(outdir=subset_dir)
-                motif_compounder.fit(ds)

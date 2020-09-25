@@ -35,7 +35,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S')
 
 class Generate_promoter:
-    def __init__(self, outdir) -> None:
+    def __init__(self, outdir, poisson_pooling=True) -> None:
         """
         Use Gene reference to generate Gene accessibility scores as a gene expression proxy
         
@@ -49,6 +49,7 @@ class Generate_promoter:
         self.outdir = outdir
         self.peakdir = os.path.join(outdir, 'peaks')
         self.gene_ref = os.path.join(chromograph.__path__[0], 'references/GRCh38_2kbprom.bed')
+        self.poisson_pooling = poisson_pooling
         self.loom = ''
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -152,7 +153,7 @@ class Generate_promoter:
             ds.ca['GA_colsum'] = ds[''].map([np.sum], axis=1)[0]
             
             ## Poisson pooling
-            if self.config.params.poisson_pooling:
+            if self.poisson_pooling:
                 logging.info(f"Poisson pooling")
                 if 'HPF' in ds.ca:
                     decomp = ds.ca.HPF
@@ -184,7 +185,7 @@ class Generate_promoter:
             progress = tqdm(total = ds.shape[1])
             for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 ds['CPM'][:,selection] = div0(view[''][:,:], 1e-6 * ds.ca['GA_colsum'][selection])
-                if self.config.params.poisson_pooling:
+                if self.poisson_pooling:
                     ds['pooled_CPM'][:,selection] = div0(view['pooled'][:,:], 1e-6 * ds.ca['GA_pooled_colsum'][selection])
                 progress.update(self.config.params.batch_size)
             progress.close()

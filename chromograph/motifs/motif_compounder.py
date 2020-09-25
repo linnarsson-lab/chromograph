@@ -135,5 +135,6 @@ class Motif_compounder:
             logging.info("Aggregating clusters")
             dsout.aggregate(self.agg_file, None, "Clusters", "mean", agg_spec)
 
+        logging.info(f'Finished motif compounding')
         return self.out_file
 

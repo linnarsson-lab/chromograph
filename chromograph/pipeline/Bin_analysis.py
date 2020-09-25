@@ -37,7 +37,7 @@ from typing import *
 from tqdm import tqdm
 
 class Bin_analysis:
-    def __init__(self, outdir) -> None:
+    def __init__(self, outdir, do_UMAP=True) -> None:
         """
         Perform Dimensional Reduction and Clustering on a binned loom-file   
         Args:
@@ -50,6 +50,7 @@ class Bin_analysis:
         self.config = config.load_config()
         self.outdir = os.path.join(outdir, 'exported')
         self.blayer = '5kb_bins'
+        self.UMAP = do_UMAP
         logging.info(f"Bin_Analysis initialised, saving plots to {self.outdir}")
     
     def fit(self, ds: loompy.LoomConnection) -> None:        
@@ -180,7 +181,7 @@ class Bin_analysis:
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         logging.info(f"  Art of tSNE with {metric} distance metric")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-        if self.config.params.UMAP:
+        if self.UMAP==True:
             logging.info("Generating UMAP from decomposition")
             ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
             logging.info("Generating 3D UMAP from decomposition")
