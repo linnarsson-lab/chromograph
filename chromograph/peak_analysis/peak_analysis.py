@@ -44,7 +44,7 @@ from scipy import sparse
 from typing import *
 
 class Peak_analysis:
-    def __init__(self, outdir) -> None:
+    def __init__(self, outdir, do_UMAP=True) -> None:
         """
         Perform Dimensional Reduction and Clustering on a Peak loom-file   
         Args:
@@ -59,6 +59,7 @@ class Peak_analysis:
         self.outdir = os.path.join(outdir, 'exported')
         self.layer = ''
         self.depth_key = 'NPeaks'
+        self.do_UMAP = do_UMAP
         logging.info("Peak_analysis initialised")
     
     def fit(self, ds: loompy.LoomConnection) -> None:
@@ -247,7 +248,7 @@ class Peak_analysis:
         logging.info(f"Art of tSNE with distance metrid: {metric_f}")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
         
-        if self.config.params.UMAP:
+        if self.do_UMAP:
             logging.info(f'Generating UMAP from decomposition using metric {metric_f}')
             ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
             logging.info(f'Generating 3D UMAP from decomposition using metric {metric_f}')

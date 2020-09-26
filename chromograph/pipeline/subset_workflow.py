@@ -47,6 +47,7 @@ logging.basicConfig(
 
 if __name__ == '__main__':
 
+    logging.info(f'Starting subset workflow')
     bsize = f'{int(config.params.bin_size/1000)}kb'
 
     ## Load punchcard and setup decks for analysis
