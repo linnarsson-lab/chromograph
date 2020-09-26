@@ -86,32 +86,32 @@ class Peak_analysis:
             progress.close()
             self.layer = "Binary"
 
-        if self.config.params.poisson_pooling:
-            ## Poisson pooling
-            logging.info(f"Poisson pooling")
-            decomp = ds.ca.LSI_b
-            nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
-            logging.info(f'Query graph')
-            indices, distances = [x.copy() for x in nn.neighbor_graph]
-            # Note: we convert distances to similarities here, to support Poisson smoothing below
-            knn = sparse.csr_matrix(
-                (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
-            max_d = knn.data.max()
-            knn.data = (max_d - knn.data) / max_d
-            knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
-            knn = knn.astype("bool")
+        # if self.config.params.poisson_pooling:
+        #     ## Poisson pooling
+        #     logging.info(f"Poisson pooling")
+        #     decomp = ds.ca.LSI_b
+        #     nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
+        #     logging.info(f'Query graph')
+        #     indices, distances = [x.copy() for x in nn.neighbor_graph]
+        #     # Note: we convert distances to similarities here, to support Poisson smoothing below
+        #     knn = sparse.csr_matrix(
+        #         (np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (decomp.shape[0], decomp.shape[0]))
+        #     max_d = knn.data.max()
+        #     knn.data = (max_d - knn.data) / max_d
+        #     knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
+        #     knn = knn.astype("bool")
 
-            ## Start pooling over the network
-            ds["pooled"] = 'int32'
-            for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
-                ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
-            ds.ca['NPeaks_pooled'] = ds[self.layer].map([np.count_nonzero], axis=1)[0]
+        #     ## Start pooling over the network
+        #     ds["pooled"] = 'int32'
+        #     for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
+        #         ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+        #     ds.ca['NPeaks_pooled'] = ds[self.layer].map([np.count_nonzero], axis=1)[0]
 
-            self.layer = "pooled"
-            self.depth_key = 'NPeaks_pooled'
+        #     self.layer = "pooled"
+        #     self.depth_key = 'NPeaks_pooled'
 
         ## Select peaks for manifold learning based on variance between pre-clusters
-        logging.info('Select Peaks for HPF by variance in preclusters')
+        logging.info('Select Peaks for manifold learning by variance in preclusters')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
         ds.aggregate(temporary_aggregate, None, "Clusters", "sum", {"Clusters": "first"})
         with loompy.connect(temporary_aggregate) as dsout:
