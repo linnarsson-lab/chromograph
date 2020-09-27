@@ -51,11 +51,10 @@ class Add_UMAP:
         ## Perform tSNE and UMAP
         logging.info(f"Computing 2D and 3D embeddings from latent space")
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
-        if self.UMAP==True:
-            logging.info("Generating UMAP from decomposition")
-            ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
-            logging.info("Generating 3D UMAP from decomposition")
-            ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+        logging.info("Generating UMAP from decomposition")
+        ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+        logging.info("Generating 3D UMAP from decomposition")
+        ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
        
         ## Plot results on manifold
         logging.info("Plotting UMAP")
