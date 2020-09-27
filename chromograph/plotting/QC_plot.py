@@ -65,7 +65,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
     ax = ax.flatten()
     
     ## Histogram of features per cell    
-    if 'NPeaks' in ds.ca:
+    if 'Chr' in ds.ra:
         ax[0].hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
         ax[0].set_title("Number of positive peaks per cell")
         ax[0].set_ylabel("Number of Cells")
