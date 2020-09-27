@@ -20,7 +20,8 @@ import multiprocessing as mp
 ## Import chromograph
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
-from chromograph.pipeline import config, Add_UMAP
+from chromograph.pipeline import config
+from chromograph.pipeline.Add_UMAP import Add_UMAP
 from chromograph.peak_analysis.peak_analysis import Peak_analysis
 from chromograph.pipeline.utils import transfer_ca
 from chromograph.preprocessing.utils import get_blacklist, mergeBins
