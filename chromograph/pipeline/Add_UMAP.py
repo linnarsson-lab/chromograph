@@ -44,7 +44,7 @@ class Add_UMAP:
         
         if self.feature == 'bins':
             decomp = ds.ca.LSI_b
-        elif self.features == 'peaks':
+        elif self.feature == 'peaks':
             decomp = ds.ca.LSI
         metric = 'euclidean'
 
