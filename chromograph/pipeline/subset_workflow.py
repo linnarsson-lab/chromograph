@@ -90,19 +90,19 @@ if __name__ == '__main__':
                         good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.promoter_region_fragments/ds.ca.passed_filters > config.params.FRIP)
                         selections.append(good_cells)
 
-            # ## Merge Bin files
-            if not os.path.exists(binfile):
-                logging.info(f'Input samples {samples}')
-                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=config.params.skip_attrs)
-                # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
-                logging.info('Finished combining loom-files')
-            else:
-                logging.info('Combined bin file already exists, using this for analysis')
+                # ## Merge Bin files
+                if not os.path.exists(binfile):
+                    logging.info(f'Input samples {samples}')
+                    loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=config.params.skip_attrs)
+                    # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
+                    logging.info('Finished combining loom-files')
+                else:
+                    logging.info('Combined bin file already exists, using this for analysis')
 
-            ## Run primary Clustering and embedding
-            with loompy.connect(binfile, 'r+') as ds:
-                bin_analysis = Bin_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
-                bin_analysis.fit(ds) 
+                ## Run primary Clustering and embedding
+                with loompy.connect(binfile, 'r+') as ds:
+                    bin_analysis = Bin_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
+                    bin_analysis.fit(ds) 
 
         if 'peak_calling' in config.steps:
             ## Call peaks
