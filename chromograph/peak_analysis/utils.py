@@ -116,7 +116,7 @@ def get_conservation_score(ds):
     return np.array(tab[:,-1].astype('float'))
 
     
-def Homer_find_motifs(bed, outdir, homer_path, motifs):
+def Homer_find_motifs(bed, outdir, homer_path, motifs, cpus=4):
     """
     Call Homer find motifs to identiy the most enriched motifs per cluster for the top N most enriched peaks.
 
@@ -131,8 +131,7 @@ def Homer_find_motifs(bed, outdir, homer_path, motifs):
     homer = os.path.join(homer_path, 'findMotifsGenome.pl')
 
     ## Call Peaks
-    cmd = f'{homer_path}/findMotifsGenome.pl {bed} hg38 {outdir} -mknown {motifs} -p 4 -nomotif'
-    subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', '4', '-nomotif'])
+    subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', cpus, '-nomotif'])
     
     # ## We only need the narrowPeak file, so clean up the rest
     subprocess.run(['rm', bed])

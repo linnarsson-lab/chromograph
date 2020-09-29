@@ -37,7 +37,7 @@ class Add_UMAP:
         self.config = config.load_config()
         self.outdir = os.path.join(outdir, 'exported')
         self.feature = feature
-        logging.info(f"Bin_Analysis initialised, saving plots to {self.outdir}")
+        logging.info(f"Adding UMAP to existing analysis, saving plots to {self.outdir}")
     
     def fit(self, ds: loompy.LoomConnection) -> None:        
         name = ds.filename.split("/")[-1].split(".")[0].split("_")[0]

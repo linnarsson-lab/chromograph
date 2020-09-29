@@ -100,7 +100,7 @@ def load_config() -> Config:
 		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "bigwig", "GA", "motifs"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
-			"n_cpus": 52,
+			"n_cpus": 26,
 			"n_gpus": 0,
 			"memory": 256
 		})
