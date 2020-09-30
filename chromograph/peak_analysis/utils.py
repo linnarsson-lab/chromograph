@@ -131,7 +131,7 @@ def Homer_find_motifs(bed, outdir, homer_path, motifs, cpus=4):
     homer = os.path.join(homer_path, 'findMotifsGenome.pl')
 
     ## Call Peaks
-    subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', cpus, '-nomotif'])
+    subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', str(cpus), '-nomotif'])
     
     # ## We only need the narrowPeak file, so clean up the rest
     subprocess.run(['rm', bed])
