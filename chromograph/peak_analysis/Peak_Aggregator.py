@@ -135,9 +135,8 @@ class Peak_Aggregator:
             #         pool.apply_async(Homer_find_motifs, args=(pile[0], pile[1], self.config.paths.HOMER, os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'),))
             #     pool.close()
             #     pool.join()
-
             for pile in piles:
-                Homer_find_motifs(pile[0], pile[1], self.config.paths.HOMER, os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), self.config.execution.n_cpus)
+                Homer_find_motifs(bed=pile[0], outdir=pile[1], homer_path=self.config.paths.HOMER, motifs=os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), cpus=self.config.execution.n_cpus)
 
             dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir, N=self.config.params.N_most_enriched)
 
