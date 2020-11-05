@@ -26,7 +26,7 @@ conda create --name chromo python=3.7
 
 Make sure to install the right versions of pynndescent, numba and umap since we will install cytograph before chromograph
 ```
-pip install nndescent==0.4.8 umap-learn==0.4.6 numba==0.49.1
+pip install pynndescent==0.4.8 umap-learn==0.4.6 numba==0.49.1
 ```
 
 Next git clone cytograph-dev and move into the folder
