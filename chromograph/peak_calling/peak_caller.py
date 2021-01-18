@@ -116,7 +116,7 @@ class Peak_caller:
 
                 logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
                 # with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
-                with mp.get_context().Pool(20, maxtasksperchild=1) as pool:
+                with mp.get_context().Pool(min(mp.cpu_count(), len(piles)), maxtasksperchild=1) as pool:
                     for pile in piles:
                         pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))
                     pool.close()
@@ -126,7 +126,7 @@ class Peak_caller:
                 gc.collect()
 
                 logging.info(f'Start calling peaks')
-                with mp.get_context().Pool(20, maxtasksperchild=1) as pool:
+                with mp.get_context().Pool(min(mp.cpu_count(), len(piles)), maxtasksperchild=1) as pool:
                     for pile in piles:
                         pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
                     pool.close()
@@ -137,7 +137,7 @@ class Peak_caller:
                     
                 ## Compound the peak lists
                 peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
-                logging.info('Identified on average {} peaks per cluster'.format(np.int(np.mean([len(x) for x in peaks]))))
+                logging.info(f'Identified on average {np.int(np.mean([len(x) for x in peaks]))} peaks per cluster')
                 peaks_all = peaks[0].cat(*peaks[1:])
                 peaks_all.merge()
 
