@@ -13,6 +13,7 @@ import scipy.sparse as sparse
 import json
 import urllib.request
 
+from chromograph.pipeline import config
 from chromograph.preprocessing.Chromgen import *
 import logging
 
@@ -23,6 +24,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S')
 
 bsize = 5000
+config = config.load_config()
 
 sample = sys.argv[1]
 if os.path.exists(f"/data/proj/chromium/{sample}_AB_1"):
@@ -36,7 +38,8 @@ elif os.path.exists(f"/data/proj/chromium/{sample}"):
     logging.info('Using	unlabelled file')
 else:
     logging.info("Could not find sample")
-outdir = f"/data/proj/scATAC/samples/{sample}"
+# outdir = f"/data/proj/scATAC/samples/{sample}"
+outdir = os.path.join(config.paths.samples, sample)
 
 chromgen = Chromgen()
 chromgen.fit(indir = indir, bsize = bsize, outdir = outdir)

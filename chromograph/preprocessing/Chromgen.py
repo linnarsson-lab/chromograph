@@ -53,8 +53,9 @@ class Chromgen:
         Remarks:
             The resulting file will be named ``{sampleID}.loom``, where the sampleID is the one given by cellranger.
         '''
-        logging.info("Binning reads from {} into {} kb bins".format(indir.split('/')[-1], (bsize/1000)))
-        logging.info("Reading from {}".format(indir))
+        logging.info(f"Binning reads from {indir.split('/')[-1]} into {bsize/1000} kb bins")
+        logging.info(f"Reading from {indir}")
+        logging.info(f"Saving to {outdir}")
         fb = indir + '/outs/singlecell.csv'
         ff = indir + '/outs/fragments.tsv.gz'
         fs = indir + '/outs/summary.json'
@@ -94,8 +95,8 @@ class Chromgen:
         for k,v in m.items():
             meta[k] = np.array([v] * len(meta['barcode']))
 
-        logging.info("Total of {} valid cells".format(len(meta['barcode'])))
-        logging.info("Ref. assembly {}".format(summary['reference_assembly']))
+        logging.info(f"Total of {len(meta['barcode'])} valid cells")
+        logging.info(f"Ref. assembly {summary['reference_assembly']}")
 
         # Get Chromosome sizes
         if genome_size == None:
@@ -128,7 +129,7 @@ class Chromgen:
                 
         del frags
         
-        logging.info("Generate {} bins based on provided chromosome sizes".format(str(int(bsize/1000)) + ' kb'))
+        logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
         chrom_bins = generate_bins(chrom_size, bsize)
 
         ## Count fragments inside bins
@@ -151,7 +152,7 @@ class Chromgen:
         retain = [chrom_bins[x] for x in keep]
         clean_bin = [bins[x] for x in retain]
         
-        logging.info("Number of bins after cleaning: {}".format(len(clean_bin)))
+        logging.info(f"Number of bins after cleaning: {len(clean_bin)}")
 
         #####
         # Construct loom file
@@ -180,8 +181,8 @@ class Chromgen:
         
         ## We retain only the bins that have no overlap with the ENCODE blacklist
         cleaned_matrix = matrix.tocsc()[retain,:]
-        logging.info("Identified {} positive bins in {} cells before filtering blacklist".format(len(v), len(meta['barcode'])))
-        logging.info("Identified {} positive bins in {} cells after filtering blacklist".format(len(cleaned_matrix.nonzero()[0]), len(meta['barcode'])))
+        logging.info(f"Identified {len(v)} positive bins in {len(meta['barcode'])} cells before filtering blacklist")
+        logging.info(f"Identified {len(cleaned_matrix.nonzero()[0])} positive bins in {len(meta['barcode'])} cells after filtering blacklist")
 
         ## Create row attributes
         chrom = [x[0] for x in clean_bin]
@@ -202,7 +203,7 @@ class Chromgen:
                       col_attrs=meta,
                       file_attrs=small_summary)
         self.loom = floom
-        logging.info("Loom bin file saved as {}".format(floom))
+        logging.info(f"Loom bin file saved as {floom}")
         
         ## Cleanup
         del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin, matrix, cleaned_matrix, col, row, v
@@ -219,3 +220,5 @@ class Chromgen:
             meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
 
         logging.info(f'Finished processing {sample}')
+
+        return
