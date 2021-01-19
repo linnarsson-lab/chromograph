@@ -181,6 +181,7 @@ class Peak_caller:
             ## Annotate peaks
             logging.info(f'Annotating peaks')
             homer = os.path.join(self.config.paths.HOMER, 'annotatePeaks.pl')
+            logging.info(f'Found Homer at {homer}')
             genes = os.path.join(self.config.paths.ref, 'genes', 'genes.gtf')
             motifs = os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs') ## Read the motif file from chromograph reference
             cmd = f'{homer} {f} hg38 -gtf {genes} -CpG > {f_annot}'  ## Command to call HOMER
