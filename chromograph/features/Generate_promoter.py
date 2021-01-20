@@ -89,7 +89,7 @@ class Generate_promoter:
             
             else:
                 logging.info(f'Start counting peaks')
-                if name != 'All':
+                if not name == 'All':
                     logging.info(f'Warning: Using mp.pool outside main workflow, might conflict with downstream numba applications')
                 chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
                 with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=1) as pool:
@@ -185,6 +185,7 @@ class Generate_promoter:
 
             ds['CPM'] = 'float32'
             progress = tqdm(total = ds.shape[1])
+            logging.info(f'Start conversion')
             for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
                 ds['CPM'][:,selection] = div0(view[''][:,:], 1e-6 * ds.ca['GA_colsum'][selection])
                 if self.poisson_pooling:

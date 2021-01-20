@@ -113,6 +113,7 @@ class GA_Aggregator:
             cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
 
             ## Other gene related plots
+            logging.info(f'Plotting heatmaps')
             cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{name}_TFs_heatmap.pdf"), layer="")
             cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{name}_markers_heatmap.pdf"), layer="")
             if "pooled" in ds.layers:
