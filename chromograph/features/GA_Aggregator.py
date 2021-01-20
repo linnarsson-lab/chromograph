@@ -83,11 +83,11 @@ class GA_Aggregator:
             # Reorder the genes, markers first, ordered by enrichment in clusters
             logging.info("Permuting rows")
             mask = np.zeros(ds.shape[0], dtype=bool)
-            mask[markers] = True
+            mask[markers] = 1
             # fetch enrichment from the aggregated file, so we get it already permuted on the column axis
             gene_order = np.zeros(ds.shape[0], dtype='int')
-            gene_order[mask] = np.argmax(dsout.layer["enrichment"][mask, :], axis=1)
-            gene_order[~mask] = np.argmax(dsout.layer["enrichment"][~mask, :], axis=1) + dsout.shape[1]
+            gene_order[mask] = np.argmax(dsout.layer["enrichment"][np.where(mask)[0], :], axis=1)
+            gene_order[~mask] = np.argmax(dsout.layer["enrichment"][np.where(~mask)[0], :], axis=1) + dsout.shape[1]
             gene_order = np.argsort(gene_order)
             ds.permute(gene_order, axis=0)
             dsout.permute(gene_order, axis=0)
