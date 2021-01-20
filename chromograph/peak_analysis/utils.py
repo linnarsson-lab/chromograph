@@ -45,7 +45,7 @@ def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, 
         n_cells = ds.ca.NCells[ds.ca.Clusters == label]
 
         c = np.zeros((ds.shape[0],4))
-        c[:,0] = np.array(ds[:,ds.ca.Clusters==label]).astype('int').flatten()
+        c[:,0] = np.array(ds[:,np.where(ds.ca.Clusters==label)[0]]).astype('int').flatten()
         c[:,1] = ds.ra.NCells - c[:,0]
         c[:,2] = n_cells - c[:,0]
         c[:,3] = Total - n_cells - c[:,1]
