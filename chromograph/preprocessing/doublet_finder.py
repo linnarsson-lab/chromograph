@@ -46,7 +46,6 @@ from cytograph.metrics import jensen_shannon_distance
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold, doublets_plots
 
-sys.path.append('/home/camiel/chromograph')
 from chromograph.pipeline.TF_IDF import TF_IDF
 
 import logging
@@ -62,8 +61,9 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
     '''
     ## Create n doublets
     n_real_cells = ds.shape[1]
-    n_doublets = int(n_real_cells / (1 - proportion_artificial) - n_real_cells)    
-    fdb = 'doublets.loom' # Filename for temporary loom file containing doublets
+    n_doublets = int(n_real_cells / (1 - proportion_artificial) - n_real_cells)
+    name = ds.filename.split("/")[-1].split(".")[0].split("_")[0]
+    fdb = f'{name}_doublets.loom' # Filename for temporary loom file containing doublets
 
     ## Use only Q25 top bins
     logging.info(f'Calculating row wise nonzero rate')
