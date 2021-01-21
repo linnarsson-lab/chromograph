@@ -28,7 +28,7 @@ config = config.load_config()
 
 sample = sys.argv[1]
 CR_outputs = config.paths.cell_ranger
-logging.info(f'Looking for Cellranger outputs at {CR_outputs}')
+logging.info(f'Looking for {sample} Cellranger outputs at {CR_outputs}')
 if os.path.exists(os.path.join(CR_outputs, f"{sample}_AB_1")):
     indir = os.path.join(CR_outputs, f"{sample}_AB_1")
     logging.info('Using AB file')
