@@ -27,14 +27,15 @@ bsize = 5000
 config = config.load_config()
 
 sample = sys.argv[1]
-if os.path.exists(f"/data/proj/chromium/{sample}_AB_1"):
-    indir = f"/data/proj/chromium/{sample}_AB_1"
+CR_outputs = config.paths.cell_ranger
+if os.path.exists(os.path.join(CR_outputs, f"{sample}_AB_1")):
+    indir = os.path.join(CR_outputs, f"{sample}_AB_1")
     logging.info('Using AB file')
-elif os.path.exists(f"/data/proj/chromium/{sample}_A_1"):
-    indir = f"/data/proj/chromium/{sample}_A_1"
+elif os.path.exists(os.path.join(CR_outputs, f"{sample}_A_1")):
+    indir = os.path.join(CR_outputs, f"{sample}_A_1")
     logging.info('Using A file')
-elif os.path.exists(f"/data/proj/chromium/{sample}"):
-    indir = f"/data/proj/chromium/{sample}"
+elif os.path.exists(os.path.join(CR_outputs, f"{sample}")):
+    indir = os.path.join(CR_outputs, f"{sample}")
     logging.info('Using	unlabelled file')
 else:
     logging.info("Could not find sample")
