@@ -94,10 +94,10 @@ def load_config() -> Config:
 			"N_most_enriched": 6,
 			"peak_depth": 2.5e7,
 			"peak_min_cells": 100,
-			"FRIP": 0.1,
+			"FR_prom": 0.1,
 			"reference_assembly": "GRCh38"
 		}),
-		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "bigwig", "GA", "motifs"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "GA", "motifs", "bigwig"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 26,
