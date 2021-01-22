@@ -64,7 +64,7 @@ class Generate_promoter:
         
         '''
         ## Get sample name from loom-file
-        name = ds.filename.split(".")[0]
+        name = ds.filename.split(".")[0].split('/')[-1]
         self.loom = os.path.join(self.outdir, f'{name}_prom.loom')
 
         ## Check if location for peaks and compounded fragments exists
@@ -149,19 +149,19 @@ class Generate_promoter:
                 pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     
         ## Generate pooled layer
-        with loompy.connect(self.loom) as ds:
+        with loompy.connect(self.loom) as dsp:
             
             logging.info(f'Converting to CPM')  # divide by GA_colsum/1e6
-            ds.ca['GA_colsum'] = ds[''].map([np.sum], axis=1)[0]
+            dsp.ca['GA_colsum'] = dsp[''].map([np.sum], axis=1)[0]
             
             ## Poisson pooling
             if self.poisson_pooling:
                 logging.info(f"Poisson pooling")
-                if 'HPF' in ds.ca:
-                    decomp = ds.ca.HPF
+                if 'HPF' in dsp.ca:
+                    decomp = dsp.ca.HPF
                     decomp_type = 'HPF'
-                elif 'LSI' in ds.ca:
-                    decomp = ds.ca.LSI
+                elif 'LSI' in dsp.ca:
+                    decomp = dsp.ca.LSI
                     decomp_type = 'LSI'
                 logging.info(f'Create NN graph using {decomp_type}')
                 nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
@@ -177,19 +177,19 @@ class Generate_promoter:
 
                 ## Start pooling over the network
                 logging.info(f'Start pooling over network')
-                ds["pooled"] = 'int32'
-                for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
-                    ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
-                ds.ca['GA_pooled_colsum'] = ds['pooled'].map([np.sum], axis=1)[0]
-                ds['pooled_CPM'] = 'float32'
+                dsp["pooled"] = 'int32'
+                for (_, indexes, view) in dsp.scan(axis=0, layers=[""], what=["layers"]):
+                    dsp["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+                dsp.ca['GA_pooled_colsum'] = dsp['pooled'].map([np.sum], axis=1)[0]
+                dsp['pooled_CPM'] = 'float32'
 
-            ds['CPM'] = 'float32'
-            progress = tqdm(total = ds.shape[1])
+            dsp['CPM'] = 'float32'
+            progress = tqdm(total = dsp.shape[1])
             logging.info(f'Start conversion')
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                ds['CPM'][:,selection] = div0(view[''][:,:], 1e-6 * ds.ca['GA_colsum'][selection])
+            for (ix, selection, view) in dsp.scan(axis=1, batch_size=self.config.params.batch_size):
+                dsp['CPM'][:,selection] = div0(view[''][:,:], 1e-6 * dsp.ca['GA_colsum'][selection])
                 if self.poisson_pooling:
-                    ds['pooled_CPM'][:,selection] = div0(view['pooled'][:,:], 1e-6 * ds.ca['GA_pooled_colsum'][selection])
+                    dsp['pooled_CPM'][:,selection] = div0(view['pooled'][:,:], 1e-6 * dsp.ca['GA_pooled_colsum'][selection])
                 progress.update(self.config.params.batch_size)
             progress.close()
             
