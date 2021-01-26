@@ -138,6 +138,8 @@ class Chromgen:
         Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
         logging.info("Finished counting fragments")
 
+        del frag_dict
+
         logging.info("Loading blacklist")
         # Load Blacklist
         if blacklist == None:
