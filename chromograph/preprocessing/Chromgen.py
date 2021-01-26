@@ -16,6 +16,8 @@ import urllib.request
 import logging
 import pickle
 import importlib
+import multiprocessing as mp
+import tqdm
 
 from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
@@ -119,17 +121,38 @@ class Chromgen:
             os.mkdir(fdir)
 
         ## Save fragments to folder
-        i = 0
-        for x in meta['barcode']:
-            f = os.path.join(fdir, f'{x}.tsv.gz')
-            if not os.path.exists(f):
-                frags = BedTool(frag_dict[x]).saveas(f)
-            i += 1
-            if i%1000 == 0:
-                logging.info(f'Finished separating fragments for {i} cells')
+        def save_fragment_to_folder(barcodes, fdir, frag_dict):
+            '''
+            Function that saves the fragments as loaded in a dictionary to a folder seperated by cell barcode
+            '''
+            for x in barcodes:
+                f = os.path.join(fdir, f'{x}.tsv.gz')
+                if not os.path.exists(f):
+                    frags = BedTool(frag_dict[x]).saveas(f)
+        def update(q):
+            # note: input comes from async `wrapMyFunc`
+            pbar.update(1)
+
+        chunks = np.array_split(meta['barcode'], mp.cpu_count() * 10)
+        pbar = tqdm(total=len(chunks))
+        pbar.set_description(f'Separating files')
+        with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
+            for chunk in chunks:
+                small_dict = {k:v for k, v in frag_dict.items() if k in chunk}
+                pool.apply_async(save_fragment_to_folder, args=(chunk, fdir, small_dict,), callback=update)
+            pool.close()
+            pool.join()
+            pbar.close()
+
+        # i = 0
+        # for x in meta['barcode']:
+        #     f = os.path.join(fdir, f'{x}.tsv.gz')
+        #     if not os.path.exists(f):
+        #         frags = BedTool(frag_dict[x]).saveas(f)
+        #     i += 1
+        #     if i%1000 == 0:
+        #         logging.info(f'Finished separating fragments for {i} cells')
                 
-        del frags
-        
         logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
         chrom_bins = generate_bins(chrom_size, bsize)
 
