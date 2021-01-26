@@ -18,6 +18,7 @@ import pickle
 import importlib
 import multiprocessing as mp
 import tqdm
+import gc
 
 from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
@@ -163,7 +164,7 @@ class Chromgen:
         Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
         logging.info("Finished counting fragments")
 
-        frag_dict.clear()   ## Cleanup
+        gc.collect() ## Do some cleanup
 
         logging.info("Loading blacklist")
         # Load Blacklist
@@ -225,6 +226,8 @@ class Chromgen:
         sampleid = sample + '_' + str(int(bsize/1000)) + 'kb'
         floom = os.path.join(outdir, sampleid + '.loom')
 
+        gc.collect()  ## Clean up
+
         loompy.create(filename=floom, 
                       layers=cleaned_matrix, 
                       row_attrs=row_attrs, 
@@ -232,9 +235,6 @@ class Chromgen:
                       file_attrs=small_summary)
         self.loom = floom
         logging.info(f"Loom bin file saved as {floom}")
-        
-        ## Cleanup
-        del black_list, Count_dict, chrom_bins, chrom_size, intervals, cleaned, keep, retain, clean_bin, matrix, cleaned_matrix, col, row, v
         
         ## Doublet detection
         with loompy.connect(self.loom, 'r+') as ds:
