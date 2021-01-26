@@ -122,7 +122,8 @@ class Chromgen:
         i = 0
         for x in meta['barcode']:
             f = os.path.join(fdir, f'{x}.tsv.gz')
-            frags = BedTool(frag_dict[x]).saveas(f)
+            if not os.path.exists(f):
+                frags = BedTool(frag_dict[x]).saveas(f)
             i += 1
             if i%1000 == 0:
                 logging.info(f'Finished separating fragments for {i} cells')

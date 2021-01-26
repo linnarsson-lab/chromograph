@@ -149,7 +149,7 @@ class Generate_promoter:
                 pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     
         ## Generate pooled layer
-        with loompy.connect(self.loom) as dsp:
+        with loompy.connect(self.loom, 'r+') as dsp:
             
             logging.info(f'Converting to CPM')  # divide by GA_colsum/1e6
             dsp.ca['GA_colsum'] = dsp[''].map([np.sum], axis=1)[0]
