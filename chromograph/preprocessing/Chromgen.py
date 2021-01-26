@@ -114,11 +114,11 @@ class Chromgen:
         logging.info("Read fragments into dict")
         frag_dict = read_fragments(ff)
         
-        # ## Split fragments to seperate files for fast indexing
-        # logging.info(f"Saving fragments to separate folder for fast indexing")
-        # fdir = os.path.join(outdir, 'fragments')
-        # if not os.path.isdir(fdir):
-        #     os.mkdir(fdir)
+        ## Split fragments to seperate files for fast indexing
+        logging.info(f"Saving fragments to separate folder for fast indexing")
+        fdir = os.path.join(outdir, 'fragments')
+        if not os.path.isdir(fdir):
+            os.mkdir(fdir)
 
         # ## Save fragments to folder
         # def save_fragment_to_folder(barcodes, fdir, frag_dict, verbose=False):
