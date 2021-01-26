@@ -121,7 +121,7 @@ class Chromgen:
             os.mkdir(fdir)
 
         ## Save fragments to folder
-        def save_fragment_to_folder(barcodes, fdir, frag_dict):
+        def save_fragment_to_folder(barcodes, fdir, frag_dict, verbose=False):
             '''
             Function that saves the fragments as loaded in a dictionary to a folder seperated by cell barcode
             '''
@@ -129,6 +129,8 @@ class Chromgen:
                 f = os.path.join(fdir, f'{x}.tsv.gz')
                 if not os.path.exists(f):
                     frags = BedTool(frag_dict[x]).saveas(f)
+            if verbose:
+                logging.info('Finished')
         def update(q):
             # note: input comes from async `wrapMyFunc`
             pbar.update(1)
@@ -139,7 +141,7 @@ class Chromgen:
         with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
             for chunk in chunks:
                 small_dict = {k:v for k, v in frag_dict.items() if k in chunk}
-                pool.apply_async(save_fragment_to_folder, args=(chunk, fdir, small_dict,), callback=update)
+                pool.apply_async(save_fragment_to_folder, args=(chunk, fdir, small_dict, True,), callback=update)
             pool.close()
             pool.join()
             pbar.close()
