@@ -133,7 +133,7 @@ class Chromgen:
             # note: input comes from async `wrapMyFunc`
             pbar.update(1)
 
-        chunks = np.array_split(meta['barcode'], mp.cpu_count() * 10)
+        chunks = np.array_split(meta['barcode'], 100)
         pbar = tqdm(total=len(chunks))
         pbar.set_description(f'Separating files')
         with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
