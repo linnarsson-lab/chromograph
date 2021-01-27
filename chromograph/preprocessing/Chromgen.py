@@ -111,15 +111,19 @@ class Chromgen:
                     x = line.split()
                     chrom_size[x[0]] = int(x[1])
 
-        ## Read Fragments and generate size bins
-        logging.info("Read fragments into dict")
-        frag_dict = read_fragments(ff)
-        
-        ## Split fragments to seperate files for fast indexing
-        logging.info(f"Saving fragments to separate folder for fast indexing")
-        fdir = os.path.join(outdir, 'fragments')
-        if not os.path.isdir(fdir):
-            os.mkdir(fdir)
+        ## Generate size bins
+        logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
+        chrom_bins = generate_bins(chrom_size, bsize)
+
+        # ## Read Fragments and generate size bins
+        # logging.info("Read fragments into dict")
+        # frag_dict = read_fragments(ff)
+
+        # ## Split fragments to seperate files for fast indexing
+        # logging.info(f"Saving fragments to separate folder for fast indexing")
+        # fdir = os.path.join(outdir, 'fragments')
+        # if not os.path.isdir(fdir):
+        #     os.mkdir(fdir)
 
         # ## Save fragments to folder
         # def save_fragment_to_folder(barcodes, fdir, frag_dict, verbose=False):
@@ -147,24 +151,53 @@ class Chromgen:
         #     pool.join()
         #     pbar.close()
 
-        i = 0
-        for x in meta['barcode']:
-            f = os.path.join(fdir, f'{x}.tsv.gz')
-            if not os.path.exists(f):
-                frags = BedTool(frag_dict[x]).saveas(f)
-            i += 1
-            if i%1000 == 0:
-                logging.info(f'Finished separating fragments for {i} cells')
-                
-        logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
-        chrom_bins = generate_bins(chrom_size, bsize)
+        # if  len(os.listdir(fdir)) < len(meta['barcode']):
+        #     i = 0
+        #     for x in meta['barcode']:
+        #         f = os.path.join(fdir, f'{x}.tsv.gz')
+        #         if not os.path.exists(f):
+        #             frags = BedTool(frag_dict[x]).saveas(f)
+        #         i += 1
+        #         if i%1000 == 0:
+        #             logging.info(f'Finished separating fragments for {i} cells')
 
-        ## Count fragments inside bins
-        logging.info("Count fragments overlapping with bins")
-        Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
-        logging.info("Finished counting fragments")
+        # ## Count fragments inside bins
+        # logging.info("Count fragments overlapping with bins")
+        # Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
+        # logging.info("Finished counting fragments")
 
-        gc.collect() ## Do some cleanup
+        ## Make function for splitting and counting fragments (keep large dict out of scope)
+
+        def fragments_to_count(ff, outdir, meta, bsize):
+            '''
+            '''
+            ## Read Fragments and generate size bins
+            logging.info("Read fragments into dict")
+            frag_dict = read_fragments(ff)
+
+            ## Split fragments to seperate files for fast indexing
+            logging.info(f"Saving fragments to separate folder for fast indexing")
+            fdir = os.path.join(outdir, 'fragments')
+            if not os.path.isdir(fdir):
+                os.mkdir(fdir)
+            if  len(os.listdir(fdir)) < len(meta['barcode']):
+                i = 0
+                for x in meta['barcode']:
+                    f = os.path.join(fdir, f'{x}.tsv.gz')
+                    if not os.path.exists(f):
+                        frags = BedTool(frag_dict[x]).saveas(f)
+                    i += 1
+                    if i%1000 == 0:
+                        logging.info(f'Finished separating fragments for {i} cells')
+
+            ## Count fragments inside bins
+            logging.info("Count fragments overlapping with bins")
+            Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
+            logging.info("Finished counting fragments")
+
+            return Count_dict
+
+        Count_dict = fragments_to_count(ff, outdir, meta, bsize)
 
         logging.info("Loading blacklist")
         # Load Blacklist
