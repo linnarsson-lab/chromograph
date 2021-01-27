@@ -42,6 +42,36 @@ class Chromgen:
         pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
     
+    def fragments_to_count(self, ff, outdir, meta, bsize):
+        '''
+        '''
+        ## Read Fragments and generate size bins
+        logging.info("Read fragments into dict")
+        frag_dict = read_fragments(ff)
+
+        ## Split fragments to seperate files for fast indexing
+        logging.info(f"Saving fragments to separate folder for fast indexing")
+        fdir = os.path.join(outdir, 'fragments')
+        if not os.path.isdir(fdir):
+            os.mkdir(fdir)
+        if  len(os.listdir(fdir)) < len(meta['barcode']):
+            i = 0
+            for x in meta['barcode']:
+                f = os.path.join(fdir, f'{x}.tsv.gz')
+                if not os.path.exists(f):
+                    frags = BedTool(frag_dict[x]).saveas(f)
+                i += 1
+                if i%1000 == 0:
+                    logging.info(f'Finished separating fragments for {i} cells')
+
+        ## Count fragments inside bins
+        logging.info("Count fragments overlapping with bins")
+        Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
+        logging.info("Finished counting fragments")
+        frag_dict = None
+
+        return Count_dict
+
     def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None) -> None:
         ''''
         Create a .loom file from 10X Genomics cellranger output with reads binned
@@ -115,89 +145,7 @@ class Chromgen:
         logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
         chrom_bins = generate_bins(chrom_size, bsize)
 
-        # ## Read Fragments and generate size bins
-        # logging.info("Read fragments into dict")
-        # frag_dict = read_fragments(ff)
-
-        # ## Split fragments to seperate files for fast indexing
-        # logging.info(f"Saving fragments to separate folder for fast indexing")
-        # fdir = os.path.join(outdir, 'fragments')
-        # if not os.path.isdir(fdir):
-        #     os.mkdir(fdir)
-
-        # ## Save fragments to folder
-        # def save_fragment_to_folder(barcodes, fdir, frag_dict, verbose=False):
-        #     '''
-        #     Function that saves the fragments as loaded in a dictionary to a folder seperated by cell barcode
-        #     '''
-        #     for x in barcodes:
-        #         f = os.path.join(fdir, f'{x}.tsv.gz')
-        #         if not os.path.exists(f):
-        #             frags = BedTool(frag_dict[x]).saveas(f)
-        #     if verbose:
-        #         logging.info('Finished')
-        # def update(q):
-        #     # note: input comes from async `wrapMyFunc`
-        #     pbar.update(1)
-
-        # chunks = np.array_split(meta['barcode'], 100)
-        # pbar = tqdm(total=len(chunks))
-        # pbar.set_description(f'Separating files')
-        # with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
-        #     for chunk in chunks:
-        #         small_dict = {k:v for k, v in frag_dict.items() if k in chunk}
-        #         pool.apply_async(save_fragment_to_folder, args=(chunk, fdir, small_dict, True,), callback=update)
-        #     pool.close()
-        #     pool.join()
-        #     pbar.close()
-
-        # if  len(os.listdir(fdir)) < len(meta['barcode']):
-        #     i = 0
-        #     for x in meta['barcode']:
-        #         f = os.path.join(fdir, f'{x}.tsv.gz')
-        #         if not os.path.exists(f):
-        #             frags = BedTool(frag_dict[x]).saveas(f)
-        #         i += 1
-        #         if i%1000 == 0:
-        #             logging.info(f'Finished separating fragments for {i} cells')
-
-        # ## Count fragments inside bins
-        # logging.info("Count fragments overlapping with bins")
-        # Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
-        # logging.info("Finished counting fragments")
-
-        ## Make function for splitting and counting fragments (keep large dict out of scope)
-
-        def fragments_to_count(ff, outdir, meta, bsize):
-            '''
-            '''
-            ## Read Fragments and generate size bins
-            logging.info("Read fragments into dict")
-            frag_dict = read_fragments(ff)
-
-            ## Split fragments to seperate files for fast indexing
-            logging.info(f"Saving fragments to separate folder for fast indexing")
-            fdir = os.path.join(outdir, 'fragments')
-            if not os.path.isdir(fdir):
-                os.mkdir(fdir)
-            if  len(os.listdir(fdir)) < len(meta['barcode']):
-                i = 0
-                for x in meta['barcode']:
-                    f = os.path.join(fdir, f'{x}.tsv.gz')
-                    if not os.path.exists(f):
-                        frags = BedTool(frag_dict[x]).saveas(f)
-                    i += 1
-                    if i%1000 == 0:
-                        logging.info(f'Finished separating fragments for {i} cells')
-
-            ## Count fragments inside bins
-            logging.info("Count fragments overlapping with bins")
-            Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
-            logging.info("Finished counting fragments")
-
-            return Count_dict
-
-        Count_dict = fragments_to_count(ff, outdir, meta, bsize)
+        Count_dict = self.fragments_to_count(ff, outdir, meta, bsize)
 
         logging.info("Loading blacklist")
         # Load Blacklist
@@ -235,16 +183,16 @@ class Chromgen:
                 row.append(chrom_bins[key])
                 v.append(int(Count_dict[cell][key]))
             cix+=1
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])))
+        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
 
         ## Save a smaller section of the summary
         keys = ['cellranger-atac_version', 'reference_assembly', 'reference_assembly_accession', 'reference_assembly_fasta_url', 'reference_organism', 'reference_version', 'bin_size']
         small_summary = {k: summary[k] for k in keys}
         
         ## We retain only the bins that have no overlap with the ENCODE blacklist
-        cleaned_matrix = matrix.tocsc()[retain,:]
+        matrix = matrix.tocsc()[retain,:]
         logging.info(f"Identified {len(v)} positive bins in {len(meta['barcode'])} cells before filtering blacklist")
-        logging.info(f"Identified {len(cleaned_matrix.nonzero()[0])} positive bins in {len(meta['barcode'])} cells after filtering blacklist")
+        logging.info(f"Identified {len(matrix.nonzero()[0])} positive bins in {len(meta['barcode'])} cells after filtering blacklist")
 
         ## Create row attributes
         chrom = [x[0] for x in clean_bin]
@@ -262,7 +210,7 @@ class Chromgen:
         gc.collect()  ## Clean up
 
         loompy.create(filename=floom, 
-                      layers=cleaned_matrix, 
+                      layers=matrix, 
                       row_attrs=row_attrs, 
                       col_attrs=meta,
                       file_attrs=small_summary)
