@@ -84,6 +84,15 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_ylabel("Log10(Coefficient of variance)")
         ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
+        ## Plot promoter fraction
+        if has_edges:
+            lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
+            ax[3].add_collection(lc)
+        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRprom, marker='.', lw=0, s=epsilon)
+        fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
+        ax[3].set_title('Promoter fraction')
+        ax[3].axis("off")
+
     else:
         ax[0].hist(ds.ca['NBins'], bins=100, alpha=0.5)
         ax[0].set_title("Number of positive bins per cell")
@@ -103,25 +112,25 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_title("Coverage")
         ax[2].set_ylabel("Number of features")
         ax[2].set_xlabel("Log10 Coverage")
+
+        ## Plot FRIP
+        if has_edges:
+            lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
+            ax[3].add_collection(lc)
+        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRIP, marker='.', lw=0, s=epsilon)
+        fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
+        ax[3].set_title('Fraction of fragments in peaks')
+        ax[3].axis("off")
     
     ## Plot the number of fragments per cell
     # Draw edges
     if has_edges:
         lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
-        ax[3].add_collection(lc)
-    
-    im = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
-    fig.colorbar(im, ax=ax[3], orientation='vertical', shrink=.5)
-    ax[3].set_title('Log10 fragments')
-    ax[3].axis("off")
-
-    ## Plot promoter fraction
-    if has_edges:
-        lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
         ax[4].add_collection(lc)
-    im2 = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRprom, marker='.', lw=0, s=epsilon)
-    fig.colorbar(im2, ax=ax[4], orientation='vertical', shrink=.5)
-    ax[4].set_title('Promoter fraction')
+    
+    im = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
+    fig.colorbar(im, ax=ax[4], orientation='vertical', shrink=.5)
+    ax[4].set_title('Log10 fragments')
     ax[4].axis("off")
 
     ## Plot the attributes on the embedding
