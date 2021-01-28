@@ -24,6 +24,7 @@ from chromograph.features.bin_annotation import Bin_annotation
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline.PCA import PCA
 from chromograph.pipeline.SVD import SVD
+from chromograph.pipeline.utils import *
 from chromograph.pipeline import config
 
 from umap import UMAP
@@ -73,6 +74,9 @@ class Bin_analysis:
             logging.info('Calculating bin and cell coverage')
             ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
             ds.ca['NBins'] = ds.map([np.count_nonzero], axis=1)[0]
+
+        if not 'FRprom' in ds.ca:
+            ds.ca.FRprom = div0(ds.ca.promoter_region_fragments/ds.ca.passed_filters)
         
         ## Calculate coverage
         cov = np.log10(ds.ra['NCells']+1)

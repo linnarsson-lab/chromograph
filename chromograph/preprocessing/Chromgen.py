@@ -68,7 +68,6 @@ class Chromgen:
         logging.info("Count fragments overlapping with bins")
         Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
         logging.info("Finished counting fragments")
-        frag_dict = None
 
         return Count_dict
 

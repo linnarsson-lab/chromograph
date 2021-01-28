@@ -46,9 +46,9 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         outliers = np.zeros(ds.shape[1])
         
     if attrs == None:
-        n_axes = 4
+        n_axes = 5
     else:
-        n_axes = 4 + len(attrs)
+        n_axes = 5 + len(attrs)
         
     nrows = int(np.ceil(n_axes/2))
         
@@ -77,11 +77,12 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[1].set_xlabel("Log10 fragments")
 
         ## Plot the variance an clustermeans used for feature selection
-        ax[2].scatter(ds.ra.mu, ds.ra.sd, s=1, c='grey', marker='.')
-        ax[2].scatter(ds.ra.mu[np.where(ds.ra.Valid)], ds.ra.sd[np.where(ds.ra.Valid)], s=1, c='red', marker='.')
+        cv = ds.ra.sd/ds.ra.mu
+        ax[2].scatter(np.log10(ds.ra.mu), np.log10(cv), s=1, c='grey', marker='.')
+        ax[2].scatter(np.log10(ds.ra.mu[np.where(ds.ra.Valid)]), np.log10(cv[np.where(ds.ra.Valid)]), s=1, c='red', marker='.')
         ax[2].set_title("Selection of peaks by variance")
-        ax[2].set_ylabel("Standard deviation across preclusters")
-        ax[2].set_xlabel("Mean peak count (CPM) across preclusters")
+        ax[2].set_ylabel("Log10(Coefficient of variance)")
+        ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
     else:
         ax[0].hist(ds.ca['NBins'], bins=100, alpha=0.5)
@@ -113,11 +114,20 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
     fig.colorbar(im, ax=ax[3], orientation='vertical', shrink=.5)
     ax[3].set_title('Log10 fragments')
     ax[3].axis("off")
-    
+
+    ## Plot promoter fraction
+    if has_edges:
+        lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
+        ax[4].add_collection(lc)
+    im2 = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRprom, marker='.', lw=0, s=2)
+    fig.colorbar(im2, ax=ax[4], orientation='vertical', shrink=.5)
+    ax[4].set_title('Promoter fraction')
+    ax[4].axis("off")
+
     ## Plot the attributes on the embedding
     if attrs is not None:
         for n, attr in enumerate(attrs):
-            x = n +4
+            x = n +5
             # Draw edges
             if has_edges:
                 lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
