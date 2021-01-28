@@ -148,7 +148,7 @@ class Generate_promoter:
                 ## Clean up stranded pybedtools tmp files
                 pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     
-        ## Generate pooled layer
+        ## Generate normalized layer
         with loompy.connect(self.loom, 'r+') as dsp:
             
             logging.info(f'Converting to CPM')  # divide by GA_colsum/1e6
@@ -192,5 +192,6 @@ class Generate_promoter:
                     dsp['pooled_CPM'][:,selection] = div0(view['pooled'][:,:], 1e-6 * dsp.ca['GA_pooled_colsum'][selection])
                 progress.update(self.config.params.batch_size)
             progress.close()
-            
+            logging.info(f'Finished calculating CPM values')
+
         return self.loom

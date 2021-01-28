@@ -119,7 +119,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
     if has_edges:
         lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
         ax[4].add_collection(lc)
-    im2 = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRprom, marker='.', lw=0, s=2)
+    im2 = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRprom, marker='.', lw=0, s=epsilon)
     fig.colorbar(im2, ax=ax[4], orientation='vertical', shrink=.5)
     ax[4].set_title('Promoter fraction')
     ax[4].axis("off")
