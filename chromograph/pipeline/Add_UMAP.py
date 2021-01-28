@@ -57,7 +57,7 @@ class Add_UMAP:
             ## Plot results on manifold
             logging.info("Plotting UMAP")
             manifold(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_UMAP.png"), embedding = 'UMAP_bin')
-            QC_plot(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_QC_UMAP.png"), embedding = 'UMAP_bin', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_UMAP_QC.png"), embedding = 'UMAP_bin', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
 
         elif self.feature == 'peaks':
             decomp = ds.ca.LSI
@@ -74,4 +74,4 @@ class Add_UMAP:
             ## Plot results on manifold
             logging.info("Plotting UMAP")
             manifold(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_UMAP.png"), embedding = 'UMAP')
-            QC_plot(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_QC_UMAP.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
