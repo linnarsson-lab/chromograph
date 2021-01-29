@@ -90,7 +90,7 @@ class Chromgen:
         logging.info(f"Reading from {indir}")
         logging.info(f"Saving to {outdir}")
         if self.rnaXatac:
-            logging.inf(f'Multiome sample')
+            logging.info(f'Multiome sample')
             fb = indir + '/outs/per_barcode_metrics.csv'
             ff = indir + '/outs/atac_fragments.tsv.gz'
             fs = indir + '/outs/summary.csv'
