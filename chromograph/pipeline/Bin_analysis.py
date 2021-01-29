@@ -75,8 +75,8 @@ class Bin_analysis:
             ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
             ds.ca['NBins'] = ds.map([np.count_nonzero], axis=1)[0]
 
-        if not 'FRprom' in ds.ca:
-            ds.ca.FRprom = div0(ds.ca.promoter_region_fragments, ds.ca.passed_filters)
+        if not 'FRtss' in ds.ca:
+            ds.ca.FRtss = div0(ds.ca.TSS_fragments, ds.ca.passed_filters)
         
         ## Calculate coverage
         cov = np.log10(ds.ra['NCells']+1)

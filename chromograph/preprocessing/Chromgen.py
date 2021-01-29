@@ -26,7 +26,7 @@ from chromograph.features.feature_count import *
 from chromograph.preprocessing.doublet_finder import doublet_finder
 
 class Chromgen:
-    def __init__(self) -> None:
+    def __init__(self, rnaXatac=False) -> None:
         """
         Generate a binned loom file from scATAC-seq data
         
@@ -39,6 +39,7 @@ class Chromgen:
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
+        self.rnaXatac = rnaXatac
         pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
     
@@ -88,8 +89,12 @@ class Chromgen:
         logging.info(f"Binning reads from {indir.split('/')[-1]} into {bsize/1000} kb bins")
         logging.info(f"Reading from {indir}")
         logging.info(f"Saving to {outdir}")
-        fb = indir + '/outs/singlecell.csv'
-        ff = indir + '/outs/fragments.tsv.gz'
+        if self.rnaXatac:
+            fb = indir + '/outs/per_barcode_metrics.csv'
+            ff = indir + '/outs/atac_fragments.tsv.gz'
+        else:
+            fb = indir + '/outs/singlecell.csv'
+            ff = indir + '/outs/fragments.tsv.gz'
         fs = indir + '/outs/summary.json'
         sample = indir.split('/')[-1]
 
@@ -108,11 +113,27 @@ class Chromgen:
         summary['bin_size'] = bsize
         summary['level'] = self.config.params.level
         
-        barcodes = np.genfromtxt(fb, delimiter=',', skip_header=2,
-                                 dtype={'names':('barcode','total','duplicate','chimeric','unmapped','lowmapq','mitochondrial','passed_filters','cell_id','is__cell_barcode',
-                                                   'TSS_fragments','DNase_sensitive_region_fragments','enhancer_region_fragments','promoter_region_fragments','on_target_fragments',
-                                                   'blacklist_region_fragments','peak_region_fragments','peak_region_cutsites'),
-                                         'formats':('U18', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'U18', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8')})
+        if self.rnaXatac:
+            barcodes = np.genfromtxt(fb, delimiter=',', skip_header=1,
+                                    dtype={'names':('barcode','gex_barcode','atac_barcode','is__cell_barcode','excluded_reason','gex_raw_reads','gex_mapped_reads','gex_conf_intergenic_reads',
+                                                    'gex_conf_exonic_reads','gex_conf_intronic_reads','gex_conf_exonic_unique_reads','gex_conf_exonic_antisense_reads',
+                                                    'gex_conf_exonic_dup_reads','gex_exonic_umis','gex_conf_intronic_unique_reads','gex_conf_intronic_antisense_reads',
+                                                    'gex_conf_intronic_dup_reads','gex_intronic_umis','gex_conf_txomic_unique_reads','gex_umis_count','gex_genes_count',
+                                                    'total','unmapped','lowmapq','duplicate','chimeric','mitochondrial',
+                                                    'passed_filters	','TSS_fragments','peak_region_fragments','peak_region_cutsites'),
+                                            'formats':('U18', 'U18', 'U18', 'i8', 'i8', 'i8', 'i8', 'i8', 
+                                                        'i8', 'i8', 'i8', 'i8', 
+                                                        'i8', 'i8', 'i8', 'i8', 
+                                                        'i8', 'i8', 'i8', 'i8', 'i8',
+                                                        'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 
+                                                        'i8', 'i8', 'i8', 'i8')})
+            barcodes['barcode'] = barcodes['atac_barcode'] ## We set the downstream barcode to the ATAC barcode instead of the defaults RNA barcode in cellranger
+        else:
+            barcodes = np.genfromtxt(fb, delimiter=',', skip_header=2,
+                                    dtype={'names':('barcode','total','duplicate','chimeric','unmapped','lowmapq','mitochondrial','passed_filters','cell_id','is__cell_barcode',
+                                                    'TSS_fragments','DNase_sensitive_region_fragments','enhancer_region_fragments','promoter_region_fragments','on_target_fragments',
+                                                    'blacklist_region_fragments','peak_region_fragments','peak_region_cutsites'),
+                                            'formats':('U18', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'U18', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8')})
 
         ## Transfer metadata to dict format
         meta = {}
