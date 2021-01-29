@@ -84,7 +84,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_ylabel("Log10(Coefficient of variance)")
         ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
-        ## Plot promoter fraction
+        ## Plot TSS fraction
         if has_edges:
             lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
             ax[3].add_collection(lc)

@@ -92,10 +92,11 @@ class Chromgen:
         if self.rnaXatac:
             fb = indir + '/outs/per_barcode_metrics.csv'
             ff = indir + '/outs/atac_fragments.tsv.gz'
+            fs = indir + '/outs/summary.csv'
         else:
             fb = indir + '/outs/singlecell.csv'
             ff = indir + '/outs/fragments.tsv.gz'
-        fs = indir + '/outs/summary.json'
+            fs = indir + '/outs/summary.json'
         sample = indir.split('/')[-1]
 
         if len(sample.split('_')) > 2:
@@ -105,11 +106,15 @@ class Chromgen:
             os.mkdir(outdir)
    
         logging.info(f'Reading metadata and summary for {sample} from Cellranger output {fs}')
-        with open(fs, "r") as f:
-            summary = json.load(f)
+        if self.rnaXatac:
+            summary = np.genfromtxt(fs, dtype=str, delimiter=',')
+            {str(k): str(v) for k, v in zip(summary[0,:], summary[1,:])}
+        else:
+            with open(fs, "r") as f:
+                summary = json.load(f)
 
-            for k,v in summary.items():
-                summary[k] = str(v)
+                for k,v in summary.items():
+                    summary[k] = str(v)
         summary['bin_size'] = bsize
         summary['level'] = self.config.params.level
         
