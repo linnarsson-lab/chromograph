@@ -110,6 +110,7 @@ class Chromgen:
         if self.rnaXatac:
             summary = np.genfromtxt(fs, dtype=str, delimiter=',')
             summary = {str(k): str(v) for k, v in zip(summary[0,:], summary[1,:])}
+            summary['reference_assembly'] = 'GRCh38'
         else:
             with open(fs, "r") as f:
                 summary = json.load(f)
