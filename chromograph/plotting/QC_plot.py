@@ -84,13 +84,13 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_ylabel("Log10(Coefficient of variance)")
         ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
-        ## Plot TSS fraction
+        ## Plot FRIP
         if has_edges:
             lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
             ax[3].add_collection(lc)
-        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRtss, marker='.', lw=0, s=epsilon)
+        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRIP, marker='.', lw=0, s=epsilon)
         fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
-        ax[3].set_title('TSS fraction')
+        ax[3].set_title('Fraction of fragments in peaks')
         ax[3].axis("off")
 
     else:
@@ -113,13 +113,13 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_ylabel("Number of features")
         ax[2].set_xlabel("Log10 Coverage")
 
-        ## Plot FRIP
+        ## Plot TSS fraction
         if has_edges:
             lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
             ax[3].add_collection(lc)
-        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRIP, marker='.', lw=0, s=epsilon)
+        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRtss, marker='.', lw=0, s=epsilon)
         fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
-        ax[3].set_title('Fraction of fragments in peaks')
+        ax[3].set_title('TSS fraction')
         ax[3].axis("off")
     
     ## Plot the number of fragments per cell
