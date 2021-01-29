@@ -206,9 +206,10 @@ class Chromgen:
         for cell in meta['barcode']:
 
             for key in (Count_dict[cell]):
-                col.append(cix)
-                row.append(chrom_bins[key])
-                v.append(int(Count_dict[cell][key]))
+                if key in chrom_bins:
+                    col.append(cix)
+                    row.append(chrom_bins[key])
+                    v.append(int(Count_dict[cell][key]))
             cix+=1
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
 
