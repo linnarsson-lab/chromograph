@@ -134,7 +134,7 @@ class Chromgen:
                                                         'i8', 'i8', 'i8', 'i8', 'i8',
                                                         'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 
                                                         'i8', 'i8', 'i8', 'i8')})
-            barcodes['barcode'] = barcodes['atac_barcode'] ## We set the downstream barcode to the ATAC barcode instead of the defaults RNA barcode in cellranger
+            # barcodes['barcode'] = barcodes['atac_barcode'] ## We set the downstream barcode to the ATAC barcode instead of the defaults RNA barcode in cellranger
         else:
             barcodes = np.genfromtxt(fb, delimiter=',', skip_header=2,
                                     dtype={'names':('barcode','total','duplicate','chimeric','unmapped','lowmapq','mitochondrial','passed_filters','cell_id','is__cell_barcode',
