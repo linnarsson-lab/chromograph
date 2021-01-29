@@ -110,7 +110,7 @@ class Chromgen:
         if self.rnaXatac:
             summary = np.genfromtxt(fs, dtype=str, delimiter=',')
             summary = {str(k): str(v) for k, v in zip(summary[0,:], summary[1,:])}
-            summary['reference_assembly'] = 'GRCh38'
+            summary['reference_assembly'] = summary['Genome']
         else:
             with open(fs, "r") as f:
                 summary = json.load(f)
@@ -214,7 +214,10 @@ class Chromgen:
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
 
         ## Save a smaller section of the summary
-        keys = ['cellranger-atac_version', 'reference_assembly', 'reference_assembly_accession', 'reference_assembly_fasta_url', 'reference_organism', 'reference_version', 'bin_size']
+        if self.rnaXatac:
+            keys = ['Pipeline version', 'reference_assembly', 'bin_size']
+        else:
+            keys = ['cellranger-atac_version', 'reference_assembly', 'reference_assembly_accession', 'reference_assembly_fasta_url', 'reference_organism', 'reference_version', 'bin_size']
         small_summary = {k: summary[k] for k in keys}
         
         ## We retain only the bins that have no overlap with the ENCODE blacklist
