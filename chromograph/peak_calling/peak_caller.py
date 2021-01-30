@@ -218,6 +218,9 @@ class Peak_caller:
         logging.info('Plotting peak annotation wheel')
         plot_peak_annotation_wheel(annot, os.path.join(self.outdir, 'exported', 'peak_annotation_wheel.png'))
 
+        ## Clean up stranded pybedtools tmp files
+        pybedtools.helpers.cleanup(verbose=True, remove_all=True)
+
         logging.info(f'Start counting peaks')
         chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
         with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=1) as pool:
