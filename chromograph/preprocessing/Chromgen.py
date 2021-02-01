@@ -172,6 +172,7 @@ class Chromgen:
         logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
         chrom_bins = generate_bins(chrom_size, bsize)
 
+        ## Count fragments
         Count_dict = self.fragments_to_count(ff, outdir, meta, bsize)
 
         logging.info("Loading blacklist")

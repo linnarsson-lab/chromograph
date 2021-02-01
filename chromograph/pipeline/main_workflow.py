@@ -22,7 +22,7 @@ import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
 from chromograph.peak_analysis.peak_analysis import Peak_analysis
-from chromograph.pipeline.utils import transfer_ca
+from chromograph.pipeline.utils import *
 from chromograph.preprocessing.utils import get_blacklist, mergeBins
 from chromograph.features.Generate_promoter import Generate_promoter
 from chromograph.features.gene_smooth import GeneSmooth
@@ -85,10 +85,14 @@ if __name__ == '__main__':
                     good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
                     selections.append(good_cells)
 
+                ## Get column attributes that should be skipped
+                skip_attr = find_attr_to_skip(config, samples)
+                skip_attr = set(config.params.skip_attrs + skip_attr)
+
             # ## Merge Bin files
             if not os.path.exists(binfile):
                 logging.info(f'Input samples {samples}')
-                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=config.params.skip_attrs)
+                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=skip_attr)
                 # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
                 logging.info('Finished combining loom-files')
             else:
