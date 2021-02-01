@@ -231,7 +231,7 @@ class Peak_caller:
 
         ## Clean up stranded pybedtools tmp files
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)
-        
+
         # Order dict for rows
         r_dict = {k: v for v,k in enumerate(annot['ID'])} 
 
@@ -251,8 +251,8 @@ class Peak_caller:
                         col.append(cix)
                         row.append(r_dict[key])
                         v.append(np.int8(Counts[cell][key]))
-                    cix+=1
-                    IDs.append(cell)
+                cix+=1
+                IDs.append(cell)
         logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
         matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
         logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
