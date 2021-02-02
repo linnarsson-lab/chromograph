@@ -223,11 +223,13 @@ class Peak_caller:
 
         logging.info(f'Start counting peaks')
         chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/100)))
-        with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=1) as pool:
-            for i, cells in enumerate(chunks):
-                pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
-            pool.close()
-            pool.join()
+
+        if len(chunks) > glob.glob(os.path.join(self.peakdir, '*.pkl')):
+            with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=10) as pool:
+                for i, cells in enumerate(chunks):
+                    pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
+                pool.close()
+                pool.join()
 
         ## Clean up stranded pybedtools tmp files
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)

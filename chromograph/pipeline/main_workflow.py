@@ -88,6 +88,7 @@ if __name__ == '__main__':
                 ## Get column attributes that should be skipped
                 skip_attr = find_attr_to_skip(config, samples)
                 skip_attr = set(config.params.skip_attrs + skip_attr)
+                logging.info(f'Not including the following column attributes {skip_attr}')
 
             # ## Merge Bin files
             if not os.path.exists(binfile):
