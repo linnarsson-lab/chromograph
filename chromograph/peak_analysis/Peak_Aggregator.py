@@ -8,6 +8,7 @@ from typing import *
 import multiprocessing as mp
 import pybedtools
 from pybedtools import BedTool
+import multiprocessing as mp
 
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
@@ -136,7 +137,7 @@ class Peak_Aggregator:
             #     pool.close()
             #     pool.join()
             for pile in piles:
-                Homer_find_motifs(bed=pile[0], outdir=pile[1], homer_path=self.config.paths.HOMER, motifs=os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), cpus=self.config.execution.n_cpus)
+                Homer_find_motifs(bed=pile[0], outdir=pile[1], homer_path=self.config.paths.HOMER, motifs=os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), cpus=mp.cpu_count())
 
             dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir, N=self.config.params.N_most_enriched)
 
