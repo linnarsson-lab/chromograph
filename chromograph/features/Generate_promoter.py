@@ -92,11 +92,14 @@ class Generate_promoter:
                 if not name == 'All':
                     logging.info(f'Warning: Using mp.pool outside main workflow, might conflict with downstream numba applications')
                 chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/100)))
-                with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
-                    for i, cells in enumerate(chunks):
-                        pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
-                    pool.close()
-                    pool.join()
+                dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
+
+                if len(chunks) > len(dict_files):
+                    with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
+                        for i, cells in enumerate(chunks):
+                            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
+                        pool.close()
+                        pool.join()
 
                 ## Generate row attributes
                 row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
@@ -124,8 +127,8 @@ class Generate_promoter:
                                 col.append(cix)
                                 row.append(r_dict[key])
                                 v.append(np.int8(Counts[cell][key]))
-                            cix+=1
-                            IDs.append(cell)
+                        cix+=1
+                        IDs.append(cell)
                 logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
                 matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
                 logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
