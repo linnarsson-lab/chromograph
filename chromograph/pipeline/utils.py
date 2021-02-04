@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import loompy
 import logging
 
@@ -46,7 +47,7 @@ def find_attr_to_skip(config, samples):
     vars = {}
     vars_dtype = {}
 
-    for i, sample in enumerate(all_samples):
+    for i, sample in enumerate(samples):
         f = os.path.join(config.paths.samples, f'10X{sample}', f'10X{sample}_5kb.loom')
 
         with loompy.connect(f, 'r') as ds:
