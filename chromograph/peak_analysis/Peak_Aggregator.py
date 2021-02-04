@@ -148,9 +148,9 @@ class Peak_Aggregator:
             name = out_file.split('/')[-1].split('_')[0]
             if 'UMAP' in ds.ca:
                 logging.info("Plotting UMAP")
-                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
+                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP_motifs.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
+            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_motifs.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
 
             ## Plotting neighborhoods and metromap
             cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))

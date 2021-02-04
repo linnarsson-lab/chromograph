@@ -88,7 +88,7 @@ class Generate_promoter:
                 logging.info(f'Finished creating promoter file')
             
             else:
-                logging.info(f'Start counting peaks')
+                logging.info(f'Start counting TSS enrichments')
                 if not name == 'All':
                     logging.info(f'Warning: Using mp.pool outside main workflow, might conflict with downstream numba applications')
                 chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/100)))

@@ -99,23 +99,31 @@ class Peak_caller:
                     if len(cells) > self.config.params.peak_min_cells:
                         chunks.append([i,files])
 
-                logging.info('Start merging fragments by cluster')
-                piles = []
-                for ck in chunks:
-                    files = np.array(ck[1])
+                def merge_fragments(chunk, peakdir):
+                    '''
+                    '''
+
+                    files = np.array(chunk[1])
                     ex = np.array([os.path.exists(x) for x in files])
                     files = files[ex]
 
-                    fmerge = os.path.join(self.peakdir, f'cluster_{ck[0]}.tsv.gz')
+                    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
                     with open(fmerge, 'wb') as out:
                         for f in files:
                             with open(f, 'rb') as file:
                                 shutil.copyfileobj(file, out)
-                    piles.append([ck[0], fmerge])
-                    logging.info(f'Finished with cluster {ck[0]}')
+                    logging.info(f'Finished with cluster {chunk[0]}')
+                    return
+
+                logging.info('Start merging fragments by cluster')
+                with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=1) as pool:
+                    for ck in chunks:
+                        pool.apply_async(merge_fragments, args=(ck, self.peakdir,))
+                    pool.close()
+                    pool.join()
 
                 logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
-                # with mp.get_context("spawn").Pool(20, maxtasksperchild=1) as pool:
+                piles = [[ck[0], os.path.join(self.peakdir, f'cluster_{ck[0]}.tsv.gz')] for ck in chunks]
                 with mp.get_context().Pool(min(mp.cpu_count(), len(piles)), maxtasksperchild=1) as pool:
                     for pile in piles:
                         pool.apply_async(bed_downsample, args=(pile, self.config.params.peak_depth,))

@@ -85,10 +85,10 @@ if __name__ == '__main__':
                     good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
                     selections.append(good_cells)
 
-                ## Get column attributes that should be skipped
-                skip_attr = find_attr_to_skip(config, samples)
-                skip_attr = set(config.params.skip_attrs + skip_attr)
-                logging.info(f'Not including the following column attributes {skip_attr}')
+            ## Get column attributes that should be skipped
+            skip_attr = find_attr_to_skip(config, samples)
+            skip_attr = set(config.params.skip_attrs + skip_attr)
+            logging.info(f'Not including the following column attributes {skip_attr}')
 
             # ## Merge Bin files
             if not os.path.exists(binfile):
