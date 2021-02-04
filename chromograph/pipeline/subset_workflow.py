@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
                     ## Get cells passing filters
                     with loompy.connect(file, 'r') as ds:
-                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.promoter_region_fragments/ds.ca.passed_filters > config.params.FR_prom)
+                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.promoter_region_fragments/ds.ca.passed_filters > config.params.FR_TSS)
                         selections.append(good_cells)
 
                 # ## Merge Bin files
