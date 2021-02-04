@@ -102,18 +102,21 @@ class Peak_caller:
                 def merge_fragments(chunk, peakdir):
                     '''
                     '''
-                    files = np.array(chunk[1])
-                    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
-                    missing = 0
+                    try:
+                        files = np.array(chunk[1])
+                        fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
+                        missing = 0
 
-                    with open(fmerge, 'wb') as out:
-                        for f in files:
-                            if os.path.exists(f):
-                                with open(f, 'rb') as file:
-                                    shutil.copyfileobj(file, out)
-                            else:
-                                missing += 1
-                    logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
+                        with open(fmerge, 'wb') as out:
+                            for f in files:
+                                if os.path.exists(f):
+                                    with open(f, 'rb') as file:
+                                        shutil.copyfileobj(file, out)
+                                else:
+                                    missing += 1
+                        logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
+                    except Exception as e:
+                        logging.info(e)
                     return
 
                 logging.info('Start merging fragments by cluster')
