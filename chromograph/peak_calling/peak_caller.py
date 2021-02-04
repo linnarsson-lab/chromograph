@@ -106,8 +106,11 @@ class Peak_caller:
                         files = np.array(chunk[1])
                         fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
                         missing = 0
+                        
+                        logging.info(f'fmerge: {fmerge}')
 
                         with open(fmerge, 'wb') as out:
+                            logging.info(f'opened file {fmerge}')
                             for f in files:
                                 if os.path.exists(f):
                                     with open(f, 'rb') as file:
