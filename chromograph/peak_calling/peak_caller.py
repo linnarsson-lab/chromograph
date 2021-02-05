@@ -118,11 +118,13 @@ class Peak_caller:
                                 else:
                                     missing += 1
                         logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
+                        return
                     except Exception as e:
                         logging.info(e)
-                    return
+                        return
 
                 logging.info('Start merging fragments by cluster')
+                logging.info(f'Total chunks: {len(chunks)}')
                 with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=1) as pool:
                     for ck in chunks:
                         pool.apply_async(merge_fragments, args=(ck, self.peakdir,))
