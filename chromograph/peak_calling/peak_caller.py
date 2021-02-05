@@ -120,7 +120,7 @@ class Peak_caller:
                 logging.info(f'Total chunks: {len(chunks)}')
                 with mp.get_context().Pool() as pool:
                     for ck in chunks:
-                        pool.apply_async(merge_fragments, args=(ck, self.peakdir,))
+                        pool.apply_async(merge_fragments, (ck, self.peakdir,))
                     pool.close()
                     pool.join()
 
