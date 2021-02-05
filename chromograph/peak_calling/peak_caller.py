@@ -102,30 +102,23 @@ class Peak_caller:
                 def merge_fragments(chunk, peakdir):
                     '''
                     '''
-                    try:
-                        files = np.array(chunk[1])
-                        fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
-                        missing = 0
-                        
-                        logging.info(f'fmerge: {fmerge}')
+                    files = np.array(chunk[1])
+                    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
+                    missing = 0
 
-                        with open(fmerge, 'wb') as out:
-                            logging.info(f'opened file {fmerge}')
-                            for f in files:
-                                if os.path.exists(f):
-                                    with open(f, 'rb') as file:
-                                        shutil.copyfileobj(file, out)
-                                else:
-                                    missing += 1
-                        logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
-                        return
-                    except Exception as e:
-                        logging.info(e)
-                        return
+                    with open(fmerge, 'wb') as out:
+                        for f in files:
+                            if os.path.exists(f):
+                                with open(f, 'rb') as file:
+                                    shutil.copyfileobj(file, out)
+                            else:
+                                missing += 1
+                    logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
+                    return
 
                 logging.info('Start merging fragments by cluster')
                 logging.info(f'Total chunks: {len(chunks)}')
-                with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=1) as pool:
+                with mp.get_context().Pool() as pool:
                     for ck in chunks:
                         pool.apply_async(merge_fragments, args=(ck, self.peakdir,))
                     pool.close()
