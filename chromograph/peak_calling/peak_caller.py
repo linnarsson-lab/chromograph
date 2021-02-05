@@ -37,6 +37,23 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
+def merge_fragments(chunk, peakdir):
+    '''
+    '''
+    files = np.array(chunk[1])
+    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
+    missing = 0
+
+    with open(fmerge, 'wb') as out:
+        for f in files:
+            if os.path.exists(f):
+                with open(f, 'rb') as file:
+                    shutil.copyfileobj(file, out)
+            else:
+                missing += 1
+    logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
+    return
+
 class Peak_caller:
     def __init__(self, outdir) -> None:
         """
@@ -98,23 +115,6 @@ class Peak_caller:
                     files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
                     if len(cells) > self.config.params.peak_min_cells:
                         chunks.append([i,files])
-
-                def merge_fragments(chunk, peakdir):
-                    '''
-                    '''
-                    files = np.array(chunk[1])
-                    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
-                    missing = 0
-
-                    with open(fmerge, 'wb') as out:
-                        for f in files:
-                            if os.path.exists(f):
-                                with open(f, 'rb') as file:
-                                    shutil.copyfileobj(file, out)
-                            else:
-                                missing += 1
-                    logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
-                    return
 
                 logging.info('Start merging fragments by cluster')
                 logging.info(f'Total chunks: {len(chunks)}')
