@@ -11,6 +11,7 @@ import pybedtools
 from pybedtools import BedTool
 import traceback
 import chromograph
+from scipy import sparse
 
 logger = logging.getLogger()
 logging.basicConfig(
@@ -247,3 +248,48 @@ def strFrags_to_list(frags):
     frags = frags.split(',')
     frag_list = [[frags[3*i], int(frags[3*i+1]), int(frags[3*i+2])]for i in range(int(len(frags)/3))]
     return frag_list
+
+def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=False):
+    '''
+    '''
+    Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'))
+    
+    if verbose:
+        logging.info("Generating Sparse matrix")
+    col = []
+    row = []
+    v = []
+    cix = 0
+    IDs = []
+
+
+    # Order dict for rows
+    r_dict = {k: v for v,k in enumerate(annot['ID'])}
+
+    ## Generate sparse peak lists
+    file = open(os.path.join(peak_dir, f'{id}.pkl'))
+    Counts = pkl.load(open(file, 'rb'))
+    for cell in Counts:
+        if len(Counts[cell]) > 0:
+            for key in (Counts[cell]):
+                col.append(cix)
+                row.append(r_dict[key])
+                v.append(np.int8(Counts[cell][key]))
+        cix+=1
+        IDs.append(cell)
+
+    ## Convert to sparse matrix
+    matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
+    if verbose:
+        logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
+        logging.info(f'Generating temporary loom file')
+
+    ## Create loomfile
+    logging.info("Constructing loomfile")
+    loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
+
+    loompy.create(filename=loom_file, 
+                layers=matrix, 
+                row_attrs=annot, 
+                col_attrs={'CellID': np.array(IDs)})
+    return

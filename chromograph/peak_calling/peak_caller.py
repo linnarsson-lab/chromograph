@@ -232,60 +232,81 @@ class Peak_caller:
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)
 
         logging.info(f'Start counting peaks')
-        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/100)))
+        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
 
         if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.pkl'))):
-            with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=10) as pool:
+            with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=1) as pool:
                 for i, cells in enumerate(chunks):
-                    pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
+                    pool.apply_async(generate_peak_matrix, args=(i, cells, self.config.paths.samples, self.peakdir, annot, ))
                 pool.close()
                 pool.join()
 
-        ## Clean up stranded pybedtools tmp files
-        pybedtools.helpers.cleanup(verbose=True, remove_all=True)
-
-        # Order dict for rows
-        r_dict = {k: v for v,k in enumerate(annot['ID'])} 
-
-        logging.info("Generating Sparse matrix")
-        col = []
-        row = []
-        v = []
-
-        cix = 0
-        IDs = []
-        dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
-        for file in dict_files:
-            Counts = pkl.load(open(file, 'rb'))
-            for cell in Counts:
-                if len(Counts[cell]) > 0:
-                    for key in (Counts[cell]):
-                        col.append(cix)
-                        row.append(r_dict[key])
-                        v.append(np.int8(Counts[cell][key]))
-                cix+=1
-                IDs.append(cell)
-        logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
-        logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
-
-        ## Create loomfile
-        logging.info("Constructing loomfile")
+        logging.info(f'Combining files')
         self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
-
-        loompy.create(filename=self.loom, 
-                    layers=matrix, 
-                    row_attrs=annot, 
-                    col_attrs={'CellID': np.array(IDs)},
-                    file_attrs=dict(ds.attrs))
+        inputfiles = [os.path.join(self.peakdir, f) for f in sorted(glob.glob(self.peakdir, '*.loom'))]
+        loompy.combine_faster(inputfiles, self.loom, key = 'ID')
         logging.info(f'Transferring column attributes')
         with loompy.connect(self.loom) as ds2:
             ds2.attrs['peak_file'] = self.precomp
             transfer_ca(ds, ds2, 'CellID')
         logging.info(f'Loom peaks file saved as {self.loom}')
 
-        for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
+        ## Cleanup
+        for file in glob.glob(os.path.join(self.peakdir, '*.loom')):
             os.system(f'rm {file}')
+
+        # if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.pkl'))):
+        #     with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=10) as pool:
+        #         for i, cells in enumerate(chunks):
+        #             pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, os.path.join(self.peakdir, 'Compounded_peaks.bed'), ))
+        #         pool.close()
+        #         pool.join()
+
+        # ## Clean up stranded pybedtools tmp files
+        # pybedtools.helpers.cleanup(verbose=True, remove_all=True)
+
+        # # Order dict for rows
+        # r_dict = {k: v for v,k in enumerate(annot['ID'])} 
+
+        # logging.info("Generating Sparse matrix")
+        # col = []
+        # row = []
+        # v = []
+
+        # cix = 0
+        # IDs = []
+        # dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
+        # for file in dict_files:
+        #     Counts = pkl.load(open(file, 'rb'))
+        #     for cell in Counts:
+        #         if len(Counts[cell]) > 0:
+        #             for key in (Counts[cell]):
+        #                 col.append(cix)
+        #                 row.append(r_dict[key])
+        #                 v.append(np.int8(Counts[cell][key]))
+        #         cix+=1
+        #         IDs.append(cell)
+        # logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
+        # matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
+        # logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
+
+        # ## Create loomfile
+        # logging.info("Constructing loomfile")
+        # self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
+
+        # loompy.create(filename=self.loom, 
+        #             layers=matrix, 
+        #             row_attrs=annot, 
+        #             col_attrs={'CellID': np.array(IDs)},
+        #             file_attrs=dict(ds.attrs))
+        # logging.info(f'Transferring column attributes')
+        # with loompy.connect(self.loom) as ds2:
+        #     ds2.attrs['peak_file'] = self.precomp
+        #     transfer_ca(ds, ds2, 'CellID')
+        # logging.info(f'Loom peaks file saved as {self.loom}')
+
+        # for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
+        #     os.system(f'rm {file}')
 
         ## Clean up stranded pybedtools tmp files
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)
