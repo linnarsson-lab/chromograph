@@ -123,7 +123,7 @@ def bed_downsample(pile, level, verbose: bool = False):
     pybedtools.helpers.cleanup()
     return
 
-def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks'):
+def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks', verbose: bool = False):
     '''
     Count peaks
 
@@ -182,7 +182,8 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks
             logging.info(f" Problem collecting to main dict {f}")
             logging.info(traceback.format_exc())
             return
-    logging.info(f'Completed job {id}')
+    if verbose:
+        logging.info(f'Completed job {id}')
     pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
     ## Cleanup
     pybedtools.helpers.cleanup()
@@ -249,47 +250,56 @@ def strFrags_to_list(frags):
     frag_list = [[frags[3*i], int(frags[3*i+1]), int(frags[3*i+2])]for i in range(int(len(frags)/3))]
     return frag_list
 
-def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=False):
+def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
     '''
     '''
-    Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'))
-    
-    if verbose:
-        logging.info("Generating Sparse matrix")
-    col = []
-    row = []
-    v = []
-    cix = 0
-    IDs = []
+    try:
+        Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'), )
+        
+        if verbose:
+            logging.info("Generating Sparse matrix")
+        col = []
+        row = []
+        v = []
+        cix = 0
+        IDs = []
 
 
-    # Order dict for rows
-    r_dict = {k: v for v,k in enumerate(annot['ID'])}
+        # Order dict for rows
+        r_dict = {k: v for v,k in enumerate(annot['ID'])}
 
-    ## Generate sparse peak lists
-    file = open(os.path.join(peak_dir, f'{id}.pkl'))
-    Counts = pkl.load(open(file, 'rb'))
-    for cell in Counts:
-        if len(Counts[cell]) > 0:
-            for key in (Counts[cell]):
-                col.append(cix)
-                row.append(r_dict[key])
-                v.append(np.int8(Counts[cell][key]))
-        cix+=1
-        IDs.append(cell)
+        ## Generate sparse peak lists
+        file = open(os.path.join(peak_dir, f'{id}.pkl'))
+        Counts = pkl.load(open(file, 'rb'))
+        for cell in Counts:
+            if len(Counts[cell]) > 0:
+                for key in (Counts[cell]):
+                    col.append(cix)
+                    row.append(r_dict[key])
+                    v.append(np.int8(Counts[cell][key]))
+            cix+=1
+            IDs.append(cell)
 
-    ## Convert to sparse matrix
-    matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
-    if verbose:
-        logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
-        logging.info(f'Generating temporary loom file')
+        ## Convert to sparse matrix
+        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
+        if verbose:
+            logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
+            logging.info(f'Generating temporary loom file')
 
-    ## Create loomfile
-    logging.info("Constructing loomfile")
-    loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
+        ## Create loomfile
+        logging.info("Constructing loomfile")
+        loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
 
-    loompy.create(filename=loom_file, 
-                layers=matrix, 
-                row_attrs=annot, 
-                col_attrs={'CellID': np.array(IDs)})
-    return
+        loompy.create(filename=loom_file, 
+                    layers=matrix, 
+                    row_attrs=annot, 
+                    col_attrs={'CellID': np.array(IDs)})
+        
+        ## Remove pkl
+        f_pkl = os.path.join(peak_dir, f'{id}.pkl')
+        os.system(f'rm {f_pkl}') 
+
+        return
+    except Exception as e:
+        logging.info(f'Error in sample: {id}')
+        logging.info(e)

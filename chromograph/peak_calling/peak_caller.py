@@ -234,7 +234,7 @@ class Peak_caller:
         logging.info(f'Start counting peaks')
         chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
 
-        if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.pkl'))):
+        if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.loom'))):
             with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=1) as pool:
                 for i, cells in enumerate(chunks):
                     pool.apply_async(generate_peak_matrix, args=(i, cells, self.config.paths.samples, self.peakdir, annot, ))
@@ -243,7 +243,7 @@ class Peak_caller:
 
         logging.info(f'Combining files')
         self.loom = os.path.join(self.outdir, f'{name}_peaks.loom')
-        inputfiles = [os.path.join(self.peakdir, f) for f in sorted(glob.glob(self.peakdir, '*.loom'))]
+        inputfiles = [os.path.join(self.peakdir, f) for f in sorted(glob.glob(os.path.join(self.peakdir, '*.loom')))]
         loompy.combine_faster(inputfiles, self.loom, key = 'ID')
         logging.info(f'Transferring column attributes')
         with loompy.connect(self.loom) as ds2:
