@@ -254,7 +254,10 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
     '''
     '''
     try:
-        Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'), )
+        dict_file = os.path.join(peak_dir, f'{id}.pkl')
+
+        if not os.path.exists(dict_file):
+            Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'), )
         
         if verbose:
             logging.info("Generating Sparse matrix")
@@ -269,8 +272,7 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
         r_dict = {k: v for v,k in enumerate(annot['ID'])}
 
         ## Generate sparse peak lists
-        file = open(os.path.join(peak_dir, f'{id}.pkl'))
-        Counts = pkl.load(open(file, 'rb'))
+        Counts = pkl.load(open(dict_file, 'rb'))
         for cell in Counts:
             if len(Counts[cell]) > 0:
                 for key in (Counts[cell]):
@@ -296,8 +298,7 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
                     col_attrs={'CellID': np.array(IDs)})
         
         ## Remove pkl
-        f_pkl = os.path.join(peak_dir, f'{id}.pkl')
-        os.system(f'rm {f_pkl}') 
+        os.system(f'rm {dict_file}') 
 
         return
     except Exception as e:
