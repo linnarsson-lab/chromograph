@@ -101,7 +101,7 @@ class Generate_promoter:
 
                     ## Get cells passing filters
                     with loompy.connect(file, 'r') as ds2:
-                        good_cells = [x in ds.ca.CellID for x in ds2.ca.CellID]
+                        good_cells = np.array([x in ds.ca.CellID for x in ds2.ca.CellID])
                         selections.append(good_cells)
                         
                 logging.info(f'Combining samples')
@@ -112,9 +112,6 @@ class Generate_promoter:
                 with loompy.connect(self.loom) as ds2:
                     transfer_ca(ds, ds2, 'CellID')
                 logging.info(f'Loom promoter file saved as {self.loom}')
-
-                for file in glob.glob(os.path.join(self.peakdir, '*.pkl')):
-                    os.system(f'rm {file}')
 
                 ## Clean up stranded pybedtools tmp files
                 pybedtools.helpers.cleanup(verbose=True, remove_all=True)
