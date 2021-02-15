@@ -26,6 +26,7 @@ from chromograph.pipeline.utils import transfer_ca, div0
 from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
+from chromograph.features.utils import *
 
 ## Setup logger and load config
 logger = logging.getLogger()
@@ -88,59 +89,25 @@ class Generate_promoter:
                 logging.info(f'Finished creating promoter file')
             
             else:
-                logging.info(f'Start counting TSS enrichments')
-                if not name == 'All':
-                    logging.info(f'Warning: Using mp.pool outside main workflow, might conflict with downstream numba applications')
-                chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/100)))
-                dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
+                logging.info(f'Check if promoter files exist')
+                inputfiles = [os.path.join(config.paths.samples, sample, f"{sample}_prom.loom") for sample in np.unique(ds.ca.Name)]
+                selections = []
+                for file in inputfiles:
+                    ## Check if file with right binning exists
+                    if not os.path.exists(file):
+                        file_5kb = glob.glob(f"/{os.path.join(*file.split('/')[:-1])}/*5kb.loom")[0]
+                        generate_prom_matrix(file_5kb, self.gene_ref, self.peakdir, self.config.paths.samples)
 
-                if len(chunks) > len(dict_files):
-                    with mp.get_context().Pool(min(mp.cpu_count(), len(chunks)), maxtasksperchild=10) as pool:
-                        for i, cells in enumerate(chunks):
-                            pool.apply_async(Count_peaks, args=(i, cells, self.config.paths.samples, self.peakdir, self.gene_ref, 'genes',))
-                        pool.close()
-                        pool.join()
+                    ## Get cells passing filters
+                    with loompy.connect(file, 'r') as ds2:
+                        good_cells = [x in ds.ca.CellID for x in ds2.ca.CellID]
+                        selections.append(good_cells)
+                        
+                logging.info(f'Combining samples')
+                loompy.combine_faster(inputfiles, self.loom, selections=selections, key = 'loc')
 
-                ## Generate row attributes
-                row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
-                for x in BedTool(self.gene_ref):
-                    row_attrs['Accession'].append(x.attrs['gene_id'])
-                    row_attrs['Gene'].append(x.attrs['gene_name'])
-                    row_attrs['loc'].append(f'{x[0]}:{x[3]}-{x[4]}')
-                    row_attrs['BPs'].append(int(abs(int(x[3])-int(x[4]))))
-
-                r_dict = {k: v for v,k in enumerate(row_attrs['Accession'])} 
-
-                logging.info("Generating Sparse matrix")
-                col = []
-                row = []
-                v = []
-
-                cix = 0
-                IDs = []
-                dict_files = glob.glob(os.path.join(self.peakdir, '*.pkl'))
-                for file in dict_files:
-                    Counts = pkl.load(open(file, 'rb'))
-                    for cell in Counts:
-                        if len(Counts[cell]) > 0:
-                            for key in (Counts[cell]):
-                                col.append(cix)
-                                row.append(r_dict[key])
-                                v.append(np.int8(Counts[cell][key]))
-                        cix+=1
-                        IDs.append(cell)
-                logging.info(f'CellID order is maintained: {np.array_equal(ds.ca.CellID, np.array(IDs))}')
-                matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(ds.ca['CellID']))).tocsc()
-                logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
-
-                ## Create loomfile
-                logging.info("Constructing loomfile")
-                loompy.create(filename=self.loom, 
-                            layers=matrix, 
-                            row_attrs=row_attrs, 
-                            col_attrs={'CellID': np.array(IDs)},
-                            file_attrs=dict(ds.attrs))
                 logging.info(f'Transferring column attributes')
+                
                 with loompy.connect(self.loom) as ds2:
                     transfer_ca(ds, ds2, 'CellID')
                 logging.info(f'Loom promoter file saved as {self.loom}')
