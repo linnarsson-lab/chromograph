@@ -10,10 +10,10 @@ pyyaml
 statsmodels
 numpy-groupies==0.9.6
 tqdm
-umap-learn
+umap-learn==0.4.6
 torch
 harmony-pytorch
-pynndescent==0.3.3
+pynndescent==0.4.8
 click
 leidenalg
 unidip
