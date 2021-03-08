@@ -20,7 +20,7 @@ from cytograph.plotting import manifold
 from cytograph.embedding import art_of_tsne
 
 from chromograph.plotting.QC_plot import QC_plot
-from chromograph.features.bin_annotation import Bin_annotation
+from chromograph.plotting.sample_distribution_plot import sample_distribution_plot
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline.PCA import PCA
 from chromograph.pipeline.SVD import SVD
@@ -223,3 +223,6 @@ class Bin_analysis:
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+
+        if name == 'All':
+            sample_distribution_plot(ds, os.path.join(self.outdir, f"{name}_cell_counts_distribution.png"))

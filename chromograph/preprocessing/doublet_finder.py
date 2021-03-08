@@ -63,7 +63,7 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
     n_real_cells = ds.shape[1]
     n_doublets = int(n_real_cells / (1 - proportion_artificial) - n_real_cells)
     name = ds.filename.split("/")[-1].split(".")[0].split("_")[0]
-    fdb = f'{name}_doublets.loom' # Filename for temporary loom file containing doublets
+    fdb = '/' + os.path.join(*ds.filename.split('/')[:-1], f'{name}_doublets.loom') # Filename for temporary loom file containing doublets
 
     ## Use only Q25 top bins
     logging.info(f'Calculating row wise nonzero rate')

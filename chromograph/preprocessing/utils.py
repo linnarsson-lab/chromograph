@@ -72,14 +72,14 @@ def read_fragments(file):
         logging.info('barcodes: {}   fragments: {}'.format(new, (new+add)))
         return frag_dict;
     
-def generate_bins(chrom_size, bsize):
+def generate_bins(chrom_size, bsize, overlap:float=1):
     '''
     '''
     
     chrom_bins = collections.OrderedDict();
     i = 0
     for x in chrom_size.keys():
-        for start in range(1, chrom_size[x], bsize):
+        for start in range(1, chrom_size[x], int(overlap*bsize)):
             end = min(start + bsize - 1, chrom_size[x]);
             bin = (x , start, end);
             chrom_bins[bin] = i;

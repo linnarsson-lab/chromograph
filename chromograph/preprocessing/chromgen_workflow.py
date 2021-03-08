@@ -40,7 +40,6 @@ elif os.path.exists(os.path.join(CR_outputs, f"{sample}")):
     logging.info('Using	unlabelled file')
 else:
     logging.info("Could not find sample")
-# outdir = f"/data/proj/scATAC/samples/{sample}"
 outdir = os.path.join(config.paths.samples, sample)
 
 chromgen = Chromgen()

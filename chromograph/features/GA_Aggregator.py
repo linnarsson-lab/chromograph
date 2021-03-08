@@ -12,6 +12,7 @@ from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment
 from cytograph.manifold import GraphSkeletonizer
+from chromograph.peak_analysis.utils import *
 import cytograph.plotting as cgplot
 
 from typing import *
@@ -68,6 +69,11 @@ class GA_Aggregator:
 
             if n_labels <= 1:
                 return
+
+            ## Get CPM values
+            logging.info('Convert to CPMs')
+            dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
+            dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
 
             logging.info("Computing cluster gene enrichment scores")
             self.mask = Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt"))

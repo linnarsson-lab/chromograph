@@ -43,7 +43,7 @@ class Chromgen:
         pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
     
-    def fragments_to_count(self, ff, outdir, meta, bsize):
+    def fragments_to_count(self, ff, outdir, meta, bsize, chromosomes):
         '''
         '''
         ## Read Fragments and generate size bins
@@ -60,7 +60,7 @@ class Chromgen:
             for x in meta['barcode']:
                 f = os.path.join(fdir, f'{x}.tsv.gz')
                 if not os.path.exists(f):
-                    frags = BedTool(frag_dict[x]).saveas(f)
+                    frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
                 i += 1
                 if i%1000 == 0:
                     logging.info(f'Finished separating fragments for {i} cells')
@@ -173,7 +173,7 @@ class Chromgen:
         chrom_bins = generate_bins(chrom_size, bsize)
 
         ## Count fragments
-        Count_dict = self.fragments_to_count(ff, outdir, meta, bsize)
+        Count_dict = self.fragments_to_count(ff, outdir, meta, bsize, chrom_size)
 
         logging.info("Loading blacklist")
         # Load Blacklist

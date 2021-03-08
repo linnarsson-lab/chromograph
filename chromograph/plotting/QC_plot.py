@@ -4,12 +4,6 @@ import loompy
 from sklearn.neighbors import NearestNeighbors
 from matplotlib.collections import LineCollection
 
-import matplotlib.pyplot as plt
-import numpy as np
-import loompy
-from sklearn.neighbors import NearestNeighbors
-from matplotlib.collections import LineCollection
-
 ## Import from cytograph
 from cytograph.plotting.colors import colorize
 

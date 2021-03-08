@@ -51,12 +51,15 @@ def generate_prom_matrix(file_5kb, gene_ref, peakdir, sample_dir, verbose=False)
         ## Generate row attributes
         if verbose:
             logging.info("Generating row attributes")
-        row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs']}
+        row_attrs = {k: [] for k in ['Accession', 'Gene', 'loc', 'BPs', 'Chr', 'Start', 'End']}
         for x in BedTool(gene_ref):
             row_attrs['Accession'].append(x.attrs['gene_id'])
             row_attrs['Gene'].append(x.attrs['gene_name'])
             row_attrs['loc'].append(f'{x[0]}:{x[3]}-{x[4]}')
             row_attrs['BPs'].append(int(abs(int(x[3])-int(x[4]))))
+            row_attrs['Chr'].append(f'{x[0]}')
+            row_attrs['Start'].append(f'{x[3]}')
+            row_attrs['End'].append(f'{x[4]}')
 
         r_dict = {k: v for v,k in enumerate(row_attrs['Accession'])} 
 

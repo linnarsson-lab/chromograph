@@ -6,7 +6,6 @@ import logging
 import pybedtools
 from tqdm import tqdm
 
-sys.path.append('/home/camiel/chromograph/')
 from chromograph.peak_calling.utils import *
 import chromograph
 
