@@ -81,7 +81,7 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
     for i in range(n_doublets):
         a = np.random.choice(ds.shape[1])
         b = np.random.choice(ds.shape[1])
-        doublets[:, i] = real_data[:, a] + real_data[:, b]
+        doublets[:, i] = np.clip(real_data[:, a] + real_data[:, b], 0, 127)
     
     ## Concatenate data and create temporary loom
     A = sparse.coo_matrix(real_data)
