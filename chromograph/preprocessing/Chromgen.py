@@ -212,7 +212,8 @@ class Chromgen:
                     row.append(chrom_bins[key])
                     v.append(int(Count_dict[cell][key]))
             cix+=1
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
+
+        matrix = sparse.coo_matrix((np.clip(v, 0, 127), (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
 
         ## Save a smaller section of the summary
         if self.rnaXatac:
