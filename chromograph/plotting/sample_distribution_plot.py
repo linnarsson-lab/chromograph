@@ -28,7 +28,7 @@ def sample_distribution_plot(ds: loompy.LoomConnection, out_file: str) -> None:
         age, cells = np.unique(ds.ca.Age[ds.ca.Tissue == t], return_counts=True)
 
         data = pd.DataFrame({'Regions': t, 'Age': age, 'Cells': cells},
-        columns=['Regions', 'Age', 'Bubble_size'])
+        columns=['Regions', 'Age', 'Cells'])
         df = df.append(data)
     
     factor = np.round(np.log10(np.max(df['Cells']))) - 3

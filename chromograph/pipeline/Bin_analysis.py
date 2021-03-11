@@ -226,4 +226,5 @@ class Bin_analysis:
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
 
         if name == 'All':
+            logging.info(f'Plotting sample distribution')
             sample_distribution_plot(ds, os.path.join(self.outdir, f"{name}_cell_counts_distribution.png"))
