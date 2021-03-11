@@ -20,6 +20,7 @@ from cytograph.plotting import manifold
 from cytograph.embedding import art_of_tsne
 
 from chromograph.plotting.QC_plot import QC_plot
+from chromograph.features.bin_annotation import Bin_annotation
 from chromograph.plotting.sample_distribution_plot import sample_distribution_plot
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline.PCA import PCA
