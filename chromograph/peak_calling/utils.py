@@ -267,11 +267,8 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
         cix = 0
         IDs = []
 
-
         # Order dict for rows
         r_dict = {k: v for v,k in enumerate(annot['ID'])}
-        r_dict['Start'] = r_dict['Start'].astype(int)
-        r_dict['End'] = r_dict['End'].astype(int)
 
         ## Generate sparse peak lists
         Counts = pkl.load(open(dict_file, 'rb'))
@@ -291,7 +288,8 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
             logging.info(f'Generating temporary loom file')
 
         ## Create loomfile
-        logging.info("Constructing loomfile")
+        if verbose:
+            logging.info("Constructing loomfile")
         loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
 
         loompy.create(filename=loom_file, 
