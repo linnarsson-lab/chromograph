@@ -136,7 +136,7 @@ class Peak_caller:
                 gc.collect()
 
                 logging.info(f'Start calling peaks')
-                with mp.get_context().Pool(int(min(mp.cpu_count()/2), len(piles)), maxtasksperchild=1) as pool:
+                with mp.get_context().Pool(min(mp.cpu_count(), len(piles)), maxtasksperchild=1) as pool:
                     for pile in piles:
                         pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
                     pool.close()
