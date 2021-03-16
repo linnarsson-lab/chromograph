@@ -97,7 +97,7 @@ class Generate_promoter:
                     if not os.path.exists(file):
                         logging.info(f"Generating promoter file for {file.split('/')[-2]}")
                         file_5kb = glob.glob(f"/{os.path.join(*file.split('/')[:-1])}/*5kb.loom")[0]
-                        generate_prom_matrix(file_5kb, self.gene_ref, self.peakdir, self.config.paths.samples)
+                        generate_prom_matrix(file_5kb, file, self.gene_ref, self.peakdir, self.config.paths.samples)
 
                     ## Get cells passing filters
                     with loompy.connect(file, 'r') as ds2:
