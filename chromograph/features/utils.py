@@ -28,9 +28,10 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-def generate_prom_matrix(file_5kb, gene_ref, peakdir, sample_dir, verbose=False):
-    name = file_5kb.split('/')[-1].split('_')[0]
-    loom_file = f"/{os.path.join(*file_5kb.split('/')[:-1])}/{name}_prom.loom"
+def generate_prom_matrix(file_5kb, name, gene_ref, peakdir, sample_dir, verbose=False):
+    name = file_5kb.split('/')[-1].split('.')[0]
+    # loom_file = f"/{os.path.join(*file_5kb.split('/')[:-1])}/{name}_prom.loom"
+    loom_file = f"/{os.path.join(*file_5kb.split('/')[:-1], '_'.join(file_5kb.split('/')[-1].split('_')[:2]))}"
 
     if verbose:
         logging.info(f"Start counting TSS enrichment for {name}")
