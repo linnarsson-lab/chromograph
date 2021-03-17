@@ -90,15 +90,16 @@ if __name__ == '__main__':
                         good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
                         selections.append(good_cells)
 
-                ## Get column attributes that should be skipped
-                skip_attr = find_attr_to_skip(config, samples)
-                skip_attr = set(config.params.skip_attrs + skip_attr)
-                logging.info(f'Not including the following column attributes {skip_attr}')
-
                 ## Merge Bin files
                 if not os.path.exists(binfile):
+
+                    ## Get column attributes that should be skipped
+                    skip_attr = find_attr_to_skip(config, samples)
+                    skip_attr = set(config.params.skip_attrs + skip_attr)
+                    logging.info(f'Not including the following column attributes {skip_attr}')
+
                     logging.info(f'Input samples {samples}')
-                    loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=config.params.skip_attrs)
+                    loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=skip_attr)
                     # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
                     logging.info('Finished combining loom-files')
                 else:
