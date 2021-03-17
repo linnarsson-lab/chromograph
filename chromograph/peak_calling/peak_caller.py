@@ -237,7 +237,7 @@ class Peak_caller:
         if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.loom'))):
             with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=1) as pool:
                 for i, cells in enumerate(chunks):
-                    pool.apply_async(generate_peak_matrix, args=(i, cells, self.config.paths.samples, self.peakdir, annot, ))
+                    pool.apply_async(generate_peak_matrix, args=(i, cells, self.config.paths.samples, self.peakdir, annot, False, ))
                 pool.close()
                 pool.join()
 
