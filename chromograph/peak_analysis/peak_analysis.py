@@ -90,7 +90,10 @@ class Peak_analysis:
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for manifold learning by variance in preclusters')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
-        ds.aggregate(temporary_aggregate, None, "Clusters", "sum", {"Clusters": "first"})
+        if 'preClusters' in ds.ca:
+            ds.aggregate(temporary_aggregate, None, "preClusters", "sum", {"preClusters": "first"})
+        else:
+            ds.aggregate(temporary_aggregate, None, "Clusters", "sum", {"Clusters": "first"})
         with loompy.connect(temporary_aggregate) as dsout:
             ## Normalize peak counts by total fragments per cluster
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
@@ -209,7 +212,7 @@ class Peak_analysis:
         del knn, mknn, rnn
 
         ## Save clusters and embedding from bin analysis as clusters_bin
-        ds.ca.Clusters_bin, ds.ca.ClustersModularity_bin, ds.ca.OutliersModularity_bin = ds.ca.Clusters, ds.ca.ClustersModularity, ds.ca.OutliersModularity
+        ds.ca.ClustersModularity_bin, ds.ca.OutliersModularity_bin = ds.ca.ClustersModularity, ds.ca.OutliersModularity
         ds.ca.ClustersSurprise_bin, ds.ca.OutliersSurprise_bin = ds.ca.ClustersSurprise, ds.ca.OutliersSurprise
         ds.ca.TSNE_bin = ds.ca.TSNE
         if 'UMAP' in ds.ca:

@@ -92,13 +92,13 @@ class Peak_Aggregator:
             for i in range(dsout.shape[1]):
                 idx = np.sort(dsout['q_val'][:,i].argsort()[:2000])
                 dsout['marker_peaks'][idx,i] = 1
-            markers =dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
+            markers = dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
             dsout.ra.markerPeaks = markers
 
             # Renumber the clusters
             logging.info("Renumbering clusters by similarity, and permuting columns")
 
-            data = np.log(dsout[:, :] + 1)[markers, :].T
+            data = np.nan_to_num(np.log(dsout[:, :] + 1)[markers, :].T)
             D = pdist(data, 'correlation')
             Z = hc.linkage(D, 'ward', optimal_ordering=True)
             ordering = hc.leaves_list(Z)

@@ -202,7 +202,8 @@ class Bin_analysis:
         labels = pl.fit_predict(ds)
         ds.ca.ClustersModularity = labels + min(labels)
         ds.ca.OutliersModularity = (labels == -1).astype('int')
-        ds.ca.Clusters = labels + min(labels)
+        ds.ca.Clusters = labels + min(labels) ## Will be overwritten
+        ds.ca.preClusters = ds.ca.Clusters
         ds.ca.Outliers = (labels == -1).astype('int')
 
         logging.info("Performing Louvain Polished Surprise clustering")
