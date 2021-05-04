@@ -73,7 +73,7 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
         peaks       Numpy array of positive peaks
         CPM_thres   Thresholds used for peak binarization in cluster
     '''
-    logging.info(f'Binarize peak matrix')
+    logging.info(f'Binarize clusters by knee point')
     ## Create layer
     peaks = np.zeros(dsagg.shape)
     CPM_thres = np.zeros(dsagg.shape[1])
@@ -87,8 +87,13 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
         y = np.log10((len(vals)-cumulative)+1)
 
         kn = KneeLocator(x, y, curve='concave', direction='decreasing', interp_method='polynomial')
-        CPM_thres[dsagg.ca.Clusters==cls] = 10**kn.knee
-        valid = vals > kn.knee
+        t = 10**kn.knee
+        
+        if t > 200:
+            t = 10**np.quantile(vals,1-(5000/vals.shape[0]))
+
+        CPM_thres[dsagg.ca.Clusters==cls] = t
+        valid = vals > np.log10(t)
         peaks[:,dsagg.ca.Clusters==cls] = valid
     return peaks, CPM_thres
 
