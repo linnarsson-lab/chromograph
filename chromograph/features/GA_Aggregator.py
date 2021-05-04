@@ -48,12 +48,13 @@ class GA_Aggregator:
 
         if agg_spec is None:
             agg_spec = {
-                "Age": "tally",
+                "Age": "mean",
                 "Clusters": "first",
                 "Class": "mode",
                 "Total": "mean",
                 "Sex": "tally",
                 "Tissue": "tally",
+                "Chemistry": "tally",
                 "SampleID": "tally",
                 "TissuePool": "first",
                 "Outliers": "mean",
@@ -114,9 +115,9 @@ class GA_Aggregator:
             name = out_file.split('/')[-1].split('_')[0]
             if 'UMAP' in ds.ca:
                 logging.info("Plotting UMAP")
-                cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
+                cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_markers_UMAP.png"), list(dsout.ca.Most_enriched), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_manifold_markers_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
+            cgplot.manifold(ds, os.path.join(self.outdir, f"{name}_markers_TSNE.png"), list(dsout.ca.Most_enriched), embedding = 'TSNE')
 
             ## Other gene related plots
             logging.info(f'Plotting heatmaps')

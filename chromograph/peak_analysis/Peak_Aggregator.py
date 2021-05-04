@@ -50,12 +50,13 @@ class Peak_Aggregator:
         self.motifdir = '/' + os.path.join(*out_file.split('/')[:-1], 'motifs')
 
         agg_spec = {
-            "Age": "tally",
+            "Age": "mean",
             "Clusters": "first",
             "Class": "mode",
             "Total": "mean",
             "Sex": "tally",
             "Tissue": "tally",
+            "Chemistry": "tally",
             "SampleID": "tally",
             "TissuePool": "first",
             "Outliers": "mean",
@@ -131,11 +132,6 @@ class Peak_Aggregator:
                 peaks = BedTool([(dsout.ra['Chr'][x], str(dsout.ra['Start'][x]), str(dsout.ra['End'][x]), str(dsout.ra['ID'][x]), '.', '+') for x in np.where(Valids)[0]]).saveas(bed_file)
                 piles.append([bed_file, os.path.join(self.motifdir, f'Cluster_{x}')])
 
-            # with mp.get_context().Pool(10, maxtasksperchild=1) as pool:
-            #     for pile in piles:
-            #         pool.apply_async(Homer_find_motifs, args=(pile[0], pile[1], self.config.paths.HOMER, os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'),))
-            #     pool.close()
-            #     pool.join()
             for pile in piles:
                 Homer_find_motifs(bed=pile[0], outdir=pile[1], homer_path=self.config.paths.HOMER, motifs=os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), cpus=mp.cpu_count())
 
@@ -148,9 +144,9 @@ class Peak_Aggregator:
             name = out_file.split('/')[-1].split('_')[0]
             if 'UMAP' in ds.ca:
                 logging.info("Plotting UMAP")
-                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP_motifs.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
+                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
             logging.info("Plotting TSNE")
-            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_motifs.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
+            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
 
             ## Plotting neighborhoods and metromap
             cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_All_neighborhouds.png"))

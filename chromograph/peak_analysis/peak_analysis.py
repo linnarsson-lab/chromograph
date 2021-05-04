@@ -209,6 +209,9 @@ class Peak_analysis:
         rnn = sparse.coo_matrix((mknn.data[inside], (mknn.row[inside], mknn.col[inside])), shape=mknn.shape)
         ds.col_graphs.RNN = rnn
 
+        ## Calculate Pseudo-age
+        k = knn.nnz / knn.shape[0]
+        ds.ca.PseudoAge = (knn.astype("bool") @ ds.ca.Age) / k
         del knn, mknn, rnn
 
         ## Save clusters and embedding from bin analysis as clusters_bin
@@ -253,11 +256,12 @@ class Peak_analysis:
         ds.ca.OutliersSurprise = (labels == -1).astype('int')
         logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
         
+
         ## Plot results on manifold
         if 'UMAP' in ds.ca:
             logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP.png"), embedding = 'UMAP')
-            QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP.png"), embedding = 'UMAP')
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE.png"), embedding = 'TSNE')
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_manifold_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
