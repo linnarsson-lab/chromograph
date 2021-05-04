@@ -87,9 +87,8 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
         y = np.log10((len(vals)-cumulative)+1)
 
         kn = KneeLocator(x, y, curve='concave', direction='decreasing', interp_method='polynomial')
-        t = 10**kn.knee
-        CPM_thres[dsagg.ca.Clusters==cls] = t
-        valid = vals > t
+        CPM_thres[dsagg.ca.Clusters==cls] = 10**kn.knee
+        valid = vals > kn.knee
         peaks[:,dsagg.ca.Clusters==cls] = valid
     return peaks, CPM_thres
 
