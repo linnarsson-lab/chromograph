@@ -220,11 +220,11 @@ class Bin_analysis:
         ## Plot results on manifold
         if 'UMAP' in ds.ca:
             logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP.png"), embedding = 'UMAP')
-            QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+            manifold(ds, os.path.join(self.outdir, f"{name}_bins_UMAP.png"), embedding = 'UMAP')
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
-        manifold(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE.png"), embedding = 'TSNE')
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_manifold_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        manifold(ds, os.path.join(self.outdir, f"{name}_bins_TSNE.png"), embedding = 'TSNE')
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
 
         if name == 'All':
             logging.info(f'Plotting sample distribution')

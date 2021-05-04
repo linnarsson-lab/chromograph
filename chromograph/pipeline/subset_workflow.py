@@ -46,6 +46,8 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
+current_set = sys.argv[1]
+
 if __name__ == '__main__':
 
     logging.info(f'Starting subset workflow')
@@ -53,132 +55,140 @@ if __name__ == '__main__':
 
     ## Load punchcard and setup decks for analysis
     deck = PunchcardDeck(config.paths.build)
-    for subset in deck.get_leaves():
-        name = subset.name
-        samples = subset.include
 
-        logging.info(f'Performing the following steps: {config.steps} for build {config.paths.build}')
-        ## Check if directory exists
-        if not os.path.isdir(config.paths.build):
-            os.mkdir(config.paths.build)
+    subset = deck.get_subset(current_set)
+    name = subset.name
+    samples = subset.include
+
+    logging.info(f'Performing the following steps: {config.steps} for build {config.paths.build}')
+    ## Check if directory exists
+    if not os.path.isdir(config.paths.build):
+        os.mkdir(config.paths.build)
+    
+    logging.info(f'Starting analysis for subset {name}')
+    subset_dir = os.path.join(config.paths.build, name)
+    if not os.path.isdir(subset_dir):
+        os.mkdir(subset_dir)
+    binfile = os.path.join(subset_dir, name + '.loom')
+    peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+    Skip_bins = True
+
+    ## Check if bin analysis should be skipped
+    if not name == 'All':
+        main_peaks = os.path.join(os.path.join(config.paths.build, 'All', 'All_peaks.loom'))
+        if os.path.isfile(main_peaks):
+            Skip_bins = True
+
+    if ('bin_analysis' in config.steps) & (Skip_bins != True):
+        ## Add UMAP to main loom
+        if name == 'All':
+            with loompy.connect(binfile, 'r+') as ds:
+                new_UMAP = Add_UMAP(subset_dir, 'bins')
+                new_UMAP.fit(ds)
+        else:
+            ## Select valid cells from input files
+            inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
+            selections = []
+            for file in inputfiles:
+
+                ## Check if file with right binning exists
+                if not os.path.exists(file):
+                    file_5kb = os.path.join(os.path.dirname(file), f'{file.split("/")[-2]}_5kb.loom')
+                    mergeBins(file_5kb, config.params.bin_size)
+
+                ## Get cells passing filters
+                with loompy.connect(file, 'r') as ds:
+                    good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
+                    selections.append(good_cells)
+
+            ## Merge Bin files
+            if not os.path.exists(binfile):
+
+                ## Get column attributes that should be skipped
+                skip_attr = find_attr_to_skip(config, samples)
+                skip_attr = set(config.params.skip_attrs + skip_attr)
+                logging.info(f'Not including the following column attributes {skip_attr}')
+
+                logging.info(f'Input samples {samples}')
+                loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=skip_attr)
+                # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
+                logging.info('Finished combining loom-files')
+            else:
+                logging.info('Combined bin file already exists, using this for analysis')
+
+            ## Run primary Clustering and embedding
+            with loompy.connect(binfile, 'r+') as ds:
+                bin_analysis = Bin_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
+                bin_analysis.fit(ds) 
+
+    ## Check if peak subset should be taken from main file
+    if (not name == 'All') & (not os.path.isfile(peak_file)):
+        logging.info(f'Main peak matrix already exists, taking subset')
+        with loompy.connect(main_peaks, 'r') as ds_main:
+            selection = [x.split('10X')[-1] in samples for x in ds_main.ca.Name]
+        loompy.combine_faster([main_peaks], peak_file, selections=[selection])
         
-        logging.info(f'Starting analysis for subset {name}')
-        subset_dir = os.path.join(config.paths.build, name)
-        if not os.path.isdir(subset_dir):
-            os.mkdir(subset_dir)
-        binfile = os.path.join(subset_dir, name + '.loom')
+        ## Set broad clustering as preclusters
+        with loompy.connect(peak_file) as ds:
+            ds.ca.preClusters = ds.ca.Clusters
+            del ds.ca.Clusters
+        logging.info(f'Finished creating peak file')
 
-        if 'bin_analysis' in config.steps:
-            ## Add UMAP to main loom
-            if name == 'All':
-                with loompy.connect(binfile, 'r+') as ds:
-                    new_UMAP = Add_UMAP(subset_dir, 'bins')
-                    new_UMAP.fit(ds)
-            else:
-                ## Select valid cells from input files
-                inputfiles = [os.path.join(config.paths.samples, '10X' + sample, '10X' + sample + f"_{bsize}.loom") for sample in samples]
-                selections = []
-                for file in inputfiles:
+    ## Analyse peak-file
+    if 'peak_analysis' in config.steps:
 
-                    ## Check if file with right binning exists
-                    if not os.path.exists(file):
-                        file_5kb = os.path.join(os.path.dirname(file), f'{file.split("/")[-2]}_5kb.loom')
-                        mergeBins(file_5kb, config.params.bin_size)
-
-                    ## Get cells passing filters
-                    with loompy.connect(file, 'r') as ds:
-                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
-                        selections.append(good_cells)
-
-                ## Merge Bin files
-                if not os.path.exists(binfile):
-
-                    ## Get column attributes that should be skipped
-                    skip_attr = find_attr_to_skip(config, samples)
-                    skip_attr = set(config.params.skip_attrs + skip_attr)
-                    logging.info(f'Not including the following column attributes {skip_attr}')
-
-                    logging.info(f'Input samples {samples}')
-                    loompy.combine_faster(inputfiles, binfile, selections=selections, key = 'loc', skip_attrs=skip_attr)
-                    # loompy.combine(inputfiles, outfile, key = 'loc')       ## Use if running into memory errors
-                    logging.info('Finished combining loom-files')
-                else:
-                    logging.info('Combined bin file already exists, using this for analysis')
-
-                ## Run primary Clustering and embedding
-                with loompy.connect(binfile, 'r+') as ds:
-                    bin_analysis = Bin_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
-                    bin_analysis.fit(ds) 
-
-        if 'peak_calling' in config.steps:
-            ## Call peaks
-            if not name == 'All':
-                with loompy.connect(binfile, 'r+') as ds:
-                    peak_caller = Peak_caller(outdir=subset_dir)
-                    peak_caller.fit(ds)
-
-        if 'peak_analysis' in config.steps:
-            ## Analyse peak-file
-            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-
-            ## Add UMAP to main loom
-            if name == 'All':
-                with loompy.connect(peak_file, 'r+') as ds:
-                    new_UMAP = Add_UMAP(subset_dir, 'peaks')
-                    new_UMAP.fit(ds)
-            else:
-                peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
-                with loompy.connect(peak_file, 'r+') as ds:
-                    peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
-                    peak_analysis.fit(ds)
-
-                    peak_aggregator = Peak_Aggregator()
-                    peak_aggregator.fit(ds, peak_agg)
+        ## Add UMAP to main loom
+        if name == 'All':
+            with loompy.connect(peak_file, 'r+') as ds:
+                new_UMAP = Add_UMAP(subset_dir, 'peaks')
+                new_UMAP.fit(ds)
 
             logging.info(f'Transferring column attributes and column graphs back to bin file')
             with loompy.connect(peak_file, 'r+') as ds:
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
 
-        if 'GA' in config.steps:
-            ## Generate promoter file
-            logging.info(f'Generating promoter file')
-            with loompy.connect(binfile, 'r') as ds:
-                Promoter_generator = Generate_promoter(outdir=subset_dir, poisson_pooling=config.params.poisson_pooling)
-                GA_file = Promoter_generator.fit(ds)
+        else:
+            peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
+            with loompy.connect(peak_file, 'r+') as ds:
+                peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
+                peak_analysis.fit(ds)
 
-            ## Transer column attributes
-            with loompy.connect(GA_file) as ds:
-                ## Aggregate GA file and annotate based on markers
-                GA_agg_file = os.path.join(subset_dir, name + '_prom.agg.loom')
-                Aggregator = GA_Aggregator()
-                Aggregator.fit(ds, out_file=GA_agg_file)
+                peak_aggregator = Peak_Aggregator()
+                peak_aggregator.fit(ds, peak_agg)
 
-                logging.info(f'Transferring column attributes back to bin file')
-                with loompy.connect(binfile) as dsb:
-                    transfer_ca(ds, dsb, 'CellID')
+    if 'GA' in config.steps:
+        ## Generate promoter file
+        logging.info(f'Generating promoter file')
+        with loompy.connect(peak_file, 'r') as ds:
+            Promoter_generator = Generate_promoter(outdir=subset_dir, poisson_pooling=config.params.poisson_pooling)
+            GA_file = Promoter_generator.fit(ds)
 
-        if 'motifs' in config.steps:
-            if 'peak_file' not in locals():
-                peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+        ## Transer column attributes
+        with loompy.connect(GA_file) as ds:
+            ## Aggregate GA file and annotate based on markers
+            GA_agg_file = os.path.join(subset_dir, name + '_prom.agg.loom')
+            Aggregator = GA_Aggregator()
+            Aggregator.fit(ds, out_file=GA_agg_file)
 
-            with loompy.connect(peak_file) as ds:
-                motif_compounder = Motif_compounder(outdir=subset_dir)
-                motif_compounder.fit(ds)
+            logging.info(f'Transferring column attributes back to peak file')
+            with loompy.connect(peak_file) as dsb:
+                transfer_ca(ds, dsb, 'CellID')
+
+    if 'motifs' in config.steps:
+
+        with loompy.connect(peak_file) as ds:
+            motif_compounder = Motif_compounder(outdir=subset_dir)
+            motif_compounder.fit(ds)
 
     ## Export bigwigs last to prevent multiprocessing error
     if 'bigwig' in config.steps:
-        for subset in deck.get_leaves():
-            name = subset.name
-            subset_dir = os.path.join(config.paths.build, name)
-
-            ## Export bigwigs by cluster
-            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-            with loompy.connect(peak_file, 'r') as ds:
-                logging.info(f'Exporting bigwigs for {name}')
-                with mp.get_context().Pool(20) as pool:
-                    for cluster in np.unique(ds.ca.Clusters):
-                        cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                        pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
-                    pool.close()
-                    pool.join()
+        ## Export bigwigs by cluster
+        with loompy.connect(peak_file, 'r') as ds:
+            logging.info(f'Exporting bigwigs for {name}')
+            with mp.get_context().Pool(20) as pool:
+                for cluster in np.unique(ds.ca.Clusters):
+                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+                    pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
+                pool.close()
+                pool.join()

@@ -40,9 +40,9 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         outliers = np.zeros(ds.shape[1])
         
     if attrs == None:
-        n_axes = 5
+        n_axes = 6
     else:
-        n_axes = 5 + len(attrs)
+        n_axes = 6 + len(attrs)
         
     nrows = int(np.ceil(n_axes/2))
         
@@ -79,9 +79,6 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
         ## Plot FRIP
-        if has_edges:
-            lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
-            ax[3].add_collection(lc)
         im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRIP, marker='.', lw=0, s=epsilon)
         fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
         ax[3].set_title('Fraction of fragments in peaks')
@@ -108,33 +105,33 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[2].set_xlabel("Log10 Coverage")
 
         ## Plot TSS fraction
-        if has_edges:
-            lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
-            ax[3].add_collection(lc)
         im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRtss, marker='.', lw=0, s=epsilon)
         fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
         ax[3].set_title('TSS fraction')
         ax[3].axis("off")
     
-    ## Plot the number of fragments per cell
-    # Draw edges
-    if has_edges:
-        lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
-        ax[4].add_collection(lc)
-    
-    im = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
+    ## Plot Age
+    if 'PseudoAge' in ds.ca:
+        age = ds.ca.PseudoAge
+        ax[4].set_title('PseudoAge')
+    else:
+        age = ds.ca.Age
+        ax[4].set_title('Age')
+        
+    im = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='gnuplot', c=age, vmin = np.quantile(age, .01), vmax = np.quantile(age, .99), marker='.', lw=0, s=epsilon)
     fig.colorbar(im, ax=ax[4], orientation='vertical', shrink=.5)
-    ax[4].set_title('Log10 fragments')
     ax[4].axis("off")
+
+    ## Plot the number of fragments per cell
+    im = ax[5].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
+    fig.colorbar(im, ax=ax[4], orientation='vertical', shrink=.5)
+    ax[5].set_title('Log10 fragments')
+    ax[5].axis("off")
 
     ## Plot the attributes on the embedding
     if attrs is not None:
         for n, attr in enumerate(attrs):
-            x = n +5
-            # Draw edges
-            if has_edges:
-                lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
-                ax[x].add_collection(lc)
+            x = n + 6
             
             ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c='lightgrey', marker='.', lw=0, s=epsilon)
             

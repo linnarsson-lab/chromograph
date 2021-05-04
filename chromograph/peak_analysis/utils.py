@@ -79,17 +79,17 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
     CPM_thres = np.zeros(dsagg.shape[1])
 
     for cls in tqdm(dsagg.ca.Clusters):
-        vals = dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]
+        vals = np.log10(dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]+1)
         values, base = np.histogram(vals, bins = bins)
         cumulative = np.cumsum(values)
 
         x = base[:-1]
-        y = len(vals)-cumulative
+        y = np.log10((len(vals)-cumulative)+1)
 
-        kn = KneeLocator(x, y, curve='convex', direction='decreasing', interp_method='polynomial')
- 
-        CPM_thres[dsagg.ca.Clusters==cls] = kn.knee
-        valid = vals > kn.knee
+        kn = KneeLocator(x, y, curve='concave', direction='decreasing', interp_method='polynomial')
+        t = 10**kn.knee
+        CPM_thres[dsagg.ca.Clusters==cls] = t
+        valid = vals > t
         peaks[:,dsagg.ca.Clusters==cls] = valid
     return peaks, CPM_thres
 
