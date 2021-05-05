@@ -61,14 +61,16 @@ def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, 
 
     return enrichment, q_values
 
-def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
+def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 'linear'):
     '''
     Identifies positive peaks for every cluster based on the decay curve of the CPM values
     
     Args:
-        ds        LoomConnection to aggregated peak file
-        bins      Number of bins to fit CPM scores into. Defaults to 200. User lower number for small cell counts.
-                  High values can cause rougher curves.
+        ds          LoomConnection to aggregated peak file
+        bins        Number of bins to fit CPM scores into. Defaults to 200. User lower number for small cell counts.
+                    High values can cause rougher curves.
+        mode        'linear' or 'log'. Determines if values are scaled before determining inflection point. In general
+                    'log' is more lenient in feature selection.
     Returns:
         peaks       Numpy array of positive peaks
         CPM_thres   Thresholds used for peak binarization in cluster
@@ -77,24 +79,64 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200):
     ## Create layer
     peaks = np.zeros(dsagg.shape)
     CPM_thres = np.zeros(dsagg.shape[1])
+    failed = []
+    N_pos = []
 
     for cls in tqdm(dsagg.ca.Clusters):
-        vals = np.log10(dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]+1)
-        values, base = np.histogram(vals, bins = bins)
-        cumulative = np.cumsum(values)
 
-        x = base[:-1]
-        y = np.log10((len(vals)-cumulative)+1)
+        if mode == 'linear':
+            vals = dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]
+            values, base = np.histogram(vals, bins = bins)
+            cumulative = np.cumsum(values)
 
-        kn = KneeLocator(x, y, curve='concave', direction='decreasing', interp_method='polynomial')
-        t = 10**kn.knee
+            x = base[:-1]
+            y = len(vals)-cumulative
+
+            kn = KneeLocator(x, y, curve='convex', direction='decreasing', interp_method='polynomial')
+            t = kn.knee
+
+            if (t > 200) or (t < 40):
+                failed.append(cls)
+
+            else:
+                CPM_thres[dsagg.ca.Clusters==cls] = t
+                valid = vals > t
+                N_pos.append(np.sum(valid))
+
+        elif mode == 'log':
+            vals = np.log10(dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]+1)
+            values, base = np.histogram(vals, bins = bins)
+            cumulative = np.cumsum(values)
+
+            x = base[:-1]
+            y = np.log10((len(vals)-cumulative)+1)
+
+            kn = KneeLocator(x, y, curve='concave', direction='decreasing', interp_method='polynomial')
+            t = 10**kn.knee
+            
+            if t > 200:
+                t = 10**np.quantile(vals,1-(5000/vals.shape[0]))
+
+            else:
+                CPM_thres[dsagg.ca.Clusters==cls] = t
+                valid = vals > np.log10(t)
+                N_pos.append(np.sum(valid))
+
+        else:
+            logging.info('No correct mode selected!')
+            return
         
-        if t > 200:
-            t = 10**np.quantile(vals,1-(5000/vals.shape[0]))
-
-        CPM_thres[dsagg.ca.Clusters==cls] = t
-        valid = vals > np.log10(t)
         peaks[:,dsagg.ca.Clusters==cls] = valid
+
+    ## Set threshold in accordance with mean number of positive features
+    if len(failed) > 0:
+        N_feat = np.mean(N_pos)
+        for cls in failed:
+            vals = dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]
+            t = np.quantile(vals, 1-(N_feat/vals.shape[0]))
+            CPM_thres[dsagg.ca.Clusters==cls] = t
+            peaks[:,dsagg.ca.Clusters==cls] = vals > t
+
     return peaks, CPM_thres
 
 def get_conservation_score(ds):
