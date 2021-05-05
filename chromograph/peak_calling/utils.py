@@ -139,8 +139,12 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks
         
         s, c = x.split(':')
         f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+        f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
         try:
-            cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
+            if os.path.exists(f):
+                cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
+            else:
+                cBed = BedTool(f2).sort()
         except:
             logging.info(f"Can't find {f}")
             logging.info(traceback.format_exc())
