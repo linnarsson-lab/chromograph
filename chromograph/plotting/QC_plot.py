@@ -65,7 +65,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[0].set_ylabel("Number of Cells")
         ax[0].set_xlabel("Number of positive peaks")
 
-        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']), s=1)
+        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']+1), s=1)
         ax[1].set_title("Fragments per cell v. positive peaks per cell")
         ax[1].set_ylabel("Log10 Positive peaks")
         ax[1].set_xlabel("Log10 fragments")
@@ -90,7 +90,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[0].set_ylabel("Number of Cells")
         ax[0].set_xlabel("Number of positive bins")
     
-        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']), s=1)
+        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']+1), s=1)
         ax[1].set_title("Fragments per cell v. positive bins per cell")
         ax[1].set_ylabel("Log10 Positive Bins")
         ax[1].set_xlabel("Log10 fragmentss")
@@ -124,7 +124,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
 
     ## Plot the number of fragments per cell
     im = ax[5].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
-    fig.colorbar(im, ax=ax[4], orientation='vertical', shrink=.5)
+    fig.colorbar(im, ax=ax[5], orientation='vertical', shrink=.5)
     ax[5].set_title('Log10 fragments')
     ax[5].axis("off")
 
