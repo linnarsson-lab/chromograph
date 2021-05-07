@@ -125,7 +125,8 @@ if __name__ == '__main__':
     if (not name == 'All') & (not os.path.isfile(peak_file)):
         logging.info(f'Main peak matrix already exists, taking subset')
         with loompy.connect(main_peaks, 'r') as ds_main:
-            selection = [x.split('10X')[-1] in samples for x in ds_main.ca.Name]
+            selection = np.array([x.split('10X')[-1] in samples for x in ds_main.ca.Name])
+            logging.info(f'Cells collected: {np.sum(selection)}')
         loompy.combine_faster([main_peaks], peak_file, selections=[selection])
         
         ## Set broad clustering as preclusters
