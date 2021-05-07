@@ -71,7 +71,7 @@ if __name__ == '__main__':
         os.mkdir(subset_dir)
     binfile = os.path.join(subset_dir, name + '.loom')
     peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-    Skip_bins = True
+    Skip_bins = False
 
     ## Check if bin analysis should be skipped
     if not name == 'All':
