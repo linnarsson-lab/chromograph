@@ -102,6 +102,8 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
                 CPM_thres[dsagg.ca.Clusters==cls] = t
                 valid = vals > t
                 N_pos.append(np.sum(valid))
+                peaks[:,dsagg.ca.Clusters==cls] = valid
+
 
         elif mode == 'log':
             vals = np.log10(dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]+1)
@@ -121,13 +123,13 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
                 CPM_thres[dsagg.ca.Clusters==cls] = t
                 valid = vals > np.log10(t)
                 N_pos.append(np.sum(valid))
+                peaks[:,dsagg.ca.Clusters==cls] = valid
+
 
         else:
             logging.info('No correct mode selected!')
             return
         
-        peaks[:,dsagg.ca.Clusters==cls] = valid
-
     ## Set threshold in accordance with mean number of positive features
     if len(failed) > 0:
         N_feat = np.mean(N_pos)
