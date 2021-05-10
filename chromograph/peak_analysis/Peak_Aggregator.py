@@ -83,7 +83,7 @@ class Peak_Aggregator:
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
 
             ## Call positive and negative peaks for every cluster
-            dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout)
+            dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout, bounds=(5,40))
             
             ## Perform fisher exact for peak counts
             dsout['enrichment'], dsout['q_val'] = FisherDifferentialPeaks(dsout)

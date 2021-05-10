@@ -117,7 +117,7 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
             t = 10**kn.knee
             
             if t > bounds[1]:
-                t = 10**np.quantile(vals,1-(5000/vals.shape[0]))
+                failed.append(cls)
 
             else:
                 CPM_thres[dsagg.ca.Clusters==cls] = t
