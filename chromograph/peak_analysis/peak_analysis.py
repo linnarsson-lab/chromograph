@@ -95,8 +95,20 @@ class Peak_analysis:
         valid = np.array([x in valid_clusters for x in ds.ca.preClusters])
 
         ## Aggregate
+        logging.info(f'Aggregating file')
+        temporary_file = os.path.join(self.config.paths.build, name, name + '_tmp.loom')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
-        ds.aggregate(temporary_aggregate, valid, "preClusters", "sum", {"preClusters": "first"})
+        if len(np.sum(valid)) != ds.shape[1]:
+            with loompy.new(temporary_file) as ds_temp:
+                for (ix, selection, view) in ds.scan(items=np.where(valid)[0], axis=1):
+                    ds_temp.add_columns(view.layers, col_attrs=view.ca, row_attrs=view.ra)
+                ds_temp.aggregate(temporary_aggregate, None, "preClusters", "sum", {"preClusters": "first"})
+            os.remove(temporary_file)
+
+        else:
+            ds.aggregate(temporary_aggregate, None, "preClusters", "sum", {"preClusters": "first"})
+        
+        ## Feature selection
         with loompy.connect(temporary_aggregate) as dsout:
             ## Normalize peak counts by total fragments per cluster
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
