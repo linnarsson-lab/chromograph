@@ -340,7 +340,7 @@ def select_preclusters(ds, min_cells=50, min_clusters=25):
     if perform_iter:
         logging.info(f'Perform Itererative LSI')
         iLSI  = iterativeLSI()
-        iLSI.fit()
+        iLSI.fit(ds)
         valid_clusters = np.unique(ds.ca.preClusters)
     else:
         valid_clusters = [k for k,v in cnt.items() if v >= min_cells]
