@@ -98,7 +98,7 @@ class Peak_analysis:
         logging.info(f'Aggregating file')
         temporary_file = os.path.join(self.config.paths.build, name, name + '_tmp.loom')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
-        if len(np.sum(valid)) != ds.shape[1]:
+        if np.sum(valid) != ds.shape[1]:
             with loompy.new(temporary_file) as ds_temp:
                 for (ix, selection, view) in ds.scan(items=np.where(valid)[0], axis=1):
                     ds_temp.add_columns(view.layers, col_attrs=view.ca, row_attrs=view.ra)
