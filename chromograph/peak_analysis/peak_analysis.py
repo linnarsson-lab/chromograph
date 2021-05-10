@@ -31,6 +31,7 @@ from chromograph.pipeline.utils import *
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline.PCA import PCA
 from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
+from chromograph.peak_analysis.utils import *
 
 from pynndescent import NNDescent
 from umap import UMAP
