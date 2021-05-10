@@ -163,7 +163,6 @@ class Peak_analysis:
             self.layer = 'TF-IDF'
             del tf_idf
             logging.info(f'Finished fitting TF-IDF')
-            self.layer = 'TF-IDF'
 
             ## Fit PCA
             logging.info(f'Fitting PCA to layer {self.layer}')

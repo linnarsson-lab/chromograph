@@ -131,6 +131,7 @@ if __name__ == '__main__':
         
         ## Set broad clustering as preclusters
         with loompy.connect(peak_file) as ds:
+            logging.info(f'Set broad clustering as preclusters')
             ds.ca.preClusters = ds.ca.Clusters
             del ds.ca.Clusters
         logging.info(f'Finished creating peak file')
