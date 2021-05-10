@@ -61,7 +61,7 @@ def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, 
 
     return enrichment, q_values
 
-def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 'linear'):
+def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 'linear', bounds:tuple=(40,200)):
     '''
     Identifies positive peaks for every cluster based on the decay curve of the CPM values
     
@@ -95,7 +95,7 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
             kn = KneeLocator(x, y, curve='convex', direction='decreasing', interp_method='polynomial')
             t = kn.knee
 
-            if (t > 200) or (t < 40):
+            if (t > bounds[1]) or (t < bounds[0]):
                 failed.append(cls)
 
             else:
@@ -116,7 +116,7 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
             kn = KneeLocator(x, y, curve='concave', direction='decreasing', interp_method='polynomial')
             t = 10**kn.knee
             
-            if t > 200:
+            if t > bounds[1]:
                 t = 10**np.quantile(vals,1-(5000/vals.shape[0]))
 
             else:
@@ -132,6 +132,7 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
         
     ## Set threshold in accordance with mean number of positive features
     if len(failed) > 0:
+        logging.info(f'failed to set threshold in {len(failed)} clusters')
         N_feat = np.mean(N_pos)
         for cls in failed:
             vals = dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]
