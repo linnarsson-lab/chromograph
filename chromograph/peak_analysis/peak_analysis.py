@@ -96,13 +96,15 @@ class Peak_analysis:
 
         ## Aggregate
         logging.info(f'Aggregating file')
-        temporary_file = os.path.join(self.config.paths.build, name, name + '_tmp.loom')
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
         if np.sum(valid) != ds.shape[1]:
-            with loompy.new(temporary_file) as ds_temp:
-                for (ix, selection, view) in ds.scan(items=np.where(valid)[0], axis=1):
-                    ds_temp.add_columns(view.layers, col_attrs=view.ca, row_attrs=view.ra)
-                ds_temp.aggregate(temporary_aggregate, None, "preClusters", "sum", {"preClusters": "first"})
+            temporary_file = os.path.join(self.config.paths.build, name, name + '_tmp.loom')
+            ds.aggregate(temporary_file, None, "preClusters", "sum", {"preClusters": "first"})
+            with loompy.connect(temporary_file) as ds_temp:
+                with loompy.new(temporary_aggregate) as dsagg:
+                    valid = np.array([x in valid_clusters for x in ds_temp.ca.preClusters])
+                    for (ix, selection, view) in ds_temp.scan(items=np.where(valid)[0], axis=1):
+                        dsagg.add_columns(view.layers, col_attrs=view.ca, row_attrs=view.ra)
             os.remove(temporary_file)
 
         else:
