@@ -15,6 +15,49 @@ import scipy.stats as stats
 from statsmodels.sandbox.stats.multicomp import multipletests
 from kneed import KneeLocator
 
+import numpy as np
+import pandas as pd
+import os
+import sys
+import collections
+import matplotlib.pyplot as plt
+import gzip
+import loompy
+import scipy.sparse as sparse
+import urllib.request
+import pybedtools
+import warnings
+import logging
+from tqdm import tqdm
+from numba.core.errors import NumbaPerformanceWarning
+import multiprocessing as mp
+warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
+
+from cytograph.decomposition import HPF
+from scipy.stats import poisson
+from cytograph.manifold import BalancedKNN
+from cytograph.metrics import jensen_shannon_distance
+from cytograph.embedding import art_of_tsne
+from cytograph.clustering import PolishedLouvain, PolishedSurprise
+from cytograph.plotting import manifold
+
+from chromograph.plotting.QC_plot import QC_plot
+from chromograph.pipeline import config
+from chromograph.pipeline.utils import *
+from chromograph.pipeline.TF_IDF import TF_IDF
+from chromograph.pipeline.PCA import PCA
+from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
+
+from pynndescent import NNDescent
+from umap import UMAP
+from joblib import parallel_backend
+import sklearn.metrics
+from scipy.spatial import distance
+from harmony import harmonize
+import community
+import networkx as nx
+from scipy import sparse
+from typing import *
 
 import logging
 logger = logging.getLogger()
@@ -125,7 +168,6 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
                 N_pos.append(np.sum(valid))
                 peaks[:,dsagg.ca.Clusters==cls] = valid
 
-
         else:
             logging.info('No correct mode selected!')
             return
@@ -199,3 +241,108 @@ def retrieve_enrichments(ds, motif_dir, N=5):
     
     motif_markers = np.array([c_dict[x] for x in ds.ca.Clusters])
     return motif_markers
+
+class iterativeLSI:
+    def __init__(self) -> None:
+        '''
+        Fit iterative LSI to detect variable peaks
+        '''
+        self.config = config.load_config()
+
+    def fit(self, ds: loompy.LoomConnection, skip_TFIDF:bool = False):
+        '''
+        '''
+        logging.info(f'Performing Preclustering LSI')
+        if not skip_TFIDF == True:
+            ds.ra.Valid = ds.ra['NCells'] > np.quantile(ds.ra['NCells'], 1 - (20000/ds.shape[0]))
+            logging.info(f'Performing TF-IDF')
+            tf_idf = TF_IDF(layer='Binary')
+            tf_idf.fit(ds, items=ds.ra.Valid)
+            ds.layers['TF-IDF'] = 'float16'
+            logging.info(f'Transforming')
+            for (_, selection, view) in ds.scan(axis=1):
+                ds['TF-IDF'][:,selection] = tf_idf.transform(view['Binary'][:,:], selection)
+            del tf_idf
+            logging.info(f'Finished fitting TF-IDF')
+
+        ## Fit PCA
+        logging.info(f'Fitting PCA to layer TF-IDF')
+        pca = PCA(max_n_components = 40, layer= 'TF-IDF', key_depth= 'NPeaks', batch_keys = self.config.params.batch_keys)
+        pca.fit(ds)
+
+        ## Decompose data
+        ds.ca.LSI = pca.transform(ds)
+
+        logging.info(f'Finished PCA transformation')
+        del pca
+
+        ## Get correct embedding and metric
+        decomp = ds.ca.LSI
+        metric = "euclidean"
+
+        ## Construct nearest-neighbor graph
+        logging.info(f"Computing balanced KNN (k = {25}) space using the '{metric}' metric")
+        bnn = BalancedKNN(k=25, metric=metric, maxl=2 * 25, sight_k=2 * 25, n_jobs=-1)
+        bnn.fit(decomp)
+        knn = bnn.kneighbors_graph(mode='distance')
+        knn.eliminate_zeros()
+        mknn = knn.minimum(knn.transpose())
+        # Convert distances to similarities
+        logging.info(f'Converting distances to similarities knn shape.')
+        max_d = knn.data.max()
+        knn.data = (max_d - knn.data) / max_d
+        mknn.data = (max_d - mknn.data) / max_d
+        ds.col_graphs.KNN = knn
+        ds.col_graphs.MKNN = mknn
+        mknn = mknn.tocoo()
+        mknn.setdiag(0)
+        # Compute the effective resolution
+        logging.info(f'Computing resolution')
+        d = 1 - knn.data
+        radius = np.percentile(d, 90)
+        logging.info(f"  90th percentile radius: {radius:.02}")
+        ds.attrs.radius = radius
+        inside = mknn.data > 1 - radius
+        rnn = sparse.coo_matrix((mknn.data[inside], (mknn.row[inside], mknn.col[inside])), shape=mknn.shape)
+        ds.col_graphs.RNN = rnn
+
+        del knn, mknn, rnn
+
+        ## Perform tSNE
+        metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
+
+        logging.info(f"Computing 2D and 3D embeddings from latent space")
+        logging.info(f"Art of tSNE with distance metrid: {metric_f}")
+        ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+
+        ## Perform Clustering
+        logging.info("Performing Polished Louvain clustering")
+        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = 1, min_cells=50)
+        labels = pl.fit_predict(ds)
+        ds.ca.ClustersModularity = labels + min(labels)
+        ds.ca.OutliersModularity = (labels == -1).astype('int')
+        ds.ca.preClusters = labels + min(labels)
+        ds.ca.Outliers = (labels == -1).astype('int')
+        logging.info(f"Found {ds.ca.preClusters.max() + 1} clusters")
+
+def select_preclusters(ds, min_cells=50, min_clusters=25):
+    '''
+    '''
+    cnt = Counter(ds.ca.preClusters)
+    
+    ## Get Cells per cluster
+    vals = np.array([v for k,v in cnt.items()])
+    N_clusters = np.sum(vals>min_cells)
+    perform_iter = N_clusters < min_clusters
+    
+    logging.info(f'Perform iterative LSI: {perform_iter}, valid clusters: {N_clusters}, required: {min_clusters}')
+    
+    if perform_iter:
+        logging.info(f'Perform Itererative LSI')
+        iLSI  = iterativeLSI()
+        iLSI.fit()
+        valid_clusters = np.unique(ds.ca.preClusters)
+    else:
+        valid_clusters = [k for k,v in cnt.items() if v >= min_cells]
+        
+    return set(valid_clusters)

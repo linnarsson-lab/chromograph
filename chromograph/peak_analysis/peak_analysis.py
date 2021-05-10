@@ -89,11 +89,13 @@ class Peak_analysis:
 
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for manifold learning by variance in preclusters')
+
+        valid_clusters = select_preclusters(ds, min_cells=self.config.params.min_cells_cluster, min_clusters=25)
+        valid = np.array([x in valid_clusters for x in ds.ca.preClusters])
+
+        ## Aggregate
         temporary_aggregate = os.path.join(self.config.paths.build, name, name + '_tmp.agg.loom')
-        if 'preClusters' in ds.ca:
-            ds.aggregate(temporary_aggregate, None, "preClusters", "sum", {"preClusters": "first"})
-        else:
-            ds.aggregate(temporary_aggregate, None, "Clusters", "sum", {"Clusters": "first"})
+        ds.aggregate(temporary_aggregate, valid, "preClusters", "sum", {"preClusters": "first"})
         with loompy.connect(temporary_aggregate) as dsout:
             ## Normalize peak counts by total fragments per cluster
             dsout.ca.Total = dsout.map([np.sum], axis=1)[0]
