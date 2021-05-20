@@ -7,6 +7,7 @@ import pybedtools
 from pybedtools import BedTool
 import collections
 import csv
+import pandas as pd
 import matplotlib.pyplot as plt
 import gzip
 import loompy
@@ -24,9 +25,10 @@ from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
 from chromograph.features.feature_count import *
 from chromograph.preprocessing.doublet_finder import doublet_finder
+from chromograph.RNA.utils import rna_barcodes_to_atac
 
 class Chromgen:
-    def __init__(self, rnaXatac=False) -> None:
+    def __init__(self) -> None:
         """
         Generate a binned loom file from scATAC-seq data
         
@@ -39,7 +41,8 @@ class Chromgen:
             # and can be overridden by the config in the current punchcard
         """
         self.config = config.load_config()
-        self.rnaXatac = rnaXatac
+        self.rnaXatac = False
+        self.RNA_file = ''
         pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
     
@@ -89,16 +92,25 @@ class Chromgen:
         logging.info(f"Binning reads from {indir.split('/')[-1]} into {bsize/1000} kb bins")
         logging.info(f"Reading from {indir}")
         logging.info(f"Saving to {outdir}")
+
+        sample = indir.split('/')[-1]
+        ## Check if rnaXatac
+        if os.path.isfile(indir + '/outs/per_barcode_metrics.csv'):
+            self.rnaXatac = True
+            self.RNA_file = os.path.join(self.config.paths.RNA, f'{sample}.loom')
+            if not os.path.exists(self.RNA_file):
+                logging.info(f'RUN RNA QC FIRST!')
+                return
         if self.rnaXatac:
             logging.info(f'Multiome sample')
             fb = indir + '/outs/per_barcode_metrics.csv'
             ff = indir + '/outs/atac_fragments.tsv.gz'
             fs = indir + '/outs/summary.csv'
         else:
+            logging.info('scATAC-seq sample')
             fb = indir + '/outs/singlecell.csv'
             ff = indir + '/outs/fragments.tsv.gz'
             fs = indir + '/outs/summary.json'
-        sample = indir.split('/')[-1]
 
         if len(sample.split('_')) > 2:
             sample = '_'.join(sample.split('_')[:2])
@@ -119,33 +131,26 @@ class Chromgen:
                     summary[k] = str(v)
         summary['bin_size'] = bsize
         summary['level'] = self.config.params.level
+        barcodes = pd.read_csv(fb)
         
-        if self.rnaXatac:
-            barcodes = np.genfromtxt(fb, delimiter=',', skip_header=1,
-                                    dtype={'names':('barcode','gex_barcode','atac_barcode','is__cell_barcode','excluded_reason','gex_raw_reads','gex_mapped_reads','gex_conf_intergenic_reads',
-                                                    'gex_conf_exonic_reads','gex_conf_intronic_reads','gex_conf_exonic_unique_reads','gex_conf_exonic_antisense_reads',
-                                                    'gex_conf_exonic_dup_reads','gex_exonic_umis','gex_conf_intronic_unique_reads','gex_conf_intronic_antisense_reads',
-                                                    'gex_conf_intronic_dup_reads','gex_intronic_umis','gex_conf_txomic_unique_reads','gex_umis_count','gex_genes_count',
-                                                    'total','unmapped','lowmapq','duplicate','chimeric','mitochondrial',
-                                                    'passed_filters	','TSS_fragments','peak_region_fragments','peak_region_cutsites'),
-                                            'formats':('U18', 'U18', 'U18', 'i8', 'i8', 'i8', 'i8', 'i8', 
-                                                        'i8', 'i8', 'i8', 'i8', 
-                                                        'i8', 'i8', 'i8', 'i8', 
-                                                        'i8', 'i8', 'i8', 'i8', 'i8',
-                                                        'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 
-                                                        'i8', 'i8', 'i8', 'i8')})
-            # barcodes['barcode'] = barcodes['atac_barcode'] ## We set the downstream barcode to the ATAC barcode instead of the defaults RNA barcode in cellranger
-        else:
-            barcodes = np.genfromtxt(fb, delimiter=',', skip_header=2,
-                                    dtype={'names':('barcode','total','duplicate','chimeric','unmapped','lowmapq','mitochondrial','passed_filters','cell_id','is__cell_barcode',
-                                                    'TSS_fragments','DNase_sensitive_region_fragments','enhancer_region_fragments','promoter_region_fragments','on_target_fragments',
-                                                    'blacklist_region_fragments','peak_region_fragments','peak_region_cutsites'),
-                                            'formats':('U18', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'U18', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8', 'i8')})
-
+        if self.rnaXatac:    
+            barcodes = barcodes.rename(columns = {'barcode': 'barcode',
+                                                    'is_cell': 'is__cell_barcode',
+                                                    'atac_raw_reads': 'total',
+                                                    'atac_unmapped_reads': 'unmapped',
+                                                    'atac_lowmapq': 'lowmapq',
+                                                    'atac_dup_reads': 'duplicate',
+                                                    'atac_chimeric_reads': 'chimeric',
+                                                    'atac_mitochondrial_reads': 'mitochondrial',
+                                                    'atac_fragments': 'passed_filters',
+                                                    'atac_TSS_fragments': 'TSS_fragments',
+                                                    'atac_peak_region_fragments': 'peak_region_fragments',
+                                                    'atac_peak_region_cutsites': 'peak_region_cutsites'}, 
+                                    inplace = False)
         ## Transfer metadata to dict format
         meta = {}
-        passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 100000)
-        # passed = (barcodes['is__cell_barcode'] == 1)
+        # passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 100000)
+        passed = (barcodes['is__cell_barcode'] == 1)
         for key in barcodes.dtype.names:
             meta[key] = barcodes[key][passed]
 
@@ -257,15 +262,27 @@ class Chromgen:
         logging.info(f"Loom bin file saved as {floom}")
         
         ## Doublet detection
-        with loompy.connect(self.loom, 'r+') as ds:
-            if ds.shape[1] > 1000:
-                logging.info(f'Detecting doublets in loom file')
-                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
-            else:
-                logging.info(f'Too few cells for doublet detections')
-                ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
-            meta['DoubletFinderScore'] = ds.ca['DoubletFinderScore']
-            meta['DoubletFinderFlag'] = ds.ca['DoubletFinderFlag']
+        if not self.rnaXatac:
+            with loompy.connect(self.loom, 'r+') as ds:
+                if ds.shape[1] > 1000:
+                    logging.info(f'Detecting doublets in loom file')
+                    ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = doublet_finder(ds, proportion_artificial=.2, qc_dir = outdir, max_th=0.6)
+                else:
+                    logging.info(f'Too few cells for doublet detections')
+                    ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
+        else:
+            logging.info(f'Transferring doublet score from RNA file')
+            with loompy.connect(self.loom) as ds:
+                with loompy.connect(self.RNA_file) as dsr:
+                    RNA_bar = rna_barcodes_to_atac(dsr)
+                    match = {k:v for v, k in enumerate(ds.ca.CellID)}
+
+                    ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
+
+                    for i, x in enumerate(RNA_bar):
+                        k = match(x)
+                        ds.ca['DoubletFinderScore'][k] = dsr.ca['DoubletFinderScore'][i]
+                        ds.ca['DoubletFinderFlag'][k] = dsr.ca['DoubletFinderFlag'][i]
 
         logging.info(f'Finished processing {sample}')
 

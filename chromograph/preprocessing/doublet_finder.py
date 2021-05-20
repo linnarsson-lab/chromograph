@@ -172,18 +172,19 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
         #The TH shouldn't be higher than indicated
         if  doublet_th2 >max_th:
             doublet_th2= max_th
-
-        ## If no reasonable threshold from bimodal distribution, use threshold from expected doublet rate
         if  doublet_th1 >max_th:
             doublet_th1= max_th
+
+        ## If no reasonable threshold from bimodal distribution, use threshold from expected doublet rate
+        if (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
             doublet_th = doublet_th2
-        elif (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
-            doublet_th = doublet_th2
+            logging.info(f'Using estimated doublet rate for threshold')
         else:
-            doublet_th = doublet_th1
+            doublet_th = doublet_th1  
+            logging.info(f'Using binomial for threshold')
 
     doublet_flag[doublet_score>=doublet_th]=1
-    logging.info(f'Doublet threshold is set at {doublet_th}, cells passing threshold: {np.sum(doublet_flag==1)}')
+    logging.info(f'Doublet threshold is set at {doublet_th}, items passing threshold: {np.sum(doublet_flag==1)}')
     
     #Calculate the score for the cells that are nn of the marked doublets 
     pca_rc = pca[0:n_real_cells, :]
