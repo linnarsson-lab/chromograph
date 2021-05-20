@@ -52,6 +52,7 @@ def load_config() -> Config:
 		"paths": Config(**{
 			"build": "",
 			"samples": "",
+			"RNA": "",
 			"cell_ranger": "",
 			"bedtools": "",
 			"MACS": "",
@@ -97,7 +98,7 @@ def load_config() -> Config:
 			"FR_TSS": 0.2,
 			"reference_assembly": "GRCh38"
 		}),
-		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "GA", "motifs", "bigwig"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "RNA", "GA", "motifs", "bigwig"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 26,

@@ -19,21 +19,22 @@ import multiprocessing as mp
 
 ## Import chromograph
 import chromograph
-from chromograph.pipeline.Bin_analysis import *
-from chromograph.pipeline import config
-from chromograph.pipeline.Add_UMAP import Add_UMAP
-from chromograph.peak_analysis.peak_analysis import Peak_analysis
-from chromograph.pipeline.utils import transfer_ca
 from chromograph.preprocessing.utils import get_blacklist, mergeBins
-from chromograph.features.Generate_promoter import Generate_promoter
-from chromograph.features.gene_smooth import GeneSmooth
-from chromograph.features.GA_Aggregator import GA_Aggregator
+from chromograph.pipeline import config
+from chromograph.pipeline.Bin_analysis import *
+from chromograph.pipeline.utils import transfer_ca
+from chromograph.pipeline.Add_UMAP import Add_UMAP
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
 from chromograph.peak_calling.call_MACS import call_MACS
+from chromograph.peak_analysis.peak_analysis import Peak_analysis
+from chromograph.peak_analysis.Peak_Aggregator import Peak_Aggregator
+from chromograph.RNA.RNA_analysis import RNA_analysis
+from chromograph.features.Generate_promoter import Generate_promoter
+from chromograph.features.gene_smooth import GeneSmooth
+from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.plotting.peak_annotation_plot import *
 from chromograph.motifs.motif_compounder import Motif_compounder
-from chromograph.peak_analysis.Peak_Aggregator import Peak_Aggregator
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -158,6 +159,15 @@ if __name__ == '__main__':
 
                 peak_aggregator = Peak_Aggregator()
                 peak_aggregator.fit(ds, peak_agg)
+
+    if 'RNA' in config.steps:
+        ## Generate RNA imputation file and annotation
+        with loompy.connect(peak_file) as ds:
+            RNA_imputer = RNA_analysis(ds, outdir=subset_dir)
+            RNA_imputer.generate_RNA_file(config.paths.RNA) ## Generate RNA file
+            RNA_imputer.Impute_RNA() ## Impute RNA on non-RNA samples
+            RNA_imputer.aggregate() ## Aggregate expression in rnaXatac samples
+            RNA_imputer.annotate() ## Annotate clusters
 
     if 'GA' in config.steps:
         ## Generate promoter file

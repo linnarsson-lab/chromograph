@@ -65,7 +65,7 @@ class Generate_promoter:
         
         '''
         ## Get sample name from loom-file
-        name = ds.filename.split(".")[0].split('/')[-1]
+        name = ds.filename.split('/')[-2]
         self.loom = os.path.join(self.outdir, f'{name}_prom.loom')
 
         ## Check if location for peaks and compounded fragments exists
@@ -149,7 +149,6 @@ class Generate_promoter:
                 for (_, indexes, view) in dsp.scan(axis=0, layers=[""], what=["layers"]):
                     dsp["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
                 dsp.ca['GA_pooled_colsum'] = dsp['pooled'].map([np.sum], axis=1)[0]
-                dsp['pooled_CPM'] = 'float32'
 
             dsp['CPM'] = 'float32'
             logging.info(f'Start conversion')
