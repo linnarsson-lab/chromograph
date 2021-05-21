@@ -233,7 +233,7 @@ class Chromgen:
         if self.rnaXatac:
             keys = ['Pipeline version', 'reference_assembly', 'bin_size']
         else:
-            keys = ['cellranger-atac_version', 'reference_assembly', 'reference_assembly_accession', 'reference_assembly_fasta_url', 'reference_organism', 'reference_version', 'bin_size']
+            keys = ['cellranger-atac_version', 'reference_assembly', 'reference_organism', 'reference_version', 'bin_size']
         small_summary = {k: summary[k] for k in keys}
         
         ## We retain only the bins that have no overlap with the ENCODE blacklist
