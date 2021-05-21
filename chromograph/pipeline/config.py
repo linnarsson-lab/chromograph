@@ -87,6 +87,7 @@ def load_config() -> Config:
 			"UMAP": True,
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),
+			"max_doubletFinder_TH": 0.4,
 			"min_fraction_good_cells": 0.4,
 			"max_fraction_MT_genes": 0.05,
 			# "max_doubletFinder_TH": 0.4,

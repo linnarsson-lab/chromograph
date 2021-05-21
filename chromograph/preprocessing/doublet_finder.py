@@ -56,7 +56,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, qc_dir: object = ".", max_th: float= 1, min_th: float = 0.1) -> np.ndarray:
+def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, qc_dir: object = ".", name: object = 'tmp', max_th: float= 1, min_th: float = 0.1) -> np.ndarray:
     '''
     '''
     ## Create n doublets
@@ -202,7 +202,8 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
     fig, ax = plt.subplots(1, 2, figsize=(12,6))
     doublets_plots.doublets_TSNE(ax[0], ds, doublet_flag)
     doublets_plots.fake_doublets_dist(ax[1], doublet_score_A, logprob, xx, doublet_th1, doublet_th2, doublet_th)
-    fig.savefig(os.path.join(qc_dir, 'doublet_plot.png'), dpi=144)
+
+    fig.savefig(os.path.join(qc_dir, f'{name}_doublet_plot.png'), dpi=144)
     logging.info(f"Doublet fraction: {100*len(np.where(doublet_flag>0)[0])/ds.shape[1]:.2f}%, {len(np.where(doublet_flag>0)[0])} cells. \n\t\t\t(Expected detectable doublet fraction: {(5e-4*ds.shape[1]):.2f}%)")
     
     ## Cleanup
