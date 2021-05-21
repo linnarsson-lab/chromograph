@@ -94,10 +94,14 @@ class Chromgen:
         logging.info(f"Saving to {outdir}")
 
         sample = indir.split('/')[-1]
+        if len(sample.split('_')) > 2:
+            sample = '_'.join(sample.split('_')[:2])
+
         ## Check if rnaXatac
         if os.path.isfile(indir + '/outs/per_barcode_metrics.csv'):
             self.rnaXatac = True
             self.RNA_file = os.path.join(self.config.paths.RNA, f'{sample}.loom')
+            logging.info(f'Checking if {self.RNA_file} exists')
             if not os.path.exists(self.RNA_file):
                 logging.info(f'RUN RNA QC FIRST!')
                 return
@@ -111,9 +115,6 @@ class Chromgen:
             fb = indir + '/outs/singlecell.csv'
             ff = indir + '/outs/fragments.tsv.gz'
             fs = indir + '/outs/summary.json'
-
-        if len(sample.split('_')) > 2:
-            sample = '_'.join(sample.split('_')[:2])
 
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
