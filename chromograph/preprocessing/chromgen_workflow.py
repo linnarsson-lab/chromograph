@@ -30,7 +30,7 @@ if len(dirs) > 0:
     dirs = np.array(dirs)[np.where(n_flowcells==np.max(n_flowcells))[0]]
     ID = [int(d.split('_')[-1]) for d in dirs]
     
-    indir = dirs[np.where(ID==np.max(ID))[0]]
+    indir = dirs[np.where(ID==np.max(ID))[0]][0]
     outdir = f"{config.paths.samples}/{sample}"
     logging.info(f'Using cellranger output: {indir}')
     logging.info(f'Saving to {outdir}')
