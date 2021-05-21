@@ -58,16 +58,20 @@ def read_fragments(file):
     new = 0
     add = 0
     with gzip.open(file, 'rb') as f:
+        next(f) ## Skip first line
         for read in f:
-            r = read.split()
-            b = r[3].decode()
-
-            if b not in frag_dict:
-                frag_dict[b] = [[r[0].decode(), int(r[1].decode()), int(r[2].decode())]]
-                new += 1
+            if read.startswith(b'#'):
+                continue
             else:
-                frag_dict[b].append([r[0].decode(), int(r[1].decode()), int(r[2].decode())])
-                add += 1
+                r = read.split()
+                b = r[3].decode()
+
+                if b not in frag_dict:
+                    frag_dict[b] = [[r[0].decode(), int(r[1].decode()), int(r[2].decode())]]
+                    new += 1
+                else:
+                    frag_dict[b].append([r[0].decode(), int(r[1].decode()), int(r[2].decode())])
+                    add += 1
     
         logging.info('barcodes: {}   fragments: {}'.format(new, (new+add)))
         return frag_dict;
