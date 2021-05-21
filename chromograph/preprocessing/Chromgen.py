@@ -152,7 +152,7 @@ class Chromgen:
         meta = {}
         # passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 100000)
         passed = (barcodes['is__cell_barcode'] == 1)
-        for key in barcodes.dtype.names:
+        for key in barcodes:
             meta[key] = barcodes[key][passed]
 
         meta['CellID'] = [f'{sample}:{x}' for x in meta['barcode']]
