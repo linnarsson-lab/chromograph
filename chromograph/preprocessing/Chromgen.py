@@ -130,6 +130,8 @@ class Chromgen:
 
                 for k,v in summary.items():
                     summary[k] = str(v)
+            if summary['reference_genomes'] == "['GRCh38']":
+                summary['reference_assembly'] = 'GRCh38'
         summary['bin_size'] = bsize
         summary['level'] = self.config.params.level
         barcodes = pd.read_csv(fb)
