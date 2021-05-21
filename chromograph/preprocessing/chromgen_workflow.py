@@ -1,17 +1,10 @@
 import sys
 import numpy as np
 import os
-import sys
-import pybedtools
-from pybedtools import BedTool
-import collections
 import csv
-import matplotlib.pyplot as plt
 import gzip
 import loompy
-import scipy.sparse as sparse
-import json
-import urllib.request
+import glob
 
 from chromograph.pipeline import config
 from chromograph.preprocessing.Chromgen import *
@@ -27,20 +20,23 @@ bsize = 5000
 config = config.load_config()
 
 sample = sys.argv[1]
-CR_outputs = config.paths.cell_ranger
-logging.info(f'Looking for {sample} Cellranger outputs at {CR_outputs}')
-if os.path.exists(os.path.join(CR_outputs, f"{sample}_AB_1")):
-    indir = os.path.join(CR_outputs, f"{sample}_AB_1")
-    logging.info('Using AB file')
-elif os.path.exists(os.path.join(CR_outputs, f"{sample}_A_1")):
-    indir = os.path.join(CR_outputs, f"{sample}_A_1")
-    logging.info('Using A file')
-elif os.path.exists(os.path.join(CR_outputs, f"{sample}")):
-    indir = os.path.join(CR_outputs, f"{sample}")
-    logging.info('Using	unlabelled file')
-else:
-    logging.info("Could not find sample")
-outdir = os.path.join(config.paths.samples, sample)
+logging.info(f'Looking for {sample} Cellranger outputs at {config.paths.cell_ranger}')
+dirs = glob.glob(f'{config.paths.cell_ranger}/{sample}*')
 
-chromgen = Chromgen()
-chromgen.fit(indir = indir, bsize = bsize, outdir = outdir)
+if len(dirs) > 0:
+    dirs = np.array([d for d in dirs if os.path.isdir(d)])
+    dirs = dirs[[len(d.split('_')) == 4 for d in dirs]]
+    n_flowcells = [len(d.split('_')[-2]) for d in dirs]
+    dirs = np.array(dirs)[np.where(n_flowcells==np.max(n_flowcells))[0]]
+    ID = [int(d.split('_')[-1]) for d in dirs]
+    
+    indir = dirs[np.where(ID==np.max(ID))[0]]
+    outdir = f"{config.paths.samples}/{sample}"
+    logging.info(f'Using cellranger output: {indir}')
+    logging.info(f'Saving to {outdir}')
+
+    chromgen = Chromgen()
+    chromgen.fit(indir = indir, bsize = bsize, outdir = outdir)
+
+else:
+    logging.info(f'Could not find sample')
