@@ -277,6 +277,10 @@ class Chromgen:
             logging.info(f'Transferring doublet score from RNA file')
             with loompy.connect(self.loom) as ds:
                 with loompy.connect(self.RNA_file) as dsr:
+
+                    if not 'DoubletFinderScore' in dsr.ca:
+                        logging.info(f'ERROR: NO DOUBLETFINDERSCORE IN RNA!')
+                        return
                     RNA_bar = rna_barcodes_to_atac(dsr)
                     match = {k:v for v, k in enumerate(ds.ca.CellID)}
 
