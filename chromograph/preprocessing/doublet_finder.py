@@ -203,6 +203,8 @@ def doublet_finder(ds: loompy.LoomConnection, proportion_artificial: float = 0.2
     doublets_plots.doublets_TSNE(ax[0], ds, doublet_flag)
     doublets_plots.fake_doublets_dist(ax[1], doublet_score_A, logprob, xx, doublet_th1, doublet_th2, doublet_th)
 
+
+    logging.info(f'Saving qc plot to {qc_dir}')
     fig.savefig(os.path.join(qc_dir, f'{name}_doublet_plot.png'), dpi=144)
     logging.info(f"Doublet fraction: {100*len(np.where(doublet_flag>0)[0])/ds.shape[1]:.2f}%, {len(np.where(doublet_flag>0)[0])} cells. \n\t\t\t(Expected detectable doublet fraction: {(5e-4*ds.shape[1]):.2f}%)")
     
