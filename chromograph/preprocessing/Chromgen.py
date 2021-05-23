@@ -283,7 +283,7 @@ class Chromgen:
                     ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
 
                     for i, x in enumerate(RNA_bar):
-                        k = match(x)
+                        k = match[x]
                         ds.ca['DoubletFinderScore'][k] = dsr.ca['DoubletFinderScore'][i]
                         ds.ca['DoubletFinderFlag'][k] = dsr.ca['DoubletFinderFlag'][i]
 
