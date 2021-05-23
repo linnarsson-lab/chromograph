@@ -155,13 +155,13 @@ class Chromgen:
         # passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 100000)
         passed = (barcodes['is__cell_barcode'] == 1)
         for key in barcodes:
-            meta[key] = barcodes[key][passed]
+            meta[key] = np.array(barcodes[key][passed])
 
-        meta['CellID'] = [f'{sample}:{x}' for x in meta['barcode']]
+        meta['CellID'] = np.array([f'{sample}:{x}' for x in meta['barcode']])
 
         ## Remove trailing -1 if present
         if len(meta['CellID'][0].split('-')) > 1:
-            meta['CellID'] = [x.split('-')[0] for x in meta['CellID']]
+            meta['CellID'] = np.array([x.split('-')[0] for x in meta['CellID']])
     
         ## Retrieve sample metadata from SangerDB
         logging.info(f'Retrieve metadata from {[self.config.paths.metadata, sample]}')
