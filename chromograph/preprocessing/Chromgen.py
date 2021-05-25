@@ -187,7 +187,11 @@ class Chromgen:
         chrom_bins = generate_bins(chrom_size, bsize)
 
         ## Count fragments
-        Count_dict = self.fragments_to_count(ff, outdir, meta, bsize, chrom_size)
+        # Count_dict = self.fragments_to_count(ff, outdir, meta, bsize, chrom_size)
+
+        ## Fork as a seperate process to protect against high memory consumption
+        p = mp.Pool()
+        Count_dict = p.map(fragments_to_count, [ff, outdir, meta, bsize, chrom_size])[0]
 
         logging.info("Loading blacklist")
         # Load Blacklist

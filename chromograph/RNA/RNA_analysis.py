@@ -218,7 +218,7 @@ class RNA_analysis():
                         
                 progress.close()
 
-    def aggregate(self, agg_spec=None):
+    def annotate(self, min_cells:int=10, agg_spec=None):
         '''
         '''
         if agg_spec == None:
@@ -244,21 +244,18 @@ class RNA_analysis():
             labels = ds.col_attrs["Clusters"][cells]
             n_labels = len(set(labels))
 
-            if not os.path.isfile(self.RNA_agg):
-                logging.info(f'Aggregating file')
-                ds.aggregate(self.RNA_agg, None, "Clusters", "mean", agg_spec)
-
-                with loompy.connect(self.RNA_agg) as dsout:
-                    dsout.ca.NCells = np.bincount(labels, minlength=n_labels)[dsout.ca.Clusters]
-
-                    dsout.ca.Clusters_peaks = dsout.ca.Clusters
-                    dsout.ca.Clusters = np.arange(n_labels)
-                    if not np.max(ds.ca.Clusters) == n_labels - 1:
-                        d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
-                        ds.ca.Clusters_peaks = ds.ca.Clusters
-                        ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
+            logging.info(f'Aggregating file')
+            ds.aggregate(self.RNA_agg, None, "Clusters", "mean", agg_spec)
 
             with loompy.connect(self.RNA_agg) as dsout:
+                dsout.ca.NCells = np.bincount(labels, minlength=n_labels)[dsout.ca.Clusters]
+
+                dsout.ca.Clusters_peaks = dsout.ca.Clusters
+                dsout.ca.Clusters = np.arange(n_labels)
+                if not np.max(ds.ca.Clusters) == n_labels - 1:
+                    d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
+                    ds.ca.Clusters_peaks = ds.ca.Clusters
+                    ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
 
                 logging.info("Computing cluster gene enrichment scores")
                 fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")))
@@ -300,36 +297,29 @@ class RNA_analysis():
                 ds.permute(gene_order, axis=0)
                 dsout.permute(gene_order, axis=0)
         
-    def annotate(self, min_cells:int=10):
-        '''
-        '''
-        if not os.path.isfile(self.RNA_file) or not os.path.isfile(self.RNA_agg):
-            logging.info(f'Generate RNA file first and aggregate!')
-            return
-        
-        with loompy.connect(self.RNA_file) as ds:
-            with loompy.connect(self.RNA_agg) as dsout:
                 logging.info(f'Trinarizing')
                 trinaries = Trinarizer(0.2).fit(ds)
                 dsout['trinaries'] = trinaries[:,dsout.ca.Clusters]
 
                 logging.info(f'Annotating')
-                AutoAnnotator(root='/home/camiel/auto-annotation/Human/', ds=dsout).annotate(dsout)
+                AutoAnnotator(self.config.paths.autoannotation, ds=dsout).annotate(dsout)
 
                 logging.info("Computing auto-auto-annotation")
                 AutoAutoAnnotator(n_genes=6).annotate(dsout)        
-
-                ## Remove undersampled clusters
-                remove = dsout.ca.Clusters[dsout.ca.NCells < min_cells]
-                for id in remove:
-                    for k in ['AutoAnnotation', 'MarkerGenes', 'MarkerRobustness', 'MarkerSelectivity', 'MarkerSpecificity']:
-                        dsout.ca[k][dsout.ca.Clusters == id] = ''
 
                 ## Restore clusterlabels
                 logging.info(f'Restoring cluster labels')
                 for dsx in [ds,dsout]:
                     dsx.ca.Clusters_renumbered = dsx.ca.Clusters
                     dsx.ca.Clusters = dsx.ca.Clusters_peaks
+                
+                ## Remove undersampled clusters
+                remove = dsout.ca.NCells < min_cells
+                logging.info(f'Clusters with too few measurements: {dsout.ca.Clusters[remove]}')
+                for k in ['AutoAnnotation', 'MarkerGenes', 'MarkerRobustness', 'MarkerSelectivity', 'MarkerSpecificity']:
+                    new_attr = dsout.ca[k]
+                    new_attr[remove] = ''
+                    dsout.ca[k] = new_attr
 
         ## Export the labels to the peak_aggregate file
         logging.info(f'Tranferring labels to peak aggregate file')
@@ -341,7 +331,7 @@ class RNA_analysis():
 
                 annot = np.repeat('', dsout.shape[1]).astype('U128')
                 annot[dsagg.ca.Clusters] = dsagg.ca.MarkerGenes
-                dsout.ca.MarkerGenes = annot    
+                dsout.ca.MarkerGenes = annot      
                 
         with loompy.connect(self.peak_file) as ds:
             with loompy.connect(self.peak_agg) as dsagg:

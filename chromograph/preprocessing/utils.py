@@ -231,3 +231,35 @@ def mergeBins(f, bin_size):
             dsout.attrs['bin_size'] = bin_size
         
         logging.info(f"Loom-file with {str(int(bin_size/1000)) + 'kb'} bins saved as {floom}")
+
+def fragments_to_count(x):
+    '''
+    '''
+
+    ff, outdir, meta, bsize, chromosomes = x
+    
+    ## Read Fragments and generate size bins
+    logging.info("Read fragments into dict")
+    frag_dict = read_fragments(ff)
+
+    ## Split fragments to seperate files for fast indexing
+    logging.info(f"Saving fragments to separate folder for fast indexing")
+    fdir = os.path.join(outdir, 'fragments')
+    if not os.path.isdir(fdir):
+        os.mkdir(fdir)
+    if  len(os.listdir(fdir)) < len(meta['barcode']):
+        i = 0
+        for x in meta['barcode']:
+            f = os.path.join(fdir, f'{x}.tsv.gz')
+            if not os.path.exists(f):
+                frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
+            i += 1
+            if i%1000 == 0:
+                logging.info(f'Finished separating fragments for {i} cells')
+
+    ## Count fragments inside bins
+    logging.info("Count fragments overlapping with bins")
+    Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
+    logging.info("Finished counting fragments")
+
+    return Count_dict
