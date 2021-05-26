@@ -10,6 +10,7 @@ import csv
 import matplotlib.pyplot as plt
 import gzip
 import loompy
+import pickle as pkl
 import scipy.sparse as sparse
 import json
 import urllib.request
@@ -237,7 +238,7 @@ def fragments_to_count(x):
     '''
 
     ff, outdir, meta, bsize, chromosomes = x
-    
+
     ## Read Fragments and generate size bins
     logging.info("Read fragments into dict")
     frag_dict = read_fragments(ff)
@@ -262,4 +263,7 @@ def fragments_to_count(x):
     Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
     logging.info("Finished counting fragments")
 
-    return Count_dict
+    pkl.dump(Count_dict, open(os.path.join(outdir, 'counts.pkl'), 'wb'))
+    pybedtools.helpers.cleanup()
+
+    return
