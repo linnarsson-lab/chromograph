@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
-from cytograph.clustering import PolishedLouvain, PolishedSurprise
+from cytograph.clustering import PolishedLouvain
 from cytograph.plotting import manifold
 from cytograph.embedding import art_of_tsne
 
@@ -205,27 +205,20 @@ class Bin_analysis:
         ds.ca.Clusters = labels + min(labels) ## Will be overwritten
         ds.ca.preClusters = ds.ca.Clusters
         ds.ca.Outliers = (labels == -1).astype('int')
-
-        logging.info("Performing Louvain Polished Surprise clustering")
-        ps = PolishedSurprise(graph="RNN", embedding="TSNE", min_cells=mn)
-        labels = ps.fit_predict(ds)
-        ds.ca.ClustersSurprise = labels + min(labels)
-        ds.ca.OutliersSurprise = (labels == -1).astype('int')
-        logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
         
         ## Annotate bins
         logging.info(f"Annotating Bins")
         Bin_annotation(ds, self.config.paths.ref)
         
         ## Plot results on manifold
-        if 'UMAP' in ds.ca:
-            logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_bins_UMAP.png"), embedding = 'UMAP')
-            QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        # if 'UMAP' in ds.ca:
+        #     logging.info("Plotting UMAP")
+        #     manifold(ds, os.path.join(self.outdir, f"{name}_bins_UMAP.png"), embedding = 'UMAP')
+        #     QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_TSNE.png"), embedding = 'TSNE')
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
 
         if name == 'All':
             logging.info(f'Plotting sample distribution')
-            sample_distribution_plot(ds, os.path.join(self.outdir, f"{name}_cell_counts_distribution.png"))
+            sample_distribution_plot(ds, os.path.join(self.outdir, f"{name}_cell_counts.png"))

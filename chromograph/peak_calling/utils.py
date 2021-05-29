@@ -308,3 +308,26 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
     except Exception as e:
         logging.info(f'Error in sample: {id}')
         logging.info(e)
+
+def merge_fragments(chunk, peakdir):
+    '''
+    '''
+    files = np.array(chunk[1])
+    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
+    missing = 0
+
+    with open(fmerge, 'wb') as out:
+        for f in files:
+            if os.path.exists(f):
+                with open(f, 'rb') as file:
+                    shutil.copyfileobj(file, out)
+            else:
+                f2 = '/' + os.path.join(*f.split('/')[:-1], f"{f.split('/')[-1].split('.')[0]}-1.tsv.gz")
+                if os.path.exists(f2):
+                    with open(f2, 'rb') as file:
+                        shutil.copyfileobj(file, out)
+                else:
+                    missing += 1
+    if missing > 0:
+        logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
+    return

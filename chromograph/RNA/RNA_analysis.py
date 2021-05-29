@@ -20,6 +20,7 @@ from chromograph.peak_calling.utils import *
 from chromograph.pipeline.utils import *
 from chromograph.pipeline import config
 from chromograph.RNA.utils import *
+from chromograph.plotting.sample_distribution_plot import sample_distribution_plot
 
 import cytograph as cg
 import cytograph.plotting as cgplot
@@ -52,40 +53,45 @@ class RNA_analysis():
         '''
         '''
         
-        samples = np.unique(ds.ca.Name[np.where(ds.ca.Chemistry == 'multiome_atac')[0]])
-        inputfiles = [os.path.join(RNA_files_dir, f"{sample}.loom") for sample in samples]
+        with loompy.connect(self.peak_file) as ds:
+            samples = np.unique(ds.ca.Name[np.where(ds.ca.Chemistry == 'multiome_atac')[0]])
+            inputfiles = [os.path.join(RNA_files_dir, f"{sample}.loom") for sample in samples]
 
-        selections = []
-        for sample, file in zip(samples, inputfiles):
-            valid_cells = set(ds.ca.CellID)
-            ## Get cells passing filters
-            with loompy.connect(file, 'r') as ds2:
-                barcodes = rna_barcodes_to_atac(ds2)
-                if len(ds.ca.CellID[0].split('/')[-1].split('-')) > 1:
-                    barcodes = [x + '-1' for x in barcodes]
-                good_cells = np.array([x in valid_cells for x in barcodes])
-                selections.append(good_cells)
+            selections = []
+            for sample, file in zip(samples, inputfiles):
+                valid_cells = set(ds.ca.CellID)
+                ## Get cells passing filters
+                with loompy.connect(file, 'r') as ds2:
+                    barcodes = rna_barcodes_to_atac(ds2)
+                    if len(ds.ca.CellID[0].split('/')[-1].split('-')) > 1:
+                        barcodes = [x + '-1' for x in barcodes]
+                    good_cells = np.array([x in valid_cells for x in barcodes])
+                    selections.append(good_cells)
 
-        if os.path.isfile(self.RNA_file):
-            os.remove(self.RNA_file)
-        logging.info(f'Combining files')
-        loompy.combine_faster(inputfiles, self.RNA_file, selections=selections, key='Accession')
+            if os.path.isfile(self.RNA_file):
+                os.remove(self.RNA_file)
+            logging.info(f'Combining files')
+            loompy.combine_faster(inputfiles, self.RNA_file, selections=selections, key='Accession')
 
-        ## transcribe cell IDs
-        with loompy.connect(self.RNA_file) as dsout:
-            dsout.ca.RNA_IDs = dsout.ca.CellID
-            dsout.ca.CellID = rna_barcodes_to_atac(dsout)
+            ## transcribe cell IDs
+            with loompy.connect(self.RNA_file) as dsout:
+                dsout.ca.RNA_IDs = dsout.ca.CellID
+                dsout.ca.CellID = rna_barcodes_to_atac(dsout)
 
-            match = {k:v for v, k in enumerate(ds.ca.CellID)}
-            if len(ds.ca['CellID'][0].split('-'))> 1:
-                new_order = np.array([match[x + '-1'] for x in dsout.ca['CellID']])
-            else:
-                new_order = np.array([match[x] for x in dsout.ca['CellID']])
+                match = {k:v for v, k in enumerate(ds.ca.CellID)}
+                if len(ds.ca['CellID'][0].split('-'))> 1:
+                    new_order = np.array([match[x + '-1'] for x in dsout.ca['CellID']])
+                else:
+                    new_order = np.array([match[x] for x in dsout.ca['CellID']])
 
-            for k in ds.ca:
-                if k != 'CellID':
-                    dsout.ca[k] = ds.ca[k][new_order]
-        logging.info(f'Finished creating file')  
+                for k in ds.ca:
+                    if k != 'CellID':
+                        dsout.ca[k] = ds.ca[k][new_order]
+                
+                if self.name == 'All':
+                    logging.info(f'Plotting sample distribution')
+                    sample_distribution_plot(dsout, os.path.join(self.outdir, f"{name}_RNA_cell_counts.png"))
+            logging.info(f'Finished creating file')  
         
     def Impute_RNA(self):
         '''

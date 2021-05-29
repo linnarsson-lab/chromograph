@@ -37,28 +37,6 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-def merge_fragments(chunk, peakdir):
-    '''
-    '''
-    files = np.array(chunk[1])
-    fmerge = os.path.join(peakdir, f'cluster_{chunk[0]}.tsv.gz')
-    missing = 0
-
-    with open(fmerge, 'wb') as out:
-        for f in files:
-            if os.path.exists(f):
-                with open(f, 'rb') as file:
-                    shutil.copyfileobj(file, out)
-            else:
-                f2 = '/' + os.path.join(*f.split('/')[:-1], f"{f.split('/')[-1].split('.')[0]}-1.tsv.gz")
-                if os.path.exists(f2):
-                    with open(f2, 'rb') as file:
-                        shutil.copyfileobj(file, out)
-                else:
-                    missing += 1
-    logging.info(f'Finished with cluster {chunk[0]}, {missing} missing cells')
-    return
-
 class Peak_caller:
     def __init__(self, outdir) -> None:
         """
@@ -115,13 +93,18 @@ class Peak_caller:
                 logging.info(f'Saving peaks to folder {self.peakdir}')
 
                 chunks = []
-                for i in np.unique(ds.ca['Clusters']):
-                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == i]]
-                    files = [os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells]
-                    if len(cells) > self.config.params.peak_min_cells:
-                        chunks.append([i,files])
+                for i in np.unique(ds.ca['preClusters']):
+                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['preClusters'] == i]]
+                    files = np.array([os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
+                    X = np.random.choice(len(files), size=int(len(files)/2), replace=False)
+                    r1 = np.zeros(len(files)).astype(bool)
+                    r1[X] = True
 
-                logging.info('Start merging fragments by cluster')
+                    if len(cells) > self.config.params.peak_min_cells:
+                        chunks.append([f'{i}A', files[r1]])
+                        chunks.append([f'{i}B', files[~r1]])
+
+                logging.info('Start generating pseudobulk samples by precluster')
                 logging.info(f'Total chunks: {len(chunks)}')
                 with mp.get_context().Pool() as pool:
                     for ck in chunks:
@@ -129,7 +112,7 @@ class Peak_caller:
                     pool.close()
                     pool.join()
 
-                logging.info(f'Downsample pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
+                logging.info(f'Downsample large pile-ups to {self.config.params.peak_depth / 1e6} million fragments')
                 piles = [[ck[0], os.path.join(self.peakdir, f'cluster_{ck[0]}.tsv.gz')] for ck in chunks]
                 with mp.get_context().Pool(min(mp.cpu_count(), len(piles)), maxtasksperchild=1) as pool:
                     for pile in piles:
@@ -150,11 +133,19 @@ class Peak_caller:
                 ## Manually call garbage collection to prevent memory leaks from mp
                 gc.collect()
                     
+                ## Unify pseudobulk peaks
+                peaks = []
+                for i in np.unique(ds.ca['preClusters']):
+                    files = glob.glob(os.path.join(self.peakdir, f'cluster_{i}*.narrowPeak'))
+                    bd = [BedTool(f) for f in files]
+                    peaks.append(bd[0].intersect(bd[1], wo=True).cluster().merge())
+                    dp = len(peaks[-1])
+                    sp = np.sum([len(x) for x in bd]) - (2*dp)
+
                 ## Compound the peak lists
-                peaks = [BedTool(x) for x in glob.glob(os.path.join(self.peakdir, '*.narrowPeak'))]
                 logging.info(f'Identified on average {np.int(np.mean([len(x) for x in peaks]))} peaks per cluster')
                 peaks_all = peaks[0].cat(*peaks[1:])
-                peaks_all.merge()
+                peaks_all.cluster().merge()
 
                 ## Substract blacklist
                 black_list = BedTool(get_blacklist(self.config.params.reference_assembly))

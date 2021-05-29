@@ -165,9 +165,9 @@ if __name__ == '__main__':
         with loompy.connect(peak_file) as ds:
             RNA_imputer = RNA_analysis(ds, outdir=subset_dir)
             RNA_imputer.generate_RNA_file(config.paths.RNA) ## Generate RNA file
-            RNA_imputer.Impute_RNA() ## Impute RNA on non-RNA samples
-            RNA_imputer.aggregate() ## Aggregate expression in rnaXatac samples
-            RNA_imputer.annotate() ## Annotate clusters
+            if 'Impute_RNA' in config.steps:
+                RNA_imputer.Impute_RNA() ## Impute RNA on non-RNA samples
+            RNA_imputer.annotate() ## Aggregate and annotate clusters
 
     if 'GA' in config.steps:
         ## Generate promoter file

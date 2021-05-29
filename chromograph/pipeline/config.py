@@ -77,7 +77,6 @@ def load_config() -> Config:
 			"peak_factorization": "LSI", # or HPF
 			"n_factors": 40,
 			"HPF_factors": 48,
-			"autoannotater": False, 
 			"level": 5000,
 			"bin_size": 5000,
 			"bin_quantile": 0.75,
@@ -90,12 +89,11 @@ def load_config() -> Config:
 			"max_doubletFinder_TH": 0.4,
 			"min_fraction_good_cells": 0.4,
 			"max_fraction_MT_genes": 0.05,
-			# "max_doubletFinder_TH": 0.4,
-			"min_cells_precluster": 100,
+			"min_cells_precluster": 400,
 			"min_cells_cluster": 50,
 			"N_most_enriched": 6,
 			"peak_depth": 2.5e7,
-			"peak_min_cells": 100,
+			"peak_min_cells": 150,
 			"FR_TSS": 0.2,
 			"reference_assembly": "GRCh38"
 		}),
