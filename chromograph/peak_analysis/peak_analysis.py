@@ -230,8 +230,6 @@ class Peak_analysis:
         del knn, mknn, rnn
 
         ## Save clusters and embedding from bin analysis as clusters_bin
-        ds.ca.ClustersModularity_bin, ds.ca.OutliersModularity_bin = ds.ca.ClustersModularity, ds.ca.OutliersModularity
-        ds.ca.ClustersSurprise_bin, ds.ca.OutliersSurprise_bin = ds.ca.ClustersSurprise, ds.ca.OutliersSurprise
         ds.ca.TSNE_bin = ds.ca.TSNE
         if 'UMAP' in ds.ca:
             ds.ca.UMAP_bin = ds.ca.UMAP
