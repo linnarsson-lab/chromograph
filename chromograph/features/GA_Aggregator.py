@@ -104,13 +104,6 @@ class GA_Aggregator:
                 dsout.ca.AutoAnnotation = np.empty(n_labels, dtype='str')
                 return
 
-            if self.config.params.autoannotater == True:
-                logging.info("Computing auto-annotation")
-                AutoAnnotator(root=self.config.paths.autoannotation, ds=dsout).annotate(dsout)
-
-                logging.info("Computing auto-auto-annotation")
-                AutoAutoAnnotator(n_genes=6).annotate(dsout)
-
             ## Update Manifolds with markers
             name = out_file.split('/')[-1].split('_')[0]
             if 'UMAP' in ds.ca:
