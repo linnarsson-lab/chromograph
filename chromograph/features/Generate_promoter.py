@@ -151,6 +151,9 @@ class Generate_promoter:
                 dsp.ca['GA_pooled_colsum'] = dsp['pooled'].map([np.sum], axis=1)[0]
 
             dsp['CPM'] = 'float32'
+            if self.poisson_pooling:
+                dsp['pooled_CPM'] = 'float32'
+
             logging.info(f'Start conversion')
             progress = tqdm(total = dsp.shape[1])
             for (ix, selection, view) in dsp.scan(axis=1, batch_size=self.config.params.batch_size):

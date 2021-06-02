@@ -286,7 +286,7 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
             IDs.append(cell)
 
         ## Convert to sparse matrix
-        matrix = sparse.coo_matrix((v, (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
+        matrix = sparse.coo_matrix((np.nan_to_num(v), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
         if verbose:
             logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
             logging.info(f'Generating temporary loom file')
