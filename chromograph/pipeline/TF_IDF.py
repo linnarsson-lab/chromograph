@@ -54,7 +54,7 @@ class TF_IDF:
         vals = np.log10(div0(vals, self.totals[cells]) * self.level + 1)
         
         ## Multiply by Inverse Data Frequency and log scale
-        vals = vals*self.IDF[:,None]
+        vals = np.nan_to_num(vals*self.IDF[:,None])
         
         return vals
 

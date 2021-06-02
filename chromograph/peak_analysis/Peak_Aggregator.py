@@ -99,7 +99,7 @@ class Peak_Aggregator:
             # Renumber the clusters
             logging.info("Renumbering clusters by similarity, and permuting columns")
 
-            data = np.nan_to_num(np.log(dsout[:, :] + 1)[markers, :].T)
+            data = np.log(np.nan_to_num(dsout[:, :])[markers, :].T + 1)
             D = pdist(data, 'correlation')
             Z = hc.linkage(D, 'ward', optimal_ordering=True)
             ordering = hc.leaves_list(Z)
