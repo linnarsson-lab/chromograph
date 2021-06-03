@@ -227,8 +227,8 @@ class RNA_analysis():
                 progress.close()
 
                 logging.info(f"Inferring cell cycle")
-                species = Species.detect(ds)
-                CellCycleAnnotator(species).annotate(ds)
+                species = Species.detect(dsi)
+                CellCycleAnnotator(species).annotate(dsi)
                 cgplot.cell_cycle(dsi, os.path.join(self.outdir, self.name + "_cellcycle.png"))
 
     def annotate(self, min_cells:int=10, agg_spec=None):
