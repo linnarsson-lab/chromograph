@@ -39,7 +39,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S')
 
 class RNA_analysis():
-    def __init__(self, ds, ourdir):
+    def __init__(self, ds, outdir):
         '''
         '''
         self.peak_file = ds.filename
