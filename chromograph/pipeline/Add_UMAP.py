@@ -73,5 +73,5 @@ class Add_UMAP:
         
             ## Plot results on manifold
             logging.info("Plotting UMAP")
-            manifold(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_UMAP.png"), embedding = 'UMAP')
-            QC_plot(ds, os.path.join(self.outdir, f"{name}_{self.feature}_manifold_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+            manifold(ds, os.path.join(self.outdir, f"{name}_{self.feature}_UMAP.png"), embedding = 'UMAP')
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_{self.feature}_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
