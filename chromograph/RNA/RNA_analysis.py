@@ -92,7 +92,7 @@ class RNA_analysis():
                 
                 if self.name == 'All':
                     logging.info(f'Plotting sample distribution')
-                    sample_distribution_plot(dsout, os.path.join(self.outdir, f"{name}_RNA_cell_counts.png"))
+                    sample_distribution_plot(dsout, os.path.join(self.outdir, f"{self.name}_RNA_cell_counts.png"))
             logging.info(f'Finished creating file')  
         
     def Impute_RNA(self):
