@@ -99,7 +99,9 @@ class Peak_Aggregator:
             # Renumber the clusters
             logging.info("Renumbering clusters by similarity, and permuting columns")
 
-            data = np.log(np.nan_to_num(dsout[:, :])[markers, :].T + 1)
+            data = dsout[:, :][markers, :].T
+            data[np.where(data<0)] = 0  ## BUG handling. Sometimes values surpass the bit limit in malignant cells
+            data = np.log(data + 1)
             D = pdist(data, 'correlation')
             Z = hc.linkage(D, 'ward', optimal_ordering=True)
             ordering = hc.leaves_list(Z)
