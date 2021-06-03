@@ -24,6 +24,8 @@ from chromograph.plotting.sample_distribution_plot import sample_distribution_pl
 
 import cytograph as cg
 import cytograph.plotting as cgplot
+from cytograph.annotation import CellCycleAnnotator
+from cytograph.species import Species
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
@@ -223,6 +225,11 @@ class RNA_analysis():
                         dsi["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ scaled.T
                         
                 progress.close()
+
+                logging.info(f"Inferring cell cycle")
+                species = Species.detect(ds)
+                CellCycleAnnotator(species).annotate(ds)
+                cgplot.cell_cycle(dsi, os.path.join(self.outdir, self.name + "_cellcycle.png"))
 
     def annotate(self, min_cells:int=10, agg_spec=None):
         '''
