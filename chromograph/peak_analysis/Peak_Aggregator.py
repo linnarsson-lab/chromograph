@@ -111,7 +111,9 @@ class Peak_Aggregator:
             dsout.ca.Clusters = np.arange(n_labels)
 
             # Redo the Ward's linkage just to get a tree that corresponds with the new ordering
-            data = np.log(dsout[:, :] + 1)[markers, :].T
+            data = dsout[:, :][markers, :].T
+            data[np.where(data<0)] = 0  ## BUG handling. Sometimes values surpass the bit limit in malignant cells
+            data = np.log(data + 1)
             D = pdist(data, 'correlation')
             dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
