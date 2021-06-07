@@ -163,11 +163,15 @@ if __name__ == '__main__':
     if 'RNA' in config.steps:
         ## Generate RNA imputation file and annotation
         with loompy.connect(peak_file) as ds:
-            RNA_imputer = RNA_analysis(ds, outdir=subset_dir)
-            RNA_imputer.generate_RNA_file(config.paths.RNA) ## Generate RNA file
-            if 'Impute_RNA' in config.steps:
-                RNA_imputer.Impute_RNA() ## Impute RNA on non-RNA samples
-            RNA_imputer.annotate() ## Aggregate and annotate clusters
+
+            if len(np.where(ds.ca.Chemistry=='multiome_atac')[0]) > 0:
+                RNA_imputer = RNA_analysis(ds, outdir=subset_dir)
+                RNA_imputer.generate_RNA_file(config.paths.RNA) ## Generate RNA file
+                if 'Impute_RNA' in config.steps:
+                    RNA_imputer.Impute_RNA() ## Impute RNA on non-RNA samples
+                RNA_imputer.annotate() ## Aggregate and annotate clusters
+            else:
+                logging.info(f'No Multiome cells in subset, skipping step')
 
     if 'GA' in config.steps:
         ## Generate promoter file
