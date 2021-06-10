@@ -53,7 +53,7 @@ class Peak_Aggregator:
             "Age": "mean",
             "Clusters": "first",
             "Class": "mode",
-            "Total": "mean",
+            "NPeaks": "mean",
             "Sex": "tally",
             "Tissue": "tally",
             "Chemistry": "tally",
@@ -85,16 +85,19 @@ class Peak_Aggregator:
             ## Call positive and negative peaks for every cluster
             dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout, bounds=(5,40))
             
-            ## Perform fisher exact for peak counts
-            dsout['enrichment'], dsout['q_val'] = FisherDifferentialPeaks(dsout)
+            # ## Perform fisher exact for peak counts
+            # dsout['enrichment'], dsout['q_val'], dsout['log2fc'] = FisherDifferentialPeaks(dsout)
 
-            ## Select top N enriched peaks per cluster by odss-ratio
-            dsout['marker_peaks'] = 'int8'
-            for i in range(dsout.shape[1]):
-                idx = np.sort(dsout['q_val'][:,i].argsort()[:2000])
-                dsout['marker_peaks'][idx,i] = 1
-            markers = dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
-            dsout.ra.markerPeaks = markers
+            # ## Select top N enriched peaks per cluster by odss-ratio
+            # dsout['marker_peaks'] = 'int8'
+            # for i in range(dsout.shape[1]):
+            #     idx = np.sort(dsout['q_val'][:,i].argsort()[:2000])
+            #     dsout['marker_peaks'][idx,i] = 1
+            # markers = dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
+            # dsout.ra.markerPeaks = markers
+
+            ## Select markers by residuals
+            markers = Enrichment_by_residuals(dsout)
 
             # Renumber the clusters
             logging.info("Renumbering clusters by similarity, and permuting columns")

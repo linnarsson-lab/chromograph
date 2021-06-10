@@ -75,19 +75,6 @@ class Peak_analysis:
         ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
         ds.ca['FRIP'] = div0(ds.ca.NPeaks, ds.ca.passed_filters)
 
-        ## Create binary layer
-        if 'Binary' not in ds.layers:
-            logging.info("Binarizing the matrix")
-            ds.layers['Binary'] = 'int8'
-
-            ## Binarize in loop
-            progress = tqdm(total=ds.shape[1])
-            for (ix, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                ds['Binary'][:,selection] = view[:,:] > 0
-                progress.update(self.config.params.batch_size)
-            progress.close()
-            self.layer = "Binary"
-
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for manifold learning by variance in preclusters')
 
@@ -117,7 +104,7 @@ class Peak_analysis:
             logging.info('Convert to CPMs')
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
             logging.info('Calculating variance')
-            (ds.ra.mu, ds.ra.sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
+            (ds.ra.precluster_mu, ds.ra.precluster_sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
             logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks for clustering')
             dsout.ra.Valid = ((ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction) & (ds.ra.NCells < np.quantile(ds.ra.NCells, 0.99))
             fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')

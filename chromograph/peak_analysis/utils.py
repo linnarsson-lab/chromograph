@@ -66,7 +66,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, mtc_method: str = 'fdr_bh'):
+def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, fc_thresh: float = 1.0, mtc_method: str = 'fdr_bh'):
     '''
     Performs Fisher-exact test to identify differentially accessible peaks via one-versus all testing.
     
@@ -81,8 +81,11 @@ def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, 
     '''
     enrichment = np.zeros(ds.shape)
     q_values = np.zeros(ds.shape)
+    log2fc = np.zeros(ds.shape)
     Total = np.sum(ds.ca.NCells)
     
+    ds.ra.mu = np.mean(ds['CPM'][:,:], axis=1)
+
     logging.info(f'Performing Fisher exact tests')
     for label in tqdm(ds.ca.Clusters):
         n_cells = ds.ca.NCells[ds.ca.Clusters == label]
@@ -99,10 +102,52 @@ def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, 
 
         _ , q, _, _ =  multipletests(p, sig_thres, method=mtc_method)
 
+        log2fc = np.log2((ds['CPM'][:,label]+1)/(ds.ra.mu+1))
+
+        q[log2fc < fc_thresh] = 1
+
         enrichment[:,ds.ca.Clusters == label] = odds.reshape((ds.shape[0],1))
         q_values[:,ds.ca.Clusters == label] = np.array(q).reshape((ds.shape[0],1))
+        log2fc[:,ds.ca.Clusters == label] = log2fc
 
-    return enrichment, q_values
+    return enrichment, q_values, log2fc
+
+
+def Enrichment_by_residuals(ds:loompy.LoomConnection, theta:int=100, N_markers:int=2000):
+    logging.info(f'Calculating residuals')
+    if not 'totals' in ds.ca:
+        ds.ca.totals = ds.map([np.sum], axis=1)[0]
+    if not 'totals' in ds.ra:
+        ds.ra.totals = ds.map([np.sum], axis=0)[0]
+        
+    Overall_total = np.sum(ds.ca.totals)
+    
+    data = ds[:,:]
+    
+    expected = ds.ca.totals[:,None] @ ds.ra.totals[None,:] / Overall_total
+    expected = expected.T
+    
+    residuals = div0((data-expected), np.sqrt(expected + np.power(expected, 2)/theta))
+    ds['residuals'] = residuals
+    ds['log2fc'] = 'float16'
+    ds['marker_peaks'] = 'int8'
+    
+    logging.info(f'Calculating fold change and selecting markers')
+    for cls in np.unique(ds.ca.Clusters):
+        mu_cls = (ds[:,cls] / ds.ca.NCells[cls]).flatten()
+        x = np.ones(ds.shape[1], bool)
+        x[cls] = False
+        mu_other = np.sum(ds[:,:][:,x],axis=1) / np.sum(ds.ca.NCells[x])
+        
+        ds['log2fc'][:,cls] = np.log2(div0(mu_cls+.01, mu_other+.01))
+        
+        q = np.quantile(residuals[:,cls], 1-(N_markers/ds.shape[0]))
+        markers = np.array(residuals[:,cls]>=q)
+        ds['marker_peaks'][:,cls] = markers
+    
+    markers = ds['marker_peaks'].map([np.sum], axis=0)[0] > 0
+    ds.ra.markerPeaks = markers        
+    return markers
 
 def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 'linear', bounds:tuple=(40,200)):
     '''

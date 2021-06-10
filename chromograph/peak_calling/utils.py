@@ -230,7 +230,7 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster):
     pybedtools.contrib.bigwig.bedgraph_to_bigwig(BedTool(f_bg), genome='hg38', output=outfile)
     
     ## Clean up
-    os.system(f'rm {f_bg} {f_sort}')    
+    os.system(f'rm {f_bg} {f_sort}')
     return
 
 def homer_motif_call(homer, f, motifs, out_file):
@@ -286,7 +286,8 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
             IDs.append(cell)
 
         ## Convert to sparse matrix
-        matrix = sparse.coo_matrix((np.nan_to_num(v), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
+        matrix = sparse.coo_matrix((np.ones(len(row)), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
+        counts = sparse.coo_matrix((np.nan_to_num(v), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
         if verbose:
             logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
             logging.info(f'Generating temporary loom file')
@@ -297,7 +298,7 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
         loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
 
         loompy.create(filename=loom_file, 
-                    layers=matrix, 
+                    layers={'':matrix, 'Counts': counts}, 
                     row_attrs=annot, 
                     col_attrs={'CellID': np.array(IDs)})
         
