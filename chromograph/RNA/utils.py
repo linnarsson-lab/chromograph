@@ -2,6 +2,7 @@
 from cytograph.species import Species
 import loompy
 import numpy as np
+from typing import Tuple
 
 def rna_barcodes_to_atac(ds):
     barcodes_rna = []
