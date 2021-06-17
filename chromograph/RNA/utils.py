@@ -30,7 +30,7 @@ class CellCycleAnnotator:
             if "TotalUMIs" in ds.ca:
                 TotalUMIs = ds.ca.TotalUMIs  # From loompy
             else:
-                total_umis = ds.ca.TotalUMI  # From cytograph
+                total_umis = ds.ca.TotalUMIs  # From cytograph
         return (g1_totals / total_umis, s_totals / total_umis, g2m_totals / total_umis)
 
     def annotate(self, ds: loompy.LoomConnection, layer:str='', recompute_UMIs=False) -> None:
