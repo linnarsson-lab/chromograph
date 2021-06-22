@@ -301,7 +301,10 @@ class iterativeLSI:
         if not skip_TFIDF == True:
             ds.ra.Valid = ds.ra['NCells'] > np.quantile(ds.ra['NCells'], 1 - (20000/ds.shape[0]))
             logging.info(f'Performing TF-IDF')
-            tf_idf = TF_IDF(layer='Binary')
+            if 'Binary' in ds.layers:
+                tf_idf = TF_IDF(layer='Binary')
+            else:
+                tf_idf = TF_IDF(layer='')
             tf_idf.fit(ds, items=ds.ra.Valid)
             ds.layers['TF-IDF'] = 'float16'
             logging.info(f'Transforming')
