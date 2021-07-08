@@ -24,14 +24,14 @@ class CellCycleAnnotator:
         s_totals = ds[layer][s_indices, :].sum(axis=0)
         g2m_totals = ds[layer][g2m_indices, :].sum(axis=0)
         if recompute_UMIs:
-            ds.ca.TotalUMIs = ds[layer].map([np.sum], axis=1)[0]
-            total_umis = ds.ca.TotalUMIs
+            ds.ca.TotalUMI = ds[layer].map([np.sum], axis=1)[0]
+            total_umis = ds.ca.TotalUMI
         else:
-            if "TotalUMIs" in ds.ca:
-                TotalUMIs = ds.ca.TotalUMIs  # From loompy
+            if "TotalUMI" in ds.ca:
+                TotalUMIs = ds.ca.TotalUMI  # From loompy
             else:
-                ds.ca.TotalUMIs = ds[layer].map([np.sum], axis=1)[0]
-                total_umis = ds.ca.TotalUMIs
+                ds.ca.TotalUMI = ds[layer].map([np.sum], axis=1)[0]
+                total_umis = ds.ca.TotalUMI
         return (g1_totals / total_umis, s_totals / total_umis, g2m_totals / total_umis)
 
     def annotate(self, ds: loompy.LoomConnection, layer:str='', recompute_UMIs=False) -> None:
