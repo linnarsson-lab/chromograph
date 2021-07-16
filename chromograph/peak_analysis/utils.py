@@ -133,17 +133,17 @@ def Enrichment_by_residuals(ds:loompy.LoomConnection, theta:int=100, N_markers:i
     ds['marker_peaks'] = 'int8'
     
     logging.info(f'Calculating fold change and selecting markers')
-    for cls in np.unique(ds.ca.Clusters):
-        mu_cls = (ds[:,cls] / ds.ca.NCells[cls]).flatten()
+    for i in range(ds.shape[1]):
+        mu_cls = (ds[:,i] / ds.ca.NCells[i]).flatten()
         x = np.ones(ds.shape[1], bool)
-        x[cls] = False
+        x[i] = False
         mu_other = np.sum(ds[:,:][:,x],axis=1) / np.sum(ds.ca.NCells[x])
         
-        ds['log2fc'][:,cls] = np.log2(div0(mu_cls+.01, mu_other+.01))
+        ds['log2fc'][:,i] = np.log2(div0(mu_cls+.01, mu_other+.01))
         
-        q = np.quantile(residuals[:,cls], 1-(N_markers/ds.shape[0]))
-        markers = np.array(residuals[:,cls]>=q)
-        ds['marker_peaks'][:,cls] = markers
+        q = np.quantile(residuals[:,i], 1-(N_markers/ds.shape[0]))
+        markers = np.array(residuals[:,i]>=q)
+        ds['marker_peaks'][:,i] = markers
     
     markers = ds['marker_peaks'].map([np.sum], axis=0)[0] > 0
     ds.ra.markerPeaks = markers        
@@ -170,10 +170,10 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
     failed = []
     N_pos = []
 
-    for cls in tqdm(dsagg.ca.Clusters):
+    for i in range(dsagg.shape[1]):
 
         if mode == 'linear':
-            vals = dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]
+            vals = dsagg['CPM'][:,i]
             values, base = np.histogram(vals, bins = bins)
             cumulative = np.cumsum(values)
 
@@ -184,17 +184,17 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
             t = kn.knee
 
             if (t > bounds[1]) or (t < bounds[0]):
-                failed.append(cls)
+                failed.append(i)
 
             else:
-                CPM_thres[dsagg.ca.Clusters==cls] = t
+                CPM_thres[i] = t
                 valid = vals > t
                 N_pos.append(np.sum(valid))
-                peaks[:,dsagg.ca.Clusters==cls] = valid
+                peaks[:,i] = valid
 
 
         elif mode == 'log':
-            vals = np.log10(dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]+1)
+            vals = np.log10(dsagg['CPM'][:,i]+1)
             values, base = np.histogram(vals, bins = bins)
             cumulative = np.cumsum(values)
 
@@ -205,13 +205,13 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
             t = 10**kn.knee
             
             if t > bounds[1]:
-                failed.append(cls)
+                failed.append(i)
 
             else:
-                CPM_thres[dsagg.ca.Clusters==cls] = t
+                CPM_thres[i] = t
                 valid = vals > np.log10(t)
                 N_pos.append(np.sum(valid))
-                peaks[:,dsagg.ca.Clusters==cls] = valid
+                peaks[:,i] = valid
 
         else:
             logging.info('No correct mode selected!')
@@ -221,11 +221,11 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
     if len(failed) > 0:
         logging.info(f'failed to set threshold in {len(failed)} clusters')
         N_feat = np.mean(N_pos)
-        for cls in failed:
-            vals = dsagg['CPM'][:,np.where(dsagg.ca.Clusters==cls)[0]]
+        for i in failed:
+            vals = dsagg['CPM'][:,i]
             t = np.quantile(vals, 1-(N_feat/vals.shape[0]))
-            CPM_thres[dsagg.ca.Clusters==cls] = t
-            peaks[:,dsagg.ca.Clusters==cls] = vals > t
+            CPM_thres[i] = t
+            peaks[:,i] = vals > t
 
     return peaks, CPM_thres
 
