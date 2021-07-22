@@ -262,12 +262,12 @@ class RNA_analysis():
             with loompy.connect(self.RNA_agg) as dsout:
                 dsout.ca.NCells = np.bincount(labels, minlength=n_labels)[dsout.ca.Clusters]
 
-                # dsout.ca.Clusters_peaks = dsout.ca.Clusters
-                # dsout.ca.Clusters = np.arange(n_labels)
-                # if not np.max(ds.ca.Clusters) == n_labels - 1:
-                #     d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
-                #     ds.ca.Clusters_peaks = ds.ca.Clusters
-                #     ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
+                dsout.ca.Clusters_peaks = dsout.ca.Clusters
+                dsout.ca.Clusters = np.arange(n_labels)
+                if not np.max(ds.ca.Clusters) == n_labels - 1:
+                    d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
+                    ds.ca.Clusters_peaks = ds.ca.Clusters
+                    ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
 
                 logging.info("Computing cluster gene enrichment scores")
                 fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")))
@@ -296,11 +296,11 @@ class RNA_analysis():
                 logging.info("Computing auto-auto-annotation")
                 AutoAutoAnnotator(n_genes=6).annotate(dsout)        
 
-                # ## Restore clusterlabels
-                # logging.info(f'Restoring cluster labels')
-                # for dsx in [ds,dsout]:
-                #     dsx.ca.Clusters_renumbered = dsx.ca.Clusters
-                #     dsx.ca.Clusters = dsx.ca.Clusters_peaks
+                ## Restore clusterlabels
+                logging.info(f'Restoring cluster labels')
+                for dsx in [ds,dsout]:
+                    dsx.ca.Clusters_renumbered = dsx.ca.Clusters
+                    dsx.ca.Clusters = dsx.ca.Clusters_peaks
                 
                 ## Remove undersampled clusters
                 remove = dsout.ca.NCells < min_cells
