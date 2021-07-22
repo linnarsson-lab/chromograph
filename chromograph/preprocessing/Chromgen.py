@@ -299,4 +299,7 @@ class Chromgen:
 
         logging.info(f'Finished processing {sample}')
 
+        ## Clean up directory
+        os.remove(os.path.join(outdir, 'counts.pkl'))
+
         return

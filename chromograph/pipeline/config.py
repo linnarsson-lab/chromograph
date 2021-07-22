@@ -62,7 +62,8 @@ def load_config() -> Config:
 			"metadata": "",
 			"fastqs": "",
 			"index": "",
-			"qc": ""
+			"qc": "",
+			"copyscat": ""
 		}),
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]

@@ -262,40 +262,17 @@ class RNA_analysis():
             with loompy.connect(self.RNA_agg) as dsout:
                 dsout.ca.NCells = np.bincount(labels, minlength=n_labels)[dsout.ca.Clusters]
 
-                dsout.ca.Clusters_peaks = dsout.ca.Clusters
-                dsout.ca.Clusters = np.arange(n_labels)
-                if not np.max(ds.ca.Clusters) == n_labels - 1:
-                    d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
-                    ds.ca.Clusters_peaks = ds.ca.Clusters
-                    ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
+                # dsout.ca.Clusters_peaks = dsout.ca.Clusters
+                # dsout.ca.Clusters = np.arange(n_labels)
+                # if not np.max(ds.ca.Clusters) == n_labels - 1:
+                #     d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
+                #     ds.ca.Clusters_peaks = ds.ca.Clusters
+                #     ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
 
                 logging.info("Computing cluster gene enrichment scores")
                 fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")))
                 markers = fe.fit(ds)
                 dsout.layers["enrichment"] = fe.enrichment
-
-                # Renumber the clusters
-                logging.info("Renumbering clusters by similarity, and permuting columns")
-
-                data = np.log(dsout[:, :] + 1)[markers, :].T
-                D = pdist(data, 'correlation')
-                Z = hc.linkage(D, 'ward', optimal_ordering=True)
-                ordering = hc.leaves_list(Z)
-
-                # Permute the aggregated file, and renumber
-                dsout.permute(ordering, axis=1)
-                dsout.ca.Clusters = np.arange(n_labels)
-
-                # Redo the Ward's linkage just to get a tree that corresponds with the new ordering
-                data = np.log(dsout[:, :] + 1)[markers, :].T
-                D = pdist(data, 'correlation')
-                dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
-
-                # Renumber the original file, and permute
-                d = dict(zip(ordering, np.arange(n_labels)))
-                new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
-                ds.ca.Clusters = new_clusters
-                ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
 
                 # Reorder the genes, markers first, ordered by enrichment in clusters
                 logging.info("Permuting rows")
@@ -319,11 +296,11 @@ class RNA_analysis():
                 logging.info("Computing auto-auto-annotation")
                 AutoAutoAnnotator(n_genes=6).annotate(dsout)        
 
-                ## Restore clusterlabels
-                logging.info(f'Restoring cluster labels')
-                for dsx in [ds,dsout]:
-                    dsx.ca.Clusters_renumbered = dsx.ca.Clusters
-                    dsx.ca.Clusters = dsx.ca.Clusters_peaks
+                # ## Restore clusterlabels
+                # logging.info(f'Restoring cluster labels')
+                # for dsx in [ds,dsout]:
+                #     dsx.ca.Clusters_renumbered = dsx.ca.Clusters
+                #     dsx.ca.Clusters = dsx.ca.Clusters_peaks
                 
                 ## Remove undersampled clusters
                 remove = dsout.ca.NCells < min_cells
