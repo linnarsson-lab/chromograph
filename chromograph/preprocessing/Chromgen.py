@@ -75,7 +75,7 @@ class Chromgen:
 
         return Count_dict
 
-    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_fragments: int = None) -> None:
+    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_fragments: bool = False) -> None:
         ''''
         Create a .loom file from 10X Genomics cellranger output with reads binned
         Args:
