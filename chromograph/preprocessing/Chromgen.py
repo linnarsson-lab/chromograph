@@ -75,7 +75,7 @@ class Chromgen:
 
         return Count_dict
 
-    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None) -> None:
+    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_fragments: int = None) -> None:
         ''''
         Create a .loom file from 10X Genomics cellranger output with reads binned
         Args:
@@ -153,7 +153,11 @@ class Chromgen:
         ## Transfer metadata to dict format
         meta = {}
         # passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level) & (barcodes['passed_filters'] < 100000)
-        passed = (barcodes['is__cell_barcode'] == 1)
+        if min_fragments:
+            passed = (barcodes['is__cell_barcode'] == 1) & (barcodes['passed_filters'] > self.config.params.level)
+            logging.info(f'Only preserving cells with more than {self.config.params.level} fragments')
+        else:
+            passed = (barcodes['is__cell_barcode'] == 1)
         for key in barcodes:
             meta[key] = np.array(barcodes[key][passed])
 
