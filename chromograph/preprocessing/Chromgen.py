@@ -194,8 +194,9 @@ class Chromgen:
         # Count_dict = self.fragments_to_count(ff, outdir, meta, bsize, chrom_size)
 
         ## Fork as a seperate process to protect against high memory consumption
-        p = mp.Pool()
-        p.map(fragments_to_count, [(ff, outdir, meta, bsize, chrom_size)])[0]
+        if not os.path.isfile(os.path.join(outdir, 'counts.pkl'))
+            p = mp.Pool()
+            p.map(fragments_to_count, [(ff, outdir, meta, bsize, chrom_size)])[0]
 
         Count_dict = pkl.load(open(os.path.join(outdir, 'counts.pkl'), 'rb'))
 
