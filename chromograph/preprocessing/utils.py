@@ -55,7 +55,7 @@ def read_fragments(file):
     '''
     '''
     
-    frag_dict = collections.OrderedDict()
+    frag_dict = {} ## formerly ordered dict
     new = 0
     add = 0
     with gzip.open(file, 'rb') as f:
