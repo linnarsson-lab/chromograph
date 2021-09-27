@@ -217,7 +217,7 @@ class Bin_analysis:
         #     QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_TSNE.png"), embedding = 'TSNE')
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_TSNE_QC.png"), embedding = 'TSNE', attrs=self.config.params.plot_attrs))
 
         if name == 'All':
             logging.info(f'Plotting sample distribution')

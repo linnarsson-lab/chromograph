@@ -295,12 +295,15 @@ class Chromgen:
                     RNA_bar = rna_barcodes_to_atac(dsr)
                     match = {k:v for v, k in enumerate(ds.ca.CellID)}
 
+                    ## Initialize empty attributes
                     ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
+                    ds.ca['TSNE'] = np.zeros((ds.shape[1],2)).astype(np.float64)
 
                     for i, x in enumerate(RNA_bar):
                         k = match[x]
                         ds.ca['DoubletFinderScore'][k] = dsr.ca['DoubletFinderScore'][i]
                         ds.ca['DoubletFinderFlag'][k] = dsr.ca['DoubletFinderFlag'][i]
+                        ds.ca['TSNE'][k] = dsr.ca['TSNE'][i]
 
         logging.info(f'Finished processing {sample}')
 

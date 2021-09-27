@@ -263,4 +263,4 @@ class Peak_analysis:
             manifold(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP.png"), embedding = 'UMAP')
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), embedding = 'TSNE')
-        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE_QC.png"), embedding = 'TSNE', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
+        QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE_QC.png"), embedding = 'TSNE', attrs=self.config.params.plot_attrs)
