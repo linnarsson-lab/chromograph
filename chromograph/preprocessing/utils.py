@@ -257,6 +257,7 @@ def fragments_to_count(x):
             i += 1
             if i%1000 == 0:
                 logging.info(f'Finished separating fragments for {i} cells')
+                pybedtools.helpers.cleanup() ## Do some intermittent cleanup
 
     ## Count fragments inside bins
     logging.info("Count fragments overlapping with bins")
