@@ -309,7 +309,10 @@ class iterativeLSI:
             ds.layers['TF-IDF'] = 'float16'
             logging.info(f'Transforming')
             for (_, selection, view) in ds.scan(axis=1):
-                ds['TF-IDF'][:,selection] = tf_idf.transform(view['Binary'][:,:], selection)
+                if 'Binary' in ds.layers:
+                    ds['TF-IDF'][:,selection] = tf_idf.transform(view['Binary'][:,:], selection)
+                else:
+                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[''][:,:], selection)
             del tf_idf
             logging.info(f'Finished fitting TF-IDF')
 
