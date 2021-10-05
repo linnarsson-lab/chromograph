@@ -257,58 +257,63 @@ def strFrags_to_list(frags):
 def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
     '''
     '''
-    try:
-        dict_file = os.path.join(peak_dir, f'{id}.pkl')
 
-        if not os.path.exists(dict_file):
-            Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'), )
-        
-        if verbose:
-            logging.info("Generating Sparse matrix")
-        col = []
-        row = []
-        v = []
-        cix = 0
-        IDs = []
+    ## Check if loom already exists
+    loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
 
-        # Order dict for rows
-        r_dict = {k: v for v,k in enumerate(annot['ID'])}
+    if not os.path.exists(loom_file):
+        try:
+            dict_file = os.path.join(peak_dir, f'{id}.pkl')
 
-        ## Generate sparse peak lists
-        Counts = pkl.load(open(dict_file, 'rb'))
-        for cell in Counts:
-            if len(Counts[cell]) > 0:
-                for key in (Counts[cell]):
-                    col.append(cix)
-                    row.append(r_dict[key])
-                    v.append(np.int8(Counts[cell][key]))
-            cix+=1
-            IDs.append(cell)
+            if not os.path.exists(dict_file):
+                Count_peaks(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'), )
+            
+            if verbose:
+                logging.info("Generating Sparse matrix")
+            col = []
+            row = []
+            v = []
+            cix = 0
+            IDs = []
 
-        ## Convert to sparse matrix
-        matrix = sparse.coo_matrix((np.ones(len(row)), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
-        counts = sparse.coo_matrix((np.nan_to_num(v), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
-        if verbose:
-            logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
-            logging.info(f'Generating temporary loom file')
+            # Order dict for rows
+            r_dict = {k: v for v,k in enumerate(annot['ID'])}
 
-        ## Create loomfile
-        if verbose:
-            logging.info("Constructing loomfile")
-        loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
+            ## Generate sparse peak lists
+            Counts = pkl.load(open(dict_file, 'rb'))
+            for cell in Counts:
+                if len(Counts[cell]) > 0:
+                    for key in (Counts[cell]):
+                        col.append(cix)
+                        row.append(r_dict[key])
+                        v.append(np.int8(Counts[cell][key]))
+                cix+=1
+                IDs.append(cell)
 
-        loompy.create(filename=loom_file, 
-                    layers={'':matrix, 'Counts': counts}, 
-                    row_attrs=annot, 
-                    col_attrs={'CellID': np.array(IDs)})
-        
-        ## Remove pkl
-        os.system(f'rm {dict_file}') 
+            ## Convert to sparse matrix
+            matrix = sparse.coo_matrix((np.ones(len(row)), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
+            counts = sparse.coo_matrix((np.nan_to_num(v), (row,col)), shape=(len(r_dict.keys()), len(IDs))).tocsc()
+            if verbose:
+                logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
+                logging.info(f'Generating temporary loom file')
 
-        return
-    except Exception as e:
-        logging.info(f'Error in sample: {id}')
-        logging.info(e)
+            ## Create loomfile
+            if verbose:
+                logging.info("Constructing loomfile")
+
+            loompy.create(filename=loom_file, 
+                        layers={'':matrix, 'Counts': counts}, 
+                        row_attrs=annot, 
+                        col_attrs={'CellID': np.array(IDs)})
+            
+            ## Remove pkl
+            os.system(f'rm {dict_file}') 
+
+            return
+        except Exception as e:
+            logging.info(f'Error in sample: {id}')
+            logging.info(e)
+    return
 
 def merge_fragments(chunk, peakdir):
     '''
