@@ -177,10 +177,8 @@ def mergeBins(f, bin_size):
         ## Assume that original file has bin sizes of size 5kb
         factor = int(bin_size/5000)
 
-        ## Retrieve dense matrix        
-        data = ds[:,:].astype('int8')   
+        ## Setup lists      
         new_data = []
-
         new_bins = {'chrom' : [], 'start': [], 'end': [], 'loc': []}
         sizes = []
         
@@ -188,14 +186,16 @@ def mergeBins(f, bin_size):
         for i in np.unique(ds.ra.chrom):
 
             ## If no remainder from dividing N original bins by factor
-            vals = data[ds.ra.chrom==i,:]
+            vals = ds[ds.ra.chrom==i,:].astype('int8')
             if vals.shape[0]%factor == 0:
                 X = rebin(vals, (int(vals.shape[0]/factor), vals.shape[1]))
-            else:
+            elif vals.shape[0] > factor:
                 rem = vals.shape[0]%factor
                 X = rebin(vals[:-rem,:], (int(vals.shape[0]/factor), vals.shape[1]))
                 X2 = rebin(vals[-rem:,:], (1, vals.shape[1])) ## Merge the last (or last few) bins to one bin
                 X = np.vstack((X, X2))
+            else:
+                X = np.sum(vals, axis=0)
 
             new_data.append(X.astype('int8'))
 
