@@ -175,59 +175,63 @@ class RNA_analysis():
         with loompy.connect(self.RNA_file) as dsr:
             with loompy.connect(self.Imputed_file) as dsi:
 
-                anchors = np.where(dsi.ca.Chemistry=='multiome_atac')[0]
-                id_to_anchor = {i: a for i,a in enumerate(anchors)}
-                queries = np.where(dsi.ca.Chemistry!='multiome_atac')[0]
-                id_to_query = {i: a for i,a in enumerate(queries)}
+                if len(np.where(dsi.ca.Chemistry!='multiome_atac')[0]) > 0:
+                    anchors = np.where(dsi.ca.Chemistry=='multiome_atac')[0]
+                    id_to_anchor = {i: a for i,a in enumerate(anchors)}
+                    queries = np.where(dsi.ca.Chemistry!='multiome_atac')[0]
+                    id_to_query = {i: a for i,a in enumerate(queries)}
 
-                index = NNDescent(dsi.ca.LSI[anchors])
+                    index = NNDescent(dsi.ca.LSI[anchors])
 
-                X = index.query(dsi.ca.LSI[queries],10)
+                    X = index.query(dsi.ca.LSI[queries],10)
 
-                data = X[1]
-                max_d = np.max(data)
-                data = (max_d - data) / max_d
+                    data = X[1]
+                    max_d = np.max(data)
+                    data = (max_d - data) / max_d
 
-                new_pos = []
-                new_origin = []
-                for i, row in enumerate(X[0]):
-                    new_pos.append([id_to_anchor[x] for x in row])
-                    new_origin.append([id_to_query[i] for x in range(len(row))])
-                new_pos = np.array(new_pos)   
-                new_origin = np.array(new_origin)
+                    new_pos = []
+                    new_origin = []
+                    for i, row in enumerate(X[0]):
+                        new_pos.append([id_to_anchor[x] for x in row])
+                        new_origin.append([id_to_query[i] for x in range(len(row))])
+                    new_pos = np.array(new_pos)   
+                    new_origin = np.array(new_origin)
 
-                nn = sparse.csr_matrix((data.flatten(), (new_origin.flatten(),new_pos.flatten())), shape=(dsi.shape[1],dsi.shape[1]), dtype='float')
-                nn.eliminate_zeros()
-                nn[anchors,anchors] = 1
-                dsi.col_graphs['anchor_net'] = nn
+                    nn = sparse.csr_matrix((data.flatten(), (new_origin.flatten(),new_pos.flatten())), shape=(dsi.shape[1],dsi.shape[1]), dtype='float')
+                    nn.eliminate_zeros()
+                    nn[anchors,anchors] = 1
+                    dsi.col_graphs['anchor_net'] = nn
 
-                total_link = np.asarray(div0(1, np.sum(nn, axis=1))).reshape(-1)                    
-                sources, targets = nn.nonzero()
-                r = np.array([total_link[x] for x in sources])
-                v = nn.data.flatten() * r
-                scaled = sparse.csr_matrix((v, (sources,targets)), shape=nn.shape, dtype='float')
+                    total_link = np.asarray(div0(1, np.sum(nn, axis=1))).reshape(-1)                    
+                    sources, targets = nn.nonzero()
+                    r = np.array([total_link[x] for x in sources])
+                    v = nn.data.flatten() * r
+                    scaled = sparse.csr_matrix((v, (sources,targets)), shape=nn.shape, dtype='float')
 
-                logging.info(f'Pooling')
-                dsi["pooled"] = 'int32'
-                progress = tqdm(total = dsi.shape[0])
-                if "spliced" in dsi.layers:
-                    dsi["spliced_pooled"] = 'int32'
-                    dsi["unspliced_pooled"] = 'int32'
-                    for (_, indexes, view) in dsi.scan(axis=0, layers=["spliced", "unspliced"], what=["layers"]):
-                        X = view.layers["spliced"][:, :] @ scaled.T
-                        dsi["spliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["spliced"][:, :] @ scaled.T
-                        dsi["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["unspliced"][:, :] @ scaled.T
-                        dsi["pooled"][indexes.min(): indexes.max() + 1, :] = dsi["spliced_pooled"][indexes.min(): indexes.max() + 1, :] + dsi["unspliced_pooled"][indexes.min(): indexes.max() + 1, :]
-                        progress.update(512)
-                else:
-                    for (_, indexes, view) in dsi.scan(axis=0, layers=[""], what=["layers"]):
-                        dsi["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ scaled.T
-                        
-                progress.close()
+                    logging.info(f'Pooling')
+                    dsi["pooled"] = 'int32'
+                    progress = tqdm(total = dsi.shape[0])
+                    if "spliced" in dsi.layers:
+                        dsi["spliced_pooled"] = 'int32'
+                        dsi["unspliced_pooled"] = 'int32'
+                        for (_, indexes, view) in dsi.scan(axis=0, layers=["spliced", "unspliced"], what=["layers"]):
+                            X = view.layers["spliced"][:, :] @ scaled.T
+                            dsi["spliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["spliced"][:, :] @ scaled.T
+                            dsi["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["unspliced"][:, :] @ scaled.T
+                            dsi["pooled"][indexes.min(): indexes.max() + 1, :] = dsi["spliced_pooled"][indexes.min(): indexes.max() + 1, :] + dsi["unspliced_pooled"][indexes.min(): indexes.max() + 1, :]
+                            progress.update(512)
+                    else:
+                        for (_, indexes, view) in dsi.scan(axis=0, layers=[""], what=["layers"]):
+                            dsi["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ scaled.T
+                            
+                    progress.close()
 
                 logging.info(f"Inferring cell cycle")
                 species = Species.detect(dsi)
-                CellCycleAnnotator(species).annotate(dsi, layer='pooled')
+                if "pooled" in dsi.layers:
+                    CellCycleAnnotator(species).annotate(dsi, layer='pooled')
+                else:
+                    CellCycleAnnotator(species).annotate(dsi, layer='')
                 cgplot.cell_cycle(dsi, os.path.join(self.outdir, self.name + "_cellcycle.png"))
 
     def annotate(self, min_cells:int=10, agg_spec=None):

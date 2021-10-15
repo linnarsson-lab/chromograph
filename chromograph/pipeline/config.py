@@ -100,7 +100,7 @@ def load_config() -> Config:
 			"FR_TSS": 0.2,
 			"reference_assembly": "GRCh38"
 		}),
-		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "RNA", "Impute_RNA", "GA", "motifs", "bigwig"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "Karyotype","RNA", "Impute_RNA", "GA", "motifs", "bigwig"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 26,

@@ -124,6 +124,12 @@ if __name__ == '__main__':
                 logging.info(f'Transferring column attributes and column graphs back to bin file')
                 with loompy.connect(binfile) as dsb:
                     transfer_ca(ds, dsb, 'CellID')
+        if 'Karyotype' in config.steps:
+            with loompy.connect(peak_file) as ds:
+                with loompy.connect(peak_agg, 'r') as dsagg:
+                    Karyotyper = Karyotyper()
+                    Karyotyper.fit(ds, dsagg)
+                    Karyotyper.plot(ds, dsagg)
 
         if 'GA' in config.steps:
             ## Generate promoter file

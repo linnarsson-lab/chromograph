@@ -228,7 +228,8 @@ class Peak_caller:
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)
 
         logging.info(f'Start counting peaks')
-        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
+        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/500)))
+        logging.info(f'Total of {len(chunks)} chunks')
 
         if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.loom'))):
             with mp.get_context().Pool(min(mp.cpu_count(),len(chunks)), maxtasksperchild=1) as pool:

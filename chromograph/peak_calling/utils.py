@@ -193,6 +193,63 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks
     pybedtools.helpers.cleanup()
     return 
 
+def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks', verbose: bool = False):
+    '''
+    Count peaks
+
+    Args:
+
+    type                peaks or genes
+    '''
+    peaks = BedTool(f_peaks).saveas()  # Connect to peaks file, save temp to prevent io issues
+    peak_dict = {p: i for i, p in enumerate([x[3] for x in peaks])}
+    mat = sparse.lil_matrix((peaks.count(),len(cells)), dtype='int8')
+
+    ## Separate cells and get paths to fragment files
+    for i, x in enumerate(cells):
+        logging.info(x)
+        s, c = x.split(':')
+        f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+        f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
+        try:
+            if os.path.exists(f):
+                cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
+            else:
+                cBed = BedTool(f2).sort()
+        except:
+            logging.info(f"Can't find {f}")
+            logging.info(traceback.format_exc())
+            Count_dict[x] = []
+        try:
+            if ref_type == 'peaks':
+                pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+            elif ref_type == 'genes':
+                pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
+        except:
+            logging.info(f'Problem intersecting {f}')
+            logging.info(traceback.format_exc())
+            return
+        try:
+            ## Extract peak_IDs
+            for line in pks:
+                if ref_type == 'peaks':
+                    k = line[3]
+                elif ref_type == 'genes':
+                    k = line.attrs['gene_id']
+                ## Add count to dict
+                mat[peak_dict[k],i] += 1
+                
+        except:
+            logging.info(f'Problem counting {f}')
+            logging.info(traceback.format_exc())
+            return
+    if verbose:
+        logging.info(f'Completed job {id}')
+
+    ## Cleanup
+    pybedtools.helpers.cleanup()
+    return mat.tocsc()
+
 def export_bigwig(cells, sample_dir, peak_dir, cluster):
     '''
     Calculates coverage for a cluster and exports as a bigwig file
@@ -308,6 +365,41 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
             
             ## Remove pkl
             os.system(f'rm {dict_file}') 
+
+            return
+        except Exception as e:
+            logging.info(f'Error in sample: {id}')
+            logging.info(e)
+    return
+
+def generate_peak_matrix2(id, cells, sample_dir, peak_dir, annot, verbose=True):
+    '''
+    '''
+
+    ## Check if loom already exists
+    loom_file = os.path.join(peak_dir, f'{id}_peaks.loom')
+
+    if not os.path.exists(loom_file):
+        try:
+            
+            counts = Count_peaks_matrix(id, cells, sample_dir, peak_dir, os.path.join(peak_dir, 'Compounded_peaks.bed'))
+            counts.data = np.nan_to_num(counts.data, copy=False)
+
+            ## Create binary matrix
+            matrix = sparse.csc_matrix((np.ones(counts.nnz), counts.nonzero()), shape=counts.shape)
+
+            if verbose:
+                logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
+                logging.info(f'Generating temporary loom file')
+
+            ## Create loomfile
+            if verbose:
+                logging.info("Constructing loomfile")
+
+            loompy.create(filename=loom_file, 
+                        layers={'':matrix, 'Counts': counts}, 
+                        row_attrs=annot, 
+                        col_attrs={'CellID': np.array(IDs)})
 
             return
         except Exception as e:
