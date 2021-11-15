@@ -37,7 +37,7 @@ class Peak_Aggregator:
         '''
         self.config = config.load_config()
 
-    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None) -> None:
+    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None, reorder: bool = True) -> None:
         '''
         Aggregate the matrix, find markers and annotate enriched motifs by homer
         
@@ -84,34 +84,24 @@ class Peak_Aggregator:
 
             ## Call positive and negative peaks for every cluster
             dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout, bounds=(5,40))
-            
-            # ## Perform fisher exact for peak counts
-            # dsout['enrichment'], dsout['q_val'], dsout['log2fc'] = FisherDifferentialPeaks(dsout)
-
-            # ## Select top N enriched peaks per cluster by odss-ratio
-            # dsout['marker_peaks'] = 'int8'
-            # for i in range(dsout.shape[1]):
-            #     idx = np.sort(dsout['q_val'][:,i].argsort()[:2000])
-            #     dsout['marker_peaks'][idx,i] = 1
-            # markers = dsout['marker_peaks'].map([np.sum], axis=0)[0] > 0
-            # dsout.ra.markerPeaks = markers
 
             ## Select markers by residuals
             markers = Enrichment_by_residuals(dsout)
 
             # Renumber the clusters
-            logging.info("Renumbering clusters by similarity, and permuting columns")
+            if reorder:
+                logging.info("Renumbering clusters by similarity, and permuting columns")
 
-            data = dsout[:, :][markers, :].T
-            data[np.where(data<0)] = 0  ## BUG handling. Sometimes values surpass the bit limit in malignant cells
-            data = np.log(data + 1)
-            D = pdist(data, 'correlation')
-            Z = hc.linkage(D, 'ward', optimal_ordering=True)
-            ordering = hc.leaves_list(Z)
+                data = dsout[:, :][markers, :].T
+                data[np.where(data<0)] = 0  ## BUG handling. Sometimes values surpass the bit limit in malignant cells
+                data = np.log(data + 1)
+                D = pdist(data, 'correlation')
+                Z = hc.linkage(D, 'ward', optimal_ordering=True)
+                ordering = hc.leaves_list(Z)
 
-            # Permute the aggregated file, and renumber
-            dsout.permute(ordering, axis=1)
-            dsout.ca.Clusters = np.arange(n_labels)
+                # Permute the aggregated file, and renumber
+                dsout.permute(ordering, axis=1)
+                dsout.ca.Clusters = np.arange(n_labels)
 
             # Redo the Ward's linkage just to get a tree that corresponds with the new ordering
             data = dsout[:, :][markers, :].T
@@ -121,10 +111,11 @@ class Peak_Aggregator:
             dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
             # Renumber the original file, and permute
-            d = dict(zip(ordering, np.arange(n_labels)))
-            new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
-            ds.ca.Clusters = new_clusters
-            ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
+            if reorder:
+                d = dict(zip(ordering, np.arange(n_labels)))
+                new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
+                ds.ca.Clusters = new_clusters
+                ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
 
             ## Run Homer findMotifs to find the top 5 motifs per cluster
             logging.info(f'Finding enriched motifs among marker peaks')

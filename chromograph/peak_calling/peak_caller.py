@@ -93,8 +93,12 @@ class Peak_caller:
                 logging.info(f'Saving peaks to folder {self.peakdir}')
 
                 chunks = []
-                for i in np.unique(ds.ca['preClusters']):
-                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['preClusters'] == i]]
+                if 'preClusters' in ds.ca:
+                    cluster_select = 'preClusters'
+                else:
+                    cluster_select = 'Clusters'
+                for i in np.unique(ds.ca[cluster_select]):
+                    cells = [x.split(':') for x in ds.ca['CellID'][ds.ca[cluster_select] == i]]
                     files = np.array([os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
                     X = np.random.choice(len(files), size=int(len(files)/2), replace=False)
                     r1 = np.zeros(len(files)).astype(bool)
@@ -104,7 +108,7 @@ class Peak_caller:
                         chunks.append([f'{i}A', files[r1]])
                         chunks.append([f'{i}B', files[~r1]])
 
-                logging.info('Start generating pseudobulk samples by precluster')
+                logging.info(f'Start generating pseudobulk samples by {cluster_select}')
                 logging.info(f'Total chunks: {len(chunks)}')
                 with mp.get_context().Pool() as pool:
                     for ck in chunks:
@@ -228,7 +232,7 @@ class Peak_caller:
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)
 
         logging.info(f'Start counting peaks')
-        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/500)))
+        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
         logging.info(f'Total of {len(chunks)} chunks')
 
         if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.loom'))):

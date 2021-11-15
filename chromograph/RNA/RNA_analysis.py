@@ -268,10 +268,9 @@ class RNA_analysis():
 
                 dsout.ca.Clusters_peaks = dsout.ca.Clusters
                 dsout.ca.Clusters = np.arange(n_labels)
-                if not np.max(ds.ca.Clusters) == n_labels - 1:
-                    d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
-                    ds.ca.Clusters_peaks = ds.ca.Clusters
-                    ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
+                d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
+                ds.ca.Clusters_peaks = ds.ca.Clusters
+                ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
 
                 logging.info("Computing cluster gene enrichment scores")
                 fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")))

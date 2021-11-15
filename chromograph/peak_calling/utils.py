@@ -207,7 +207,6 @@ def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str =
 
     ## Separate cells and get paths to fragment files
     for i, x in enumerate(cells):
-        logging.info(x)
         s, c = x.split(':')
         f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
         f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
@@ -219,7 +218,6 @@ def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str =
         except:
             logging.info(f"Can't find {f}")
             logging.info(traceback.format_exc())
-            Count_dict[x] = []
         try:
             if ref_type == 'peaks':
                 pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
@@ -311,7 +309,7 @@ def strFrags_to_list(frags):
     frag_list = [[frags[3*i], int(frags[3*i+1]), int(frags[3*i+2])]for i in range(int(len(frags)/3))]
     return frag_list
 
-def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
+def generate_peak_matrix_dict(id, cells, sample_dir, peak_dir, annot, verbose=True):
     '''
     '''
 
@@ -372,7 +370,7 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
             logging.info(e)
     return
 
-def generate_peak_matrix2(id, cells, sample_dir, peak_dir, annot, verbose=True):
+def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
     '''
     '''
 
@@ -392,14 +390,10 @@ def generate_peak_matrix2(id, cells, sample_dir, peak_dir, annot, verbose=True):
                 logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')
                 logging.info(f'Generating temporary loom file')
 
-            ## Create loomfile
-            if verbose:
-                logging.info("Constructing loomfile")
-
             loompy.create(filename=loom_file, 
                         layers={'':matrix, 'Counts': counts}, 
                         row_attrs=annot, 
-                        col_attrs={'CellID': np.array(IDs)})
+                        col_attrs={'CellID': cells})
 
             return
         except Exception as e:

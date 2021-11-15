@@ -79,7 +79,7 @@ class Generate_promoter:
             if os.path.exists(all_prom_loom) & (all_prom_loom != self.loom):
                 logging.info(f'Main promoter matrix already exists')
                 
-                with loompy.connect(all_prom_loom) as dsp:
+                with loompy.connect(all_prom_loom, 'r') as dsp:
                     selection = np.array([x in ds.ca.CellID for x in dsp.ca.CellID])
                 
                 loompy.combine_faster([all_prom_loom], self.loom, selections=[selection])
@@ -131,6 +131,9 @@ class Generate_promoter:
                 elif 'LSI' in dsp.ca:
                     decomp = dsp.ca.LSI
                     decomp_type = 'LSI'
+                elif 'PCA' in dsp.ca:
+                    decomp = dsp.ca.PCA
+                    decomp_type = 'PCA'
                 logging.info(f'Create NN graph using {decomp_type}')
                 nn = NNDescent(data=decomp, metric="euclidean", n_neighbors=self.config.params.k_pooling, verbose=True, n_jobs=1)
                 logging.info(f'Query NN graph')

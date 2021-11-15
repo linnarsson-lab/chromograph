@@ -9,17 +9,14 @@ import collections
 import csv
 import pandas as pd
 import matplotlib.pyplot as plt
-import gzip
 import loompy
 import scipy.sparse as sparse
 import json
-import urllib.request
 import logging
 import pickle
-import importlib
-import multiprocessing as mp
-import tqdm
+import glob
 import gc
+import multiprocessing as mp
 
 from chromograph.pipeline import config
 from chromograph.preprocessing.utils import *
@@ -193,12 +190,27 @@ class Chromgen:
         ## Count fragments
         # Count_dict = self.fragments_to_count(ff, outdir, meta, bsize, chrom_size)
 
-        ## Fork as a seperate process to protect against high memory consumption
-        if not os.path.isfile(os.path.join(outdir, 'counts.pkl')):
-            p = mp.Pool()
-            p.map(fragments_to_count, [(ff, outdir, meta, bsize, chrom_size)])[0]
+        # ## Fork as a seperate process to protect against high memory consumption
+        # if not os.path.isfile(os.path.join(outdir, 'counts.pkl')):
+        #     p = mp.Pool()
+        #     p.map(fragments_to_count, [(ff, outdir, meta, bsize, chrom_size)])[0]
 
-        Count_dict = pkl.load(open(os.path.join(outdir, 'counts.pkl'), 'rb'))
+        # Count_dict = pkl.load(open(os.path.join(outdir, 'counts.pkl'), 'rb'))
+
+        split_fragments(ff, outdir, meta, bsize, chrom_size)
+
+        chunks = np.array_split(meta['barcode'], mp.cpu_count())
+        chunks = [[i,ck] for i, ck in enumerate(chunks)]
+
+        logging.info(f'Counting bins')
+        with mp.get_context().Pool() as pool:
+            for ck in chunks:
+                pool.apply_async(Count_bins, (ck[0], ck[1], outdir, chrom_bins,))
+            pool.close()
+            pool.join()
+
+        mats = [pkl.load(open(os.path.join(outdir, f'{id}.pkl'), 'rb')) for id, cells in chunks]
+        matrix = sparse.hstack(mats)
 
         logging.info("Loading blacklist")
         # Load Blacklist
@@ -223,22 +235,22 @@ class Chromgen:
         
         # Create sparse matrix
         
-        logging.info("Generating Sparse matrix")
-        col = []
-        row = []
-        v = []
+        # logging.info("Generating Sparse matrix")
+        # col = []
+        # row = []
+        # v = []
 
-        cix = 0
-        for cell in meta['barcode']:
+        # cix = 0
+        # for cell in meta['barcode']:
 
-            for key in (Count_dict[cell]):
-                if key in chrom_bins:
-                    col.append(cix)
-                    row.append(chrom_bins[key])
-                    v.append(int(Count_dict[cell][key]))
-            cix+=1
+        #     for key in (Count_dict[cell]):
+        #         if key in chrom_bins:
+        #             col.append(cix)
+        #             row.append(chrom_bins[key])
+        #             v.append(int(Count_dict[cell][key]))
+        #     cix+=1
 
-        matrix = sparse.coo_matrix((np.clip(v, 0, 127), (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
+        # matrix = sparse.coo_matrix((np.clip(v, 0, 127), (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
 
         ## Save a smaller section of the summary
         if self.rnaXatac:
@@ -249,7 +261,6 @@ class Chromgen:
         
         ## We retain only the bins that have no overlap with the ENCODE blacklist
         matrix = matrix.tocsc()[retain,:]
-        logging.info(f"Identified {len(v)} positive bins in {len(meta['barcode'])} cells before filtering blacklist")
         logging.info(f"Identified {len(matrix.nonzero()[0])} positive bins in {len(meta['barcode'])} cells after filtering blacklist")
 
         ## Create row attributes
@@ -296,18 +307,23 @@ class Chromgen:
                     match = {k:v for v, k in enumerate(ds.ca.CellID)}
 
                     ## Initialize empty attributes
-                    ds.ca['DoubletFinderScore'], ds.ca['DoubletFinderFlag'] = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
-                    ds.ca['TSNE'] = np.zeros((ds.shape[1],2)).astype(np.float64)
+                    dbs, dbf = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
+                    tsne = np.zeros((ds.shape[1],2)).astype(np.float64)
 
                     for i, x in enumerate(RNA_bar):
                         k = match[x]
-                        ds.ca['DoubletFinderScore'][k] = dsr.ca['DoubletFinderScore'][i]
-                        ds.ca['DoubletFinderFlag'][k] = dsr.ca['DoubletFinderFlag'][i]
-                        ds.ca['TSNE'][k] = dsr.ca['TSNE'][i]
+                        dbs[k] = dsr.ca['DoubletFinderScore'][i]
+                        dbf[k] = dsr.ca['DoubletFinderFlag'][i]
+                        tsne[k] = dsr.ca['TSNE'][i]
+                        
+                    ds.ca['DoubletFinderScore'] = dbs
+                    ds.ca['DoubletFinderFlag'] = dbf
+                    ds.ca['TSNE'] = tsne
 
         logging.info(f'Finished processing {sample}')
 
-        ## Clean up directory
-        os.remove(os.path.join(outdir, 'counts.pkl'))
+        ## Cleanup
+        for file in glob.glob(os.path.join(outdir, '*.pkl')):
+            os.system(f'rm {file}')
 
         return

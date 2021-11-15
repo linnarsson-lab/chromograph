@@ -282,7 +282,7 @@ def retrieve_enrichments(ds, motif_dir, N=5):
     for d in ld:
         n = int(d.split('_')[-1])
         mat = np.loadtxt(os.path.join(motif_dir, d, 'knownResults.txt'), dtype=str, skiprows=1)
-        c_dict[n] = ' '.join([x.split('_')[0] for x in mat[:N,0]])
+        c_dict[n] = ' '.join([x.split('.')[0] for x in mat[:N,0]])
     
     motif_markers = np.array([c_dict[x] for x in ds.ca.Clusters])
     return motif_markers

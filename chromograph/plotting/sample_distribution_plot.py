@@ -31,7 +31,7 @@ def sample_distribution_plot(ds: loompy.LoomConnection, out_file: str) -> None:
         columns=['Regions', 'Age', 'Cells'])
         df = df.append(data)
     
-    factor = np.round(np.log10(np.max(df['Cells']))) - 3
+    factor = np.round(np.log10(np.max(df['Cells']))) - 4
     df['Bubble_size'] = df['Cells'] / 10**factor
     order = sorted(np.unique(df['Age']))
     df['Age'] = [order.index(x) for x in df['Age']]

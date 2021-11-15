@@ -92,7 +92,7 @@ def generate_bins(chrom_size, bsize, overlap:float=1):
     logging.info('Number of bins: {}'.format(len(chrom_bins.keys())))
     return chrom_bins;
 
-def count_bins(frag_dict, barcodes, bsize):
+def count_bins_dict(frag_dict, barcodes, bsize):
     '''
     '''
     
@@ -244,11 +244,11 @@ def fragments_to_count(x):
     frag_dict = read_fragments(ff)
 
     ## Split fragments to seperate files for fast indexing
-    logging.info(f"Saving fragments to separate folder for fast indexing")
     fdir = os.path.join(outdir, 'fragments')
     if not os.path.isdir(fdir):
         os.mkdir(fdir)
     if  len(os.listdir(fdir)) < len(meta['barcode']):
+        logging.info(f"Saving fragments to separate folder for fast indexing")
         i = 0
         for x in meta['barcode']:
             f = os.path.join(fdir, f'{x}.tsv.gz')
@@ -268,3 +268,67 @@ def fragments_to_count(x):
     pybedtools.helpers.cleanup()
 
     return
+
+def split_fragments(ff, outdir, meta, bsize, chromosomes):
+    '''
+    '''
+    ## Split fragments to seperate files for fast indexing
+    fdir = os.path.join(outdir, 'fragments')
+    if not os.path.isdir(fdir):
+        os.mkdir(fdir)
+    if  len(os.listdir(fdir)) < len(meta['barcode']):
+        ## Read Fragments
+        logging.info("Read fragments into dict")
+        frag_dict = read_fragments(ff)
+        logging.info(f"Saving fragments to separate folder for fast indexing")
+        i = 0
+        for x in meta['barcode']:
+            f = os.path.join(fdir, f'{x}.tsv.gz')
+            if not os.path.exists(f):
+                frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
+            i += 1
+            if i%1000 == 0:
+                logging.info(f'Finished separating fragments for {i} cells')
+                pybedtools.helpers.cleanup() ## Do some intermittent cleanup 
+    else:
+        logging.info(f'Fragments already split')
+
+def Count_bins(id, cells, sample_dir, chrom_bins, verbose: bool = False):
+    '''
+    Count bins
+    Args:
+    '''
+    chrom_dict = {f'{k[0]}:{k[1]}-{k[2]}':v for k,v in chrom_bins.items()}
+    bins = [list(x) for x in chrom_bins.keys()]
+    for i, x in enumerate(bins):
+        bins[i].append(f'{x[0]}:{x[1]}-{x[2]}')
+    bins = BedTool(bins).saveas()  # Connect to peaks file, save temp to prevent io issues
+    mat = sparse.lil_matrix((bins.count(),len(cells)), dtype='int8')
+    ## Separate cells and get paths to fragment files
+    for i, c in enumerate(cells):
+        f = os.path.join(sample_dir, 'fragments', f'{c}.tsv.gz')
+        try:
+            cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
+        except:
+            logging.info(f"Can't find {f}")
+            logging.info(traceback.format_exc())
+        try:
+            pks = bins.intersect(cBed, wa=True) # Get bins that overlap with fragment file
+        except:
+            logging.info(f'Problem intersecting {f}')
+            logging.info(traceback.format_exc())
+            return
+        try:
+            ## Extract peak_IDs
+            for line in pks:
+                k = line[3]
+                ## Add count to dict
+                mat[chrom_dict[k],i] += 1                
+        except:
+            logging.info(f'Problem counting {f}')
+            logging.info(traceback.format_exc())
+            return
+    ## Cleanup
+    pybedtools.helpers.cleanup()
+    pkl.dump(mat.tocsc(), open(os.path.join(sample_dir, f'{id}.pkl'), 'wb'))
+    return 

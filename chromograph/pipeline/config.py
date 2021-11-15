@@ -63,7 +63,7 @@ def load_config() -> Config:
 			"fastqs": "",
 			"index": "",
 			"qc": "",
-			"copyscat": "",
+			"cicero_path": "",
 			"R": ""
 		}),
 		"params": Config(**{

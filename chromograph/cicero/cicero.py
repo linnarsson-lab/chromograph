@@ -428,20 +428,16 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
     if os.path.isfile(out_file):
         os.remove(out_file)
     
-    logging.info(f'Generating file')
-    with loompy.new(out_file) as dsout:  # Create a new, empty, loom file
-        rows = {k: ds.ra[k][TSS_pos] for k in ds.ra}
-        M = len(TSS_pos)
-        
-        progress = tqdm(ds.shape[1])
-        for (ix, selection, view) in ds.scan(axis=1):
-            N = len(selection)
-            empty_mat = np.zeros((M,N), dtype=np.float32)
-            dsout.add_columns({'': empty_mat}, col_attrs=view.ca, row_attrs = rows)
-
-            progress.update(512)
-        progress.close()
+    logging.info(f'Generating file')   
     
+    rows = {k: ds.ra[k][TSS_pos] for k in ds.ra}
+    M = len(TSS_pos)
+    
+    empty_mat = sparse.csr_matrix((M,ds.shape[1]), dtype=np.float32)
+    logging.info(f'Create file')
+    loompy.create(out_file, empty_mat, rows, ds.ca)
+    with loompy.connect(out_file) as dsout:
+
         ## Transfer column_graphs
         for k in ds.col_graphs:
             dsout.col_graphs[k] = ds.col_graphs[k]
@@ -450,7 +446,7 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
         logging.info(f'Generating gene accessibility scores')
         progress = tqdm(total = ds.shape[1])
         for (ix, selection, view) in ds.scan(axis=1):
-            X = view['Binary'][:,:][distal_peaks,:].T @ scaled_site_weights.T
+            X = view[''][:,:][distal_peaks,:].T @ scaled_site_weights.T
             dsout[:,selection] = X.T
             progress.update(512)
         progress.close()
@@ -462,6 +458,6 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
         dsout["pooled"] = 'float32'
         progress = tqdm(total = dsout.shape[0])
         for (_, indexes, view) in dsout.scan(axis=0, layers=[""], what=["layers"]):
-            dsout["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
+            dsout["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T 
             progress.update(512)
         progress.close()
