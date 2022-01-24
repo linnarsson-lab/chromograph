@@ -53,7 +53,7 @@ class RNA_analysis():
     def generate_RNA_file(self, RNA_files_dir):
         '''
         '''
-        
+        logging.info(f'Starting RNA analysis')
         with loompy.connect(self.peak_file) as ds:
             samples = np.unique(ds.ca.Name[np.where(ds.ca.Chemistry == 'multiome_atac')[0]])
             inputfiles = [os.path.join(RNA_files_dir, f"{sample}.loom") for sample in samples]
@@ -61,11 +61,15 @@ class RNA_analysis():
             selections = []
             for sample, file in zip(samples, inputfiles):
                 valid_cells = set(ds.ca.CellID)
+                ndigit = len(ds.ca.CellID[0].split(':')[0].split('_'))
                 ## Get cells passing filters
                 with loompy.connect(file, 'r') as ds2:
-                    barcodes = rna_barcodes_to_atac(ds2)
-                    if len(ds.ca.CellID[0].split('/')[-1].split('-')) > 1:
-                        barcodes = [x + '-1' for x in barcodes]
+                    if not np.sum(np.isin(ds2.ca.CellID, ds.ca.CellID)) > 1:
+                        barcodes = rna_barcodes_to_atac(ds2, n=ndigit)
+                        if len(ds.ca.CellID[0].split('/')[-1].split('-')) > 1:
+                            barcodes = [x + '-1' for x in barcodes]
+                    else:
+                        barcodes = ds2.ca.CellID
                     good_cells = np.array([x in valid_cells for x in barcodes])
                     selections.append(good_cells)
 
@@ -77,7 +81,8 @@ class RNA_analysis():
             ## transcribe cell IDs
             with loompy.connect(self.RNA_file) as dsout:
                 dsout.ca.RNA_IDs = dsout.ca.CellID
-                dsout.ca.CellID = rna_barcodes_to_atac(dsout)
+                if not np.sum(np.isin(dsout.ca.CellID, ds.ca.CellID)) > 1:
+                    dsout.ca.CellID = rna_barcodes_to_atac(dsout,n=ndigit)
 
                 match = {k:v for v, k in enumerate(ds.ca.CellID)}
                 if len(ds.ca['CellID'][0].split('-'))> 1:

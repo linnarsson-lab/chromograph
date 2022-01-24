@@ -49,6 +49,12 @@ class Peak_Aggregator:
         self.outdir = '/' + os.path.join(*out_file.split('/')[:-1], 'exported')
         self.motifdir = '/' + os.path.join(*out_file.split('/')[:-1], 'motifs')
 
+        if not 'NPeaks' in ds.ca:
+            logging.info('Calculating peak and cell coverage')
+            ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
+            ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
+            ds.ca['FRIP'] = div0(ds.ca.NPeaks, ds.ca.passed_filters)
+
         agg_spec = {
             "Age": "mean",
             "Clusters": "first",
@@ -136,7 +142,7 @@ class Peak_Aggregator:
             dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir, N=self.config.params.N_most_enriched)
 
             # logging.info("Graph skeletonization")
-            GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
+            # GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
 
             ## Plot results 
             name = out_file.split('/')[-1].split('_')[0]
@@ -148,6 +154,6 @@ class Peak_Aggregator:
 
             ## Plotting neighborhoods and metromap
             cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_neighborhouds.png"))
-            cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'TSNE')
+            # cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'TSNE')
 
             return

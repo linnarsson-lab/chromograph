@@ -26,14 +26,15 @@ def call_MACS(data, pf, macs_path):
     fpeaks = os.path.join(pf, "cluster_{}".format(clus))
 
     ## Call Peaks
-    cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {fpeaks}'
+    # cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {fpeaks}'
+    cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 37 --ext 73 --qval 1e-2 -B --SPMR -n {fpeaks}'
     os.system(cmd)
     pybedtools.helpers.cleanup(verbose=True, remove_all=True)
     
     ## We only need the narrowPeak file, so clean up the rest
-    os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
-    os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
-    os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_peaks.xls')))
+    # os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_summits.bed')))
     os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_treat_pileup.bdg')))  ## Convert this track to BigWig
+    os.system("rm {}".format(os.path.join(pf, 'cluster_' + str(clus) + '_control_lambda.bdg')))
 
     return f'Cluster {clus} completed'

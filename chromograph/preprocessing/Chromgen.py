@@ -187,16 +187,6 @@ class Chromgen:
         logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
         chrom_bins = generate_bins(chrom_size, bsize)
 
-        ## Count fragments
-        # Count_dict = self.fragments_to_count(ff, outdir, meta, bsize, chrom_size)
-
-        # ## Fork as a seperate process to protect against high memory consumption
-        # if not os.path.isfile(os.path.join(outdir, 'counts.pkl')):
-        #     p = mp.Pool()
-        #     p.map(fragments_to_count, [(ff, outdir, meta, bsize, chrom_size)])[0]
-
-        # Count_dict = pkl.load(open(os.path.join(outdir, 'counts.pkl'), 'rb'))
-
         split_fragments(ff, outdir, meta, bsize, chrom_size)
 
         chunks = np.array_split(meta['barcode'], mp.cpu_count())
@@ -233,25 +223,6 @@ class Chromgen:
         # Construct loom file
         #####
         
-        # Create sparse matrix
-        
-        # logging.info("Generating Sparse matrix")
-        # col = []
-        # row = []
-        # v = []
-
-        # cix = 0
-        # for cell in meta['barcode']:
-
-        #     for key in (Count_dict[cell]):
-        #         if key in chrom_bins:
-        #             col.append(cix)
-        #             row.append(chrom_bins[key])
-        #             v.append(int(Count_dict[cell][key]))
-        #     cix+=1
-
-        # matrix = sparse.coo_matrix((np.clip(v, 0, 127), (row,col)), shape=(len(chrom_bins.keys()), len(meta['barcode'])), dtype='int8')
-
         ## Save a smaller section of the summary
         if self.rnaXatac:
             keys = ['Pipeline version', 'reference_assembly', 'bin_size']
@@ -286,6 +257,10 @@ class Chromgen:
         self.loom = floom
         logging.info(f"Loom bin file saved as {floom}")
         
+        ## Add Y-chromosomal percentage as column attribute
+        with loompy.connect(self.loom, 'r+') as ds:
+            ds.ca.Y = np.sum(ds[np.where(ds.ra.chrom == 'chrY')[0],:], axis=0) / ds.ca.passed_filters
+
         ## Doublet detection
         if not self.rnaXatac:
             with loompy.connect(self.loom, 'r+') as ds:
@@ -308,16 +283,23 @@ class Chromgen:
 
                     ## Initialize empty attributes
                     dbs, dbf = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
+                    TotalUMI, NGenes, MT_ratio = np.zeros((ds.shape[1],)).astype(np.int64), np.zeros((ds.shape[1],)).astype(np.int64), np.zeros((ds.shape[1],)).astype(np.int64)
                     tsne = np.zeros((ds.shape[1],2)).astype(np.float64)
 
                     for i, x in enumerate(RNA_bar):
                         k = match[x]
                         dbs[k] = dsr.ca['DoubletFinderScore'][i]
                         dbf[k] = dsr.ca['DoubletFinderFlag'][i]
+                        TotalUMI[k] = dsr.ca['TotalUMI'][i]
+                        NGenes[k] = dsr.ca['NGenes'][i]
+                        MT_ratio[k] = dsr.ca['MT_ratio'][i]
                         tsne[k] = dsr.ca['TSNE'][i]
                         
                     ds.ca['DoubletFinderScore'] = dbs
                     ds.ca['DoubletFinderFlag'] = dbf
+                    ds.ca['TotalUMI'] = TotalUMI
+                    ds.ca['NGenes'] = NGenes
+                    ds.ca['MT_ratio'] = MT_ratio
                     ds.ca['TSNE'] = tsne
 
         logging.info(f'Finished processing {sample}')

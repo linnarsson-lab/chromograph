@@ -24,6 +24,17 @@ import pandas as pd
 import igraph as ig
 import pickle as pkl
 
+def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        c = np.true_divide(a, b)
+        c[~np.isfinite(c)] = 0  # -inf inf NaN
+    return c
+
+def rho_matrix(dist_matrix, dist_param, s, xmin=1000):
+    out = (1-div0(xmin, dist_matrix)**s) * dist_param
+    out[np.isnan(out)] = 0
+    return np.clip(out, 0, None)
 
 def find_distance_parameter(ds: loompy.LoomConnection,
                             window_range,
@@ -116,8 +127,9 @@ def estimate_distance_parameter(ds: loompy.LoomConnection,
 
     chromosomes = get_chrom_sizes(reference)
     chrom_bins = generate_bins(chromosomes, window, 0.5)
-    bins = [(k[0], str(k[1]), str(k[2])) for k in chrom_bins.keys()]
-    filtered = BedTool(bins).subtract(BedTool(get_blacklist(reference)), A=True)
+    bins = [(k[0], str(int(k[1])), str(int(k[2]))) for k in chrom_bins.keys()]
+    blacklist = BedTool(get_blacklist(reference))
+    filtered = BedTool(bins).subtract(blacklist, A=True)
 
     positions = [(row['chrom'], int(row['start']), int(row['end'])) for row in filtered.sort()] 
     logging.info(f'Bins after cleaning: {len(positions)}')
@@ -211,7 +223,7 @@ def Compute_Coacces(ds: loompy.LoomConnection,
 
     chromosomes = get_chrom_sizes(reference)
     chrom_bins = generate_bins(chromosomes, window, 0.5)
-    bins = [(k[0], str(k[1]), str(k[2])) for k in chrom_bins.keys()]
+    bins = [(k[0], str(int(k[1])), str(int(k[2]))) for k in chrom_bins.keys()]
     filtered = BedTool(bins).subtract(BedTool(get_blacklist(reference)), A=True)
 
     positions = [(row['chrom'], int(row['start']), int(row['end'])) for row in filtered.sort()] 
@@ -307,7 +319,7 @@ def find_ccan_cutoff(matrix, tolerance_digits):
         
     return np.round((top+bottom)/2, tolerance_digits)
 
-def generate_ccans(matrix,
+def generate_ccans(ds, matrix,
                    peaks:np.array,
                    coaccess_cutoff_override: int = None,
                    tolerance_digits: int = 2):
@@ -450,7 +462,7 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
             dsout[:,selection] = X.T
             progress.update(512)
         progress.close()
-        
+
         knn = dsout.col_graphs['KNN'].astype("bool")
         
         ## Start pooling over the network

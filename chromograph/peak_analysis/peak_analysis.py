@@ -78,7 +78,7 @@ class Peak_analysis:
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for manifold learning by variance in preclusters')
 
-        valid_clusters = select_preclusters(ds, min_cells=self.config.params.min_cells_cluster, min_clusters=25)
+        valid_clusters = select_preclusters(ds, min_cells=self.config.params.min_cells_cluster, min_clusters=25, Always_iterative=self.config.params.Always_iterative)
         valid = np.array([x in valid_clusters for x in ds.ca.preClusters])
 
         ## Aggregate
@@ -107,7 +107,7 @@ class Peak_analysis:
             (ds.ra.precluster_mu, ds.ra.precluster_sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
             logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks for clustering')
             dsout.ra.Valid = ((ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction) & (ds.ra.NCells < np.quantile(ds.ra.NCells, 0.99))
-            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM')
+            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM', mask=np.isin(ds.ra.Chr, ['chrX', 'chrY']))
             ds.ra.Valid = fs.fit(dsout)
         ## Delete temporary file
         os.remove(temporary_aggregate)

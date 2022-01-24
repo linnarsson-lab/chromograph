@@ -135,7 +135,7 @@ class Karyotyper:
         
         return
     
-    def plot(self, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, markers: list = ['PTPRC', 'SOX10', 'EGFR', 'AQP4', 'DCN'], reference_marker: str = 'PTPRC'):
+    def plot(self, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, markers: list = ['PTPRC', 'SOX10', 'EGFR', 'AQP4', 'DCN'], reference_marker: str = 'PTPRC', out_file: str = None):
         '''
         '''
         logging.info(f'Generating plot')
@@ -197,5 +197,8 @@ class Karyotyper:
         ax2.set_xticklabels(labels=np.array(labels))
         ax2.set_aspect('auto')
 
-        name = ds.filename.split('/')[-2]
-        plt.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype.png'))
+        if out_file:
+            fig.savefig(out_file)
+        else:
+            name = ds.filename.split('/')[-2]
+            fig.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype.png'))

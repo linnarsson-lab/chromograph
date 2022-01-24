@@ -376,7 +376,7 @@ class iterativeLSI:
         ds.ca.Outliers = (labels == -1).astype('int')
         logging.info(f"Found {ds.ca.preClusters.max() + 1} clusters")
 
-def select_preclusters(ds, min_cells=50, min_clusters=25):
+def select_preclusters(ds, min_cells=50, min_clusters=25, Always_iterative=False):
     '''
     '''
     cnt = Counter(ds.ca.preClusters)
@@ -385,6 +385,8 @@ def select_preclusters(ds, min_cells=50, min_clusters=25):
     vals = np.array([v for k,v in cnt.items()])
     N_clusters = np.sum(vals>min_cells)
     perform_iter = N_clusters < min_clusters
+    if Always_iterative:
+        perform_iter = True
     
     logging.info(f'Perform iterative LSI: {perform_iter}, valid clusters: {N_clusters}, required: {min_clusters}')
     

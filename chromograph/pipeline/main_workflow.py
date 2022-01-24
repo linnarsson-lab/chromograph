@@ -33,6 +33,7 @@ from chromograph.peak_calling.call_MACS import call_MACS
 from chromograph.plotting.peak_annotation_plot import *
 from chromograph.motifs.motif_compounder import Motif_compounder
 from chromograph.peak_analysis.Peak_Aggregator import Peak_Aggregator
+from chromograph.CNV.Karyotyper import Karyotyper
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -68,6 +69,8 @@ if __name__ == '__main__':
         if not os.path.isdir(subset_dir):
             os.mkdir(subset_dir)
         binfile = os.path.join(subset_dir, name + '.loom')
+        peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+        peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
 
         if 'bin_analysis' in config.steps:
             ## Select valid cells from input files
@@ -82,7 +85,7 @@ if __name__ == '__main__':
 
                 ## Get cells passing filters
                 with loompy.connect(file, 'r') as ds:
-                    good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > 5000) & (ds.ca.passed_filters < 1e5) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
+                    good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
                     selections.append(good_cells)
 
             ## Get column attributes that should be skipped
@@ -112,8 +115,6 @@ if __name__ == '__main__':
 
         if 'peak_analysis' in config.steps:
             ## Analyse peak-file
-            peak_file = os.path.join(subset_dir, name + '_peaks.loom')
-            peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
             with loompy.connect(peak_file, 'r+') as ds:
                 peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=False)
                 peak_analysis.fit(ds)

@@ -11,7 +11,7 @@ from chromograph.pipeline import config
 from chromograph.pipeline.utils import div0
 from chromograph.peak_calling.utils import *
 from chromograph.peak_analysis.utils import *
-from chromograph.plotting.motif_heatmap import motif_heatmap
+from chromograph.plotting.motif_heatmap import Motif_heatmap
 import pandas as pd
 
 import cytograph as cg
@@ -33,6 +33,7 @@ class motif_aggregator():
         self.motif_dir = os.path.join(self.subset_dir, f'motifs/')
         self.motif_file = os.path.join(self.subset_dir, f'{self.name}_motifs.agg.loom')
         self.RNA_file = os.path.join(self.subset_dir, f'{self.name}_RNA.agg.loom')
+        self.RNA_cells = os.path.join(self.subset_dir, f'{self.name}_RNA.loom')
         self.motif_plot = os.path.join(self.subset_dir, f'exported/{name}_motif_heatmap.png')
     
     def fit(self):
@@ -77,6 +78,15 @@ class motif_aggregator():
 
             ds['-log_pval'] = -ds['log_pval'][:,:]
 
+            if os.path.isfile(self.RNA_cells):
+                if not os.path.isfile(self.RNA_file):
+                    with loompy.connect(self.RNA_cells) as dsr:
+                        logging.info(f'Aggregting RNA file first')
+                        cg.pipeline.Aggregator(mask=cg.species.Species.detect(dsr).mask(dsr, 
+                                                ("cellcycle", "sex", "ieg", "mt"))).aggregate(dsr, out_file=self.RNA_file)
+            else:
+                logging.info('No RNA file')
+            
             if os.path.isfile(self.RNA_file):
                 logging.info(f'Removing motifs of TFs that are not expressed')
                 with loompy.connect(self.RNA_file) as dsa:
@@ -95,7 +105,5 @@ class motif_aggregator():
                     trinaries[x,:] = v
                         
                     ds['-log_pval_trinaries'] = X * trinaries
-            else:
-                logging.info('No RNA file')
 
-            motif_heatmap(ds, self.motif_plot, N=5)
+            Motif_heatmap(ds, self.motif_plot, N=5)

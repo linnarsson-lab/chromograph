@@ -4,10 +4,10 @@ import loompy
 import numpy as np
 from typing import Tuple
 
-def rna_barcodes_to_atac(ds):
+def rna_barcodes_to_atac(ds, n:int=2):
     barcodes_rna = []
     for barcode in ds.ca.CellID:
-        sample = '_'.join(barcode.split('_')[:2])
+        sample = '_'.join(barcode.split(':')[0].split('_')[:n])
         b = barcode.split(':')[-1][:-1]
         barcodes_rna.append(':'.join([sample,b]))
     return barcodes_rna

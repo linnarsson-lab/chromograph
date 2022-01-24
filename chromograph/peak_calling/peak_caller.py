@@ -67,7 +67,7 @@ class Peak_caller:
         
         '''
         ## Get sample name from loom-file
-        name = ds.filename.split(".")[0]
+        name = ds.filename.split("/")[-1].split('.')[0].split('_')[0]
 
         ## Check if location for peaks and compounded fragments exists
         if not os.path.isdir(self.peakdir):
@@ -139,17 +139,59 @@ class Peak_caller:
                     
                 ## Unify pseudobulk peaks
                 peaks = []
-                for i in np.unique(ds.ca['preClusters']):
-                    files = glob.glob(os.path.join(self.peakdir, f'cluster_{i}*.narrowPeak'))
-                    bd = [BedTool(f) for f in files]
-                    peaks.append(bd[0].intersect(bd[1], wo=True).cluster().merge())
-                    dp = len(peaks[-1])
-                    sp = np.sum([len(x) for x in bd]) - (2*dp)
 
-                ## Compound the peak lists
-                logging.info(f'Identified on average {np.int(np.mean([len(x) for x in peaks]))} peaks per cluster')
-                peaks_all = peaks[0].cat(*peaks[1:])
-                peaks_all.cluster().merge()
+                ## Generate fixed-width peak-set
+                if self.config.params.fixed_peak_size:
+                    peaksize = self.config.params.peak_size
+                    if peaksize%2 != 0:
+                        peaksize += 1
+                    g_path = os.path.join(chromograph.__path__[0], 'references/male.GRCh38.chrom.sizes')
+                    files = glob.glob(os.path.join(self.peakdir, f'*summits.bed'))
+                    peaks = []
+
+                    ## Get valid peaks from pseudo-replicates
+                    for i in np.unique(range(11)):
+                        files = glob.glob(os.path.join(self.peakdir, f'cluster_{i}*summits.bed'))
+                        bd = [BedTool(f).slop(b=int(peaksize/2), g=g_path) for f in files]
+                        inter = bd[0].intersect(bd[1], wo=True)
+
+                        centers, chr = [], []
+                        for x in inter:
+                            m1 = np.floor(int(int(x[1]) + int(x[2]))/2)
+                            m2 = np.floor(int(int(x[6]) + int(x[7]))/2)
+                            centers.append(np.floor((m1+m2)/2).astype(int))
+                            chr.append(x[0])
+                        peaks.append(BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)]))
+                    summits = peaks[0].cat(*peaks[1:])
+                    clustered = summits.cluster(d=peaksize).saveas(os.path.join(self.peakdir, 'clustered_summits.bed'))
+
+                    n_cls = len(np.unique([int(x[3]) for x in clustered]))
+                    sums, n = np.zeros(n_cls), np.zeros(n_cls)
+                    chr = {}
+                    for x in clustered:
+                        id = int(x[3]) -1
+                        sums[id] += int(x[1])
+                        n[id] += 1
+                        if id not in chr:
+                            chr[id] = x[0]
+                            
+                    centers = np.floor(sums/n).astype(int)
+                    chr = [chr[i] for i in range(n_cls)]
+
+                    peaks_all = BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)])
+                    peaks_all = peaks_all.slop(b=int(peaksize/2), g=g_path)
+
+                ## Generate variable-width peak-set
+                else:
+                    for i in np.unique(ds.ca['preClusters']):
+                        files = glob.glob(os.path.join(self.peakdir, f'cluster_{i}*.narrowPeak'))
+                        bd = [BedTool(f) for f in files]
+                        peaks.append(bd[0].intersect(bd[1], wo=True))
+
+                    ## Compound the peak lists
+                    logging.info(f'Identified on average {np.int(np.mean([len(x) for x in peaks]))} peaks per cluster')
+                    peaks_all = peaks[0].cat(*peaks[1:])
+                    peaks_all.cluster().merge()
 
                 ## Substract blacklist
                 black_list = BedTool(get_blacklist(self.config.params.reference_assembly))
@@ -161,10 +203,13 @@ class Peak_caller:
                 logging.info(f'Identified {peaks_all.count()} peaks after compounding list')
 
                 ## Clean up
-                for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
-                    os.system(f'rm {file}')
-                for file in glob.glob(os.path.join(self.peakdir, '*.narrowPeak')):
-                    os.system(f'rm {file}')
+#                for file in glob.glob(os.path.join(self.peakdir, '*.tsv.gz')):
+#                    os.system(f'rm {file}')
+#                for file in glob.glob(os.path.join(self.peakdir, '*.narrowPeak')):
+#                    os.system(f'rm {file}')
+#                for file in glob.glob(os.path.join(self.peakdir, '*_summits.bed')):  
+#                    os.system(f'rm {file}')
+
         else:
             logging.info('Compounded peak file already present, loading now')
             f = os.path.join(self.peakdir, 'Compounded_peaks.bed')
@@ -232,7 +277,7 @@ class Peak_caller:
         pybedtools.helpers.cleanup(verbose=True, remove_all=True)
 
         logging.info(f'Start counting peaks')
-        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/1000)))
+        chunks = np.array_split(ds.ca['CellID'], np.int(np.ceil(ds.shape[1]/500)))
         logging.info(f'Total of {len(chunks)} chunks')
 
         if len(chunks) > len(glob.glob(os.path.join(self.peakdir, '*.loom'))):

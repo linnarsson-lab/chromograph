@@ -26,16 +26,13 @@ from chromograph.pipeline.utils import transfer_ca
 from chromograph.pipeline.Add_UMAP import Add_UMAP
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
-from chromograph.peak_calling.call_MACS import call_MACS
 from chromograph.peak_analysis.peak_analysis import Peak_analysis
 from chromograph.peak_analysis.Peak_Aggregator import Peak_Aggregator
 from chromograph.RNA.RNA_analysis import RNA_analysis
 from chromograph.features.Generate_promoter import Generate_promoter
-from chromograph.features.gene_smooth import GeneSmooth
 from chromograph.features.GA_Aggregator import GA_Aggregator
-from chromograph.plotting.peak_annotation_plot import *
 from chromograph.motifs.motif_compounder import Motif_compounder
-from chromograph.motifs.motif_aggregator import motif_aggregator
+from chromograph.motifs.motif_aggregation import motif_aggregator
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -195,14 +192,12 @@ if __name__ == '__main__':
 
     if 'motifs' in config.steps:
         with loompy.connect(peak_file) as ds:
-        #     motif_compounder = Motif_compounder(outdir=subset_dir)
-        #     motif_compounder.fit(ds)
             MA = motif_aggregator(name)
             MA.fit()
 
     if 'cicero' in config.steps:
         cicero_run = os.path.join('/', *chromograph.__file__.split('/')[:-1], 'cicero', 'run_cicero.py')
-        os.subprocess([config.paths.cicero_path, cicero_run, peak_file, 'True'])
+        subprocess.run([config.paths.cicero_path, cicero_run, peak_file, 'True'])
 
     ## Export bigwigs last to prevent multiprocessing error
     if 'bigwig' in config.steps:
@@ -215,3 +210,4 @@ if __name__ == '__main__':
                     pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
                 pool.close()
                 pool.join()
+        logging.info(f'Finished saving bigwigs')

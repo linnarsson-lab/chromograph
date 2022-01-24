@@ -1,7 +1,6 @@
 import loompy
 import os
 import subprocess
-import gc
 import sys
 import numpy as np
 from datetime import datetime
@@ -28,7 +27,8 @@ from chromograph.peak_analysis.Peak_Aggregator import Peak_Aggregator
 from chromograph.RNA.RNA_analysis import RNA_analysis
 from chromograph.features.Generate_promoter import Generate_promoter
 from chromograph.features.GA_Aggregator import GA_Aggregator
-from chromograph.plotting.peak_annotation_plot import *
+from chromograph.motifs.motif_aggregation import motif_aggregator
+from chromograph.plotting.QC_plot import QC_plot
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -64,8 +64,9 @@ if __name__ == '__main__':
     subset_dir = os.path.join(config.paths.build, name)
     if not os.path.isdir(subset_dir):
         os.mkdir(subset_dir)
-    RNA_file = os.path.join(subset_dir, name + '.loom')
+    RNA_file = os.path.join(subset_dir, name + '_RNA.loom')
     peak_file = os.path.join(subset_dir, name + '_peaks.loom')
+    peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
 
     plot_dir = os.path.join(subset_dir, 'exported')
     if not os.path.isdir(plot_dir):
@@ -93,12 +94,13 @@ if __name__ == '__main__':
         ## Call peaks
         with loompy.connect(RNA_file, 'r+') as ds:
 
-            if not 'preClusters' in ds.ca:
-                cls, n = np.unique(ds.ca.Clusters, return_counts=True)
-                if min(n) < config.params.min_cells_precluster:
-                    logging.info('performing broad clustering for peak calling')
-                    pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = config.params.resolution, min_cells=config.params.min_cells_precluster)
-                    ds.ca.preClusters = pl.fit_predict(ds)
+            if not os.path.isfile(os.path.join(config.paths.build, 'All', 'All_peaks.loom')):
+                if not 'preClusters' in ds.ca:
+                    cls, n = np.unique(ds.ca.Clusters, return_counts=True)
+                    if min(n) < config.params.min_cells_precluster:
+                        logging.info('performing broad clustering for peak calling')
+                        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = config.params.resolution, min_cells=config.params.min_cells_precluster)
+                        ds.ca.preClusters = pl.fit_predict(ds)
 
             peak_caller = Peak_caller(outdir=subset_dir)
             peak_caller.fit(ds)
@@ -111,11 +113,26 @@ if __name__ == '__main__':
 
         ## Plot TSNE with QC
         with loompy.connect(peak_file) as ds:
-            QC_plot(ds, os.path.join(plot_dir, f"{name}_peaks_TSNE_QC.png"), embedding = 'TSNE', attrs=self.config.params.plot_attrs)
+            if not 'precluster_sd' in ds.ca:
+                with loompy.connect(peak_agg) as dsagg:
+                    (ds.ra.precluster_mu, ds.ra.precluster_sd) = dsagg['CPM'].map((np.mean, np.std), axis=0)
+            QC_plot(ds, os.path.join(plot_dir, f"{name}_peaks_TSNE_QC.png"), embedding = 'TSNE', attrs=config.params.plot_attrs)
 
     if 'cicero' in config.steps:
+        logging.info(f'Run Cicero')
         cicero_run = os.path.join('/', *chromograph.__file__.split('/')[:-1], 'cicero', 'run_cicero.py')
-        os.subprocess([config.paths.cicero_path, cicero_run, peak_file, 'True'])
+        cicero_env = os.environ.copy()
+        cicero_env["PATH"] = os.path.join(config.paths.cicero_path, 'bin') + ':' + cicero_env["PATH"]
+        cmd = [os.path.join(config.paths.cicero_path, 'bin/python'), cicero_run, peak_file, peak_agg, 'True']
+        logging.info(cmd)
+        # process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=cicero_env)
+        subprocess.run(cmd)
+        logging.info(f'Finished running cicero')
+
+    if 'motifs' in config.steps:
+        with loompy.connect(peak_file) as ds:
+            MA = motif_aggregator(name)
+            MA.fit()
 
     ## Export bigwigs last to prevent multiprocessing error
     if 'bigwig' in config.steps:
@@ -128,3 +145,4 @@ if __name__ == '__main__':
                     pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
                 pool.close()
                 pool.join()
+        logging.info(f'Finished saving bigwigs')

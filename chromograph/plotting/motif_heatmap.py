@@ -10,6 +10,7 @@ def Motif_heatmap(ds, outfile, N:int=None):
         outfile
         N
     '''
+    name = ds.filename.split('/')[-2]
     if '-log_pval_trinaries' in ds.layers:
         layer = '-log_pval_trinaries'
     else:
@@ -35,14 +36,18 @@ def Motif_heatmap(ds, outfile, N:int=None):
     TF_order = np.argsort(TF_order)
     ds.permute(TF_order, axis=0)
     
-    shape_factor = len(valids)/ds.shape[1]
-    
-    fig, ax = plt.subplots(figsize=(32,int(shape_factor*32)))
+    Shape = (len(valids), ds.shape[1])
+
+    fig, ax = plt.subplots(figsize=Shape)
     x = np.where(ds.ra.valids)[0]
-    im = ax.imshow(ds[layer][x,:], cmap = 'Reds', vmin=2, vmax=300)
+    mat = ds[layer][x,:]
+    vmax = np.max(mat)
+    im = ax.imshow(mat, cmap = 'Reds', vmin=2, vmax=vmax)
+    labels = [f'{ds.ra.TF[i]}' for i in x]
+    ax.set_title(f'TF motif enrichment by Cluster in {name}')
 
     ax.set_yticks(range(len(x)))
-    ax.set_yticklabels(labels, fontsize=7)
+    ax.set_yticklabels(labels, fontsize=16)
     cbar = fig.colorbar(im, ax=ax, orientation='vertical', shrink=.25)
     cbar.ax.tick_params(labelsize=18) 
     cbar.set_label('-log10 p-val', fontsize=18)

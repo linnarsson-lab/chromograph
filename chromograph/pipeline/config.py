@@ -69,7 +69,7 @@ def load_config() -> Config:
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
 			"skip_attrs": [],
-			"plot_attrs": ['Age', 'Shortname', 'Chemistry', 'Tissue'],
+			"plot_attrs": ['SEX', 'Shortname', 'Chemistry', 'Tissue'],
 			"k": 25,
 			"batch_size": 512,
 			"poisson_pooling": True,
@@ -81,7 +81,10 @@ def load_config() -> Config:
 			"n_factors": 40,
 			"HPF_factors": 48,
 			"level": 5000,
+			"max_fragments": 100000,
 			"bin_size": 5000,
+			"peak_size": 400,
+			"fixed_peak_size": True,
 			"bin_quantile": 0.75,
 			"N_peaks_decomp": 20000,
 			"peak_fraction": 0.01,
@@ -98,9 +101,10 @@ def load_config() -> Config:
 			"peak_depth": 2.5e7,
 			"peak_min_cells": 150,
 			"FR_TSS": 0.2,
-			"reference_assembly": "GRCh38"
+			"reference_assembly": "GRCh38",
+			"Always_iterative": False
 		}),
-		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "Karyotype","RNA", "Impute_RNA", "GA", "motifs", "bigwig"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "Karyotype","RNA", "Impute_RNA", "prom", "motifs", "bigwig", "cicero"),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 26,

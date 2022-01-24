@@ -18,6 +18,7 @@ import multiprocessing as mp
 import chromograph
 from chromograph.pipeline import config
 from chromograph.peak_calling.utils import *
+from chromograph.pipeline.utils import transfer_ca
 
 config = config.load_config()
 
@@ -30,7 +31,6 @@ logging.basicConfig(
 
 def generate_prom_matrix(file_5kb, loom_file, gene_ref, peakdir, sample_dir, verbose=False):
     name = file_5kb.split('/')[-1].split('.')[0]
-    # loom_file = f"/{os.path.join(*file_5kb.split('/')[:-1], '_'.join(file_5kb.split('/')[-1].split('_')[:2]))}_prom.loom"
 
     if verbose:
         logging.info(f"Start counting TSS enrichment for {name}")
@@ -96,6 +96,10 @@ def generate_prom_matrix(file_5kb, loom_file, gene_ref, peakdir, sample_dir, ver
                     row_attrs=row_attrs, 
                     col_attrs={'CellID': np.array(IDs)},
                     file_attrs=dict(ds.attrs))
+
+        ## Add attributes
+        with loompy.connect(loom_file) as ds2:
+            transfer_ca(ds, ds2, 'CellID')
         
         ## Remove pkls
         if verbose:

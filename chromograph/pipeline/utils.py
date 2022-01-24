@@ -16,7 +16,7 @@ def transfer_ca(ds1: loompy.LoomConnection, ds2: loompy.LoomConnection, key: str
     have the same number of columns with a corresponding unique identifies
     Args:
         ds1         LoomConnection
-        ds2         LoomConnection
+        ds2         LoomConnection, to be reordered
         key         Column attriube used to align the columns
     '''
 

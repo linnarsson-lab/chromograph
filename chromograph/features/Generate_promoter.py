@@ -22,7 +22,7 @@ from pynndescent import NNDescent
 import chromograph
 from chromograph.pipeline.Bin_analysis import *
 from chromograph.pipeline import config
-from chromograph.pipeline.utils import transfer_ca, div0
+from chromograph.pipeline.utils import transfer_ca, div0, find_attr_to_skip
 from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.peak_calling.peak_caller import *
 from chromograph.peak_calling.utils import *
@@ -103,9 +103,15 @@ class Generate_promoter:
                     with loompy.connect(file, 'r') as ds2:
                         good_cells = np.array([x in ds.ca.CellID for x in ds2.ca.CellID])
                         selections.append(good_cells)
-                        
+
+                ## Get column attributes that should be skipped
+                samples = [sample.split('10X')[-1] for sample in np.unique(ds.ca.Name)]
+                skip_attr = find_attr_to_skip(config, samples)
+                skip_attr = set(self.config.params.skip_attrs + skip_attr)
+                logging.info(f'Not including the following column attributes {skip_attr}')
+
                 logging.info(f'Combining samples')
-                loompy.combine_faster(inputfiles, self.loom, selections=selections, key = 'loc')
+                loompy.combine_faster(inputfiles, self.loom, selections=selections, key = 'loc', skip_attrs=skip_attr)
 
                 logging.info(f'Transferring column attributes')
                 
