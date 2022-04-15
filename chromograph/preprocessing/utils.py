@@ -8,8 +8,10 @@ from pybedtools import BedTool
 import collections
 import csv
 import matplotlib.pyplot as plt
-import gzip
 import loompy
+import pysam
+import shutil
+import glob
 import pickle as pkl
 import scipy.sparse as sparse
 import json
@@ -17,6 +19,9 @@ import urllib.request
 import logging
 from typing import Dict
 import sqlite3 as sqlite
+import tempfile
+import itertools
+import multiprocessing as mp
 
 import chromograph
 
@@ -269,10 +274,9 @@ def fragments_to_count(x):
 
     return
 
-def split_fragments(ff, outdir, meta, bsize, chromosomes):
+def split_fragments(ff, outdir, meta, chromosomes):
     '''
     '''
-    ## Split fragments to seperate files for fast indexing
     fdir = os.path.join(outdir, 'fragments')
     if not os.path.isdir(fdir):
         os.mkdir(fdir)
@@ -282,16 +286,98 @@ def split_fragments(ff, outdir, meta, bsize, chromosomes):
         frag_dict = read_fragments(ff)
         logging.info(f"Saving fragments to separate folder for fast indexing")
         i = 0
-        for x in meta['barcode']:
-            f = os.path.join(fdir, f'{x}.tsv.gz')
-            if not os.path.exists(f):
-                frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
-            i += 1
-            if i%1000 == 0:
-                logging.info(f'Finished separating fragments for {i} cells')
-                pybedtools.helpers.cleanup() ## Do some intermittent cleanup 
+        try:
+            for x in meta['barcode']:
+                f = os.path.join(fdir, f'{x}.tsv.gz')
+                if not os.path.exists(f):
+                    frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
+                i += 1
+                if i%1000 == 0:
+                    logging.info(f'Finished separating fragments for {i} cells')
+                    pybedtools.helpers.cleanup() ## Do some intermittent cleanup 
+        except:
+            pybedtools.helpers.cleanup()
     else:
         logging.info(f'Fragments already split')
+
+def save_fragments_to_file(frag_dict, outdir):
+    try:
+        for cell in frag_dict:
+            f = os.path.join(outdir, f'{cell}.bed')
+            with open(f, 'a') as file:
+                writer = csv.writer(file, delimiter='\t')
+                for line in frag_dict[cell]:  
+                    line =  [str(x) for x in line]
+                    writer.writerow(line)
+    
+    except Exception as e:
+        logging.info(f'failed {f}')
+        logging.info(e)
+        return
+
+def bed_to_zip(files):
+    try:
+        for f in files:
+            f_out = f"{f.split('.')[0]}.tsv.gz"
+            BedTool(f).remove_invalid().saveas(f_out)
+    except:
+        logging.info(f'failed {f}')
+        pybedtools.helpers.cleanup()
+
+def split_fragments2(ff, sample_dir, meta, chromosomes):
+    ## Check which chromosomes are present
+    logging.info(f'Checking if all chromosomes are present') ## tabix error when iterating over missing chromosome (chrM)
+    tbx = pysam.TabixFile(ff)
+    present = set()
+    for row in tbx.fetch(parser=pysam.asBed()):
+        if row[0] not in present:
+            present.add(row[0])
+    present = [x for x in present if x in chromosomes.keys()]
+
+    ## Empty existing fragment directory
+    outdir = os.path.join(sample_dir, 'fragments')
+    if os.path.isdir(outdir):
+        shutil.rmtree(outdir)
+    os.mkdir(outdir)
+
+    ## Process files
+    logging.info(f'Start processing data')
+    bars = set(meta['barcode'])
+    for chr in sorted(present):
+        frag_dict = {}
+
+        ## Retrieve reads
+        for row in tbx.fetch(chr, parser=pysam.asBed()):
+            if row[3] in bars:
+                if row[3] not in frag_dict:
+                    frag_dict[row[3]] = [row[:3]]
+                else:
+                    frag_dict[row[3]].append(row[:3])
+
+        ## Write to file    
+        logging.info(f'Processing {chr}, N cells: {len(frag_dict.keys())}')
+        chunks = np.array_split(np.array([x for x in frag_dict.keys()]), mp.cpu_count())
+        chunks = [{k:frag_dict[k] for k in chunk} for chunk in chunks]   
+        with mp.get_context().Pool() as pool:
+            for ck in chunks:
+                pool.apply_async(save_fragments_to_file, (ck, outdir,))
+            pool.close()
+            pool.join()
+
+    ## Convert to tsv.gz and remove malformed lines
+    logging.info(f'Converting files to tsv.gz')
+    chunks = np.array_split(np.array(glob.glob(f"{outdir}/{'*.bed'}")), mp.cpu_count())
+    with mp.get_context().Pool() as pool:
+        for ck in chunks:
+            pool.apply_async(bed_to_zip, (ck,))
+        pool.close()
+        pool.join()    
+    
+    ## Cleanup
+    for file in glob.glob(f"{outdir}/{'*.bed'}"):
+        os.remove(file) 
+    return
+
 
 def Count_bins(id, cells, sample_dir, chrom_bins, verbose: bool = False):
     '''
@@ -305,29 +391,20 @@ def Count_bins(id, cells, sample_dir, chrom_bins, verbose: bool = False):
     bins = BedTool(bins).saveas()  # Connect to peaks file, save temp to prevent io issues
     mat = sparse.lil_matrix((bins.count(),len(cells)), dtype='int8')
     ## Separate cells and get paths to fragment files
-    for i, c in enumerate(cells):
-        f = os.path.join(sample_dir, 'fragments', f'{c}.tsv.gz')
-        try:
+    try:    
+        for i, c in enumerate(cells):
+            f = os.path.join(sample_dir, 'fragments', f'{c}.tsv.gz')
             cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
-        except:
-            logging.info(f"Can't find {f}")
-            logging.info(traceback.format_exc())
-        try:
             pks = bins.intersect(cBed, wa=True) # Get bins that overlap with fragment file
-        except:
-            logging.info(f'Problem intersecting {f}')
-            logging.info(traceback.format_exc())
-            return
-        try:
             ## Extract peak_IDs
             for line in pks:
                 k = line[3]
                 ## Add count to dict
-                mat[chrom_dict[k],i] += 1                
-        except:
-            logging.info(f'Problem counting {f}')
-            logging.info(traceback.format_exc())
-            return
+                mat[chrom_dict[k],i] += 1
+    except Exception as e:
+        logging.info(f'Error in {f}')
+        logging.info(e)
+        pybedtools.helpers.cleanup()
     ## Cleanup
     pybedtools.helpers.cleanup()
     pkl.dump(mat.tocsc(), open(os.path.join(sample_dir, f'{id}.pkl'), 'wb'))

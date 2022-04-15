@@ -83,7 +83,7 @@ class SVD:
             transformed = transformed[:, self.sigs]
 
         if self.batch_keys is not None and len(self.batch_keys) > 0:
-            logging.info(f'Batch correcting using Harmony')
+            logging.info(f'Running Harmony, batch keys: {self.batch_keys}')
             keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.batch_keys})
             transformed = harmonize(transformed, keys_df, batch_key=self.batch_keys, n_jobs_kmeans=1)
 

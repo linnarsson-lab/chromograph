@@ -33,6 +33,8 @@ from chromograph.plotting.QC_plot import QC_plot
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
 from cytograph.clustering import PolishedLouvain
+from cytograph.aggregator import Aggregator
+
 
 ## Setup logger and load config
 config = config.load_config()
@@ -65,12 +67,20 @@ if __name__ == '__main__':
     if not os.path.isdir(subset_dir):
         os.mkdir(subset_dir)
     RNA_file = os.path.join(subset_dir, name + '_RNA.loom')
+    RNA_agg = os.path.join(subset_dir, name + '_RNA.agg.loom')
     peak_file = os.path.join(subset_dir, name + '_peaks.loom')
     peak_agg = os.path.join(subset_dir, name + '_peaks.agg.loom')
 
     plot_dir = os.path.join(subset_dir, 'exported')
     if not os.path.isdir(plot_dir):
         os.mkdir(plot_dir)
+
+    if 'RNA' in config.steps:
+        if os.path.exists(RNA_agg):
+            logging.info(f'RNA aggregate file already exists')
+        else:
+            with loompy.connect(RNA_file) as ds:
+				Aggregator(config=config, mask=Species.detect(ds).mask(ds, ("cellcycle", "sex", "ieg", "mt"))).aggregate(ds, out_file=RNA_agg)
 
     if 'prom' in config.steps:
         ## Generate promoter file

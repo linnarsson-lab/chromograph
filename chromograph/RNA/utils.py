@@ -28,7 +28,7 @@ class CellCycleAnnotator:
             total_umis = ds.ca.TotalUMI
         else:
             if "TotalUMI" in ds.ca:
-                TotalUMIs = ds.ca.TotalUMI  # From loompy
+                total_umis = ds.ca.TotalUMI  # From loompy
             else:
                 ds.ca.TotalUMI = ds[layer].map([np.sum], axis=1)[0]
                 total_umis = ds.ca.TotalUMI

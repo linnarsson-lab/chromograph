@@ -89,6 +89,7 @@ class Chromgen:
         logging.info(f"Binning reads from {indir.split('/')[-1]} into {bsize/1000} kb bins")
         logging.info(f"Reading from {indir}")
         logging.info(f"Saving to {outdir}")
+        logging.info(f"Available CPUs: {mp.cpu_count()}")
 
         sample = indir.split('/')[-1]
         if len(sample.split('_')) > 2:
@@ -121,13 +122,16 @@ class Chromgen:
             summary = np.genfromtxt(fs, dtype=str, delimiter=',')
             summary = {str(k): str(v) for k, v in zip(summary[0,:], summary[1,:])}
             summary['reference_assembly'] = summary['Genome']
+
+            if summary['reference_assembly'] == "hg38-final3":
+                summary['reference_assembly'] = 'GRCh38'
         else:
             with open(fs, "r") as f:
                 summary = json.load(f)
 
                 for k,v in summary.items():
                     summary[k] = str(v)
-            if summary['reference_genomes'] == "['GRCh38']":
+            if summary['reference_genomes'] in ["['GRCh38']", "hg38-final3"]:
                 summary['reference_assembly'] = 'GRCh38'
         summary['bin_size'] = bsize
         summary['level'] = self.config.params.level
@@ -187,9 +191,10 @@ class Chromgen:
         logging.info(f"Generate {str(int(bsize/1000)) + ' kb'} bins based on provided chromosome sizes")
         chrom_bins = generate_bins(chrom_size, bsize)
 
-        split_fragments(ff, outdir, meta, bsize, chrom_size)
+        ## Split fragments by cell
+        split_fragments2(ff, outdir, meta, chrom_size)
 
-        chunks = np.array_split(meta['barcode'], mp.cpu_count())
+        chunks = np.array_split(meta['barcode'], np.int(np.ceil(len(meta['barcode'])/100)))
         chunks = [[i,ck] for i, ck in enumerate(chunks)]
 
         logging.info(f'Counting bins')
@@ -260,6 +265,8 @@ class Chromgen:
         ## Add Y-chromosomal percentage as column attribute
         with loompy.connect(self.loom, 'r+') as ds:
             ds.ca.Y = np.sum(ds[np.where(ds.ra.chrom == 'chrY')[0],:], axis=0) / ds.ca.passed_filters
+            SEX = 'F' if np.median(ds.ca.Y) < .0005 else 'M'
+            ds.ca.SEX = np.repeat(SEX, ds.shape[1])
 
         ## Doublet detection
         if not self.rnaXatac:
@@ -283,7 +290,8 @@ class Chromgen:
 
                     ## Initialize empty attributes
                     dbs, dbf = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.int64)
-                    TotalUMI, NGenes, MT_ratio = np.zeros((ds.shape[1],)).astype(np.int64), np.zeros((ds.shape[1],)).astype(np.int64), np.zeros((ds.shape[1],)).astype(np.int64)
+                    TotalUMI, NGenes = np.zeros((ds.shape[1],)).astype(np.int64), np.zeros((ds.shape[1],)).astype(np.int64)
+                    MT_ratio, unspliced_ratio = np.zeros((ds.shape[1],)).astype(np.float64), np.zeros((ds.shape[1],)).astype(np.float64)
                     tsne = np.zeros((ds.shape[1],2)).astype(np.float64)
 
                     for i, x in enumerate(RNA_bar):
@@ -291,6 +299,7 @@ class Chromgen:
                         dbs[k] = dsr.ca['DoubletFinderScore'][i]
                         dbf[k] = dsr.ca['DoubletFinderFlag'][i]
                         TotalUMI[k] = dsr.ca['TotalUMI'][i]
+                        unspliced_ratio[k] = dsr.ca['unspliced_ratio'][i]
                         NGenes[k] = dsr.ca['NGenes'][i]
                         MT_ratio[k] = dsr.ca['MT_ratio'][i]
                         tsne[k] = dsr.ca['TSNE'][i]
@@ -299,6 +308,7 @@ class Chromgen:
                     ds.ca['DoubletFinderFlag'] = dbf
                     ds.ca['TotalUMI'] = TotalUMI
                     ds.ca['NGenes'] = NGenes
+                    ds.ca['unspliced_ratio'] = unspliced_ratio
                     ds.ca['MT_ratio'] = MT_ratio
                     ds.ca['TSNE'] = tsne
 

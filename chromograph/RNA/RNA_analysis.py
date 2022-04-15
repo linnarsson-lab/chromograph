@@ -15,17 +15,16 @@ from scipy.spatial.distance import pdist
 from collections import Counter
 from pynndescent import NNDescent
 
-import chromograph
 from chromograph.peak_calling.utils import *
 from chromograph.pipeline.utils import *
 from chromograph.pipeline import config
 from chromograph.RNA.utils import *
+from chromograph.RNA.FeatureSelectionByMultilevelEnrichment import FeatureSelectionByMultilevelEnrichment
 from chromograph.plotting.sample_distribution_plot import sample_distribution_plot
 
 import cytograph as cg
 import cytograph.plotting as cgplot
 from cytograph.species import Species
-from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import Trinarizer
@@ -95,9 +94,12 @@ class RNA_analysis():
                         dsout.ca[k] = ds.ca[k][new_order]
                 
                 if self.name == 'All':
-                    logging.info(f'Plotting sample distribution')
                     sample_distribution_plot(dsout, os.path.join(self.outdir, f"{self.name}_RNA_cell_counts.png"))
+
+                logging.info('ordering file')
+                dsout.permute(np.argsort(dsout.col_attrs["Clusters"]), axis=1)
             logging.info(f'Finished creating file')  
+            
         
     def Impute_RNA(self):
         '''
@@ -109,6 +111,12 @@ class RNA_analysis():
         
         logging.info(f'Imputing RNA layer')
         
+        with loompy.connect(self.peak_file) as ds:
+            with loompy.connect(self.RNA_file) as dsr:
+                if ds.shape[1] == dsr.shape[1]:
+                    logging.info(f'Imputation not necessary, all cells have RNA measurements')
+                    return
+
         ## Generate Imputation file
         if os.path.isfile(self.Imputed_file):
             os.remove(self.Imputed_file)
@@ -220,7 +228,6 @@ class RNA_analysis():
                         dsi["spliced_pooled"] = 'int32'
                         dsi["unspliced_pooled"] = 'int32'
                         for (_, indexes, view) in dsi.scan(axis=0, layers=["spliced", "unspliced"], what=["layers"]):
-                            X = view.layers["spliced"][:, :] @ scaled.T
                             dsi["spliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["spliced"][:, :] @ scaled.T
                             dsi["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["unspliced"][:, :] @ scaled.T
                             dsi["pooled"][indexes.min(): indexes.max() + 1, :] = dsi["spliced_pooled"][indexes.min(): indexes.max() + 1, :] + dsi["unspliced_pooled"][indexes.min(): indexes.max() + 1, :]
@@ -228,18 +235,23 @@ class RNA_analysis():
                     else:
                         for (_, indexes, view) in dsi.scan(axis=0, layers=[""], what=["layers"]):
                             dsi["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ scaled.T
-                            
+                    progress.close()
+
+                    logging.info(f'Set pooled as main layer')
+                    dsi['raw'] = 'int32'
+                    progress = tqdm(total = dsi.shape[0])
+                    for (_, indexes, view) in dsi.scan(axis=1, what=["layers"]):
+                        dsi['raw'][:,indexes.min(): indexes.max() + 1] = view[:,:]
+                        dsi[''][:,indexes.min(): indexes.max() + 1] = view['pooled'][:,:]
+                        progress.update(512)
                     progress.close()
 
                 logging.info(f"Inferring cell cycle")
                 species = Species.detect(dsi)
-                if "pooled" in dsi.layers:
-                    CellCycleAnnotator(species).annotate(dsi, layer='pooled')
-                else:
-                    CellCycleAnnotator(species).annotate(dsi, layer='')
+                CellCycleAnnotator(species).annotate(dsi, layer='')
                 cgplot.cell_cycle(dsi, os.path.join(self.outdir, self.name + "_cellcycle.png"))
 
-    def annotate(self, min_cells:int=10, agg_spec=None):
+    def annotate(self, min_cells:int=10, agg_spec=None, imputed:bool=False, layer=''):
         '''
         '''
         if agg_spec == None:
@@ -256,17 +268,23 @@ class RNA_analysis():
             "Outliers": "mean",
             "PCW": "mean"
             }
-        if not os.path.isfile(self.RNA_file):
-            logging.info(f'Generate RNA file first!')
+
+        if imputed == True:
+            file = self.Imputed_file
+        else:
+            file = self.RNA_file
+
+        if not os.path.isfile(file):
+            logging.info(f'Generate {file} first!')
             return
             
-        with loompy.connect(self.RNA_file) as ds:
+        with loompy.connect(file) as ds:
             cells = ds.col_attrs["Clusters"] >= 0
             labels = ds.col_attrs["Clusters"][cells]
             n_labels = len(set(labels))
 
             logging.info(f'Aggregating file')
-            ds.aggregate(self.RNA_agg, None, "Clusters", "mean", agg_spec)
+            ds.aggregate(self.RNA_agg, None, "Clusters", "mean", agg_spec, layer=layer)
 
             with loompy.connect(self.RNA_agg) as dsout:
                 dsout.ca.NCells = np.bincount(labels, minlength=n_labels)[dsout.ca.Clusters]
@@ -278,7 +296,7 @@ class RNA_analysis():
                 ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
 
                 logging.info("Computing cluster gene enrichment scores")
-                fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")))
+                fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")), layer=layer)
                 markers = fe.fit(ds)
                 dsout.layers["enrichment"] = fe.enrichment
 
@@ -332,4 +350,34 @@ class RNA_analysis():
                 
         with loompy.connect(self.peak_file) as ds:
             with loompy.connect(self.peak_agg) as dsagg:
-                cgplot.manifold(ds, os.path.join(self.outdir, f"{self.name}_Annotations.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding = 'TSNE')
+                cgplot.manifold(ds, os.path.join(self.outdir, f"{self.name}_Annotations.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding = self.config.params.main_emb)
+
+    def generate_plots(self):
+        '''
+        '''
+        logging.info(f'Generating plots for RNA layer')
+        if os.path.isfile(self.Imputed_file):
+            f1 = self.Imputed_file
+        else:
+            f1 = self.RNA_file
+
+        with loompy.connect(f1) as ds:
+            with loompy.connect(self.RNA_agg) as dsout:
+                if "pooled" in ds.layers:
+                    cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_TFs_heatmap_pooled.pdf"), layer="pooled")
+                    cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_markers_heatmap_pooled.pdf"), layer="pooled")
+                else:
+                    cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_TFs_heatmap.pdf"), layer="")
+                    cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_markers_heatmap.pdf"), layer="")
+                
+                if not 'CellCycle' in ds.ca:
+                    layer = 'pooled' if 'pooled' in ds.ca else ''
+                    species = Species.detect(ds)
+                    CellCycleAnnotator(species).annotate(ds, layer=layer)
+                cgplot.cell_cycle(ds, os.path.join(self.outdir, f"{self.name}_cellcycle.png"))
+
+                cgplot.attrs_on_TSNE(ds = ds,
+									out_file=os.path.join(self.outdir, f"{self.name}_RNA_QC.png"), 
+									attrs=["DoubletFinderFlag", "DoubletFinderScore", "TotalUMI", "NGenes", "unspliced_ratio", "MT_ratio"], 
+									plot_title=["Doublet Flag", "Doublet Score", "UMI counts", "Number of genes", "Unspliced / Total UMI", "Mitochondrial / Total UMI"])
+

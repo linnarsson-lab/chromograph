@@ -52,4 +52,4 @@ def Motif_heatmap(ds, outfile, N:int=None):
     cbar.ax.tick_params(labelsize=18) 
     cbar.set_label('-log10 p-val', fontsize=18)
     
-    plt.savefig(outfile, dpi=144)
+    plt.savefig(outfile, dpi=300)

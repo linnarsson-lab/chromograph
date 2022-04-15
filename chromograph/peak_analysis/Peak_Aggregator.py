@@ -12,6 +12,7 @@ import multiprocessing as mp
 
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
+from chromograph.peak_analysis.feature_selection_by_PearsonResiduals import FeatureSelectionByPearsonResiduals
 
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
@@ -37,7 +38,7 @@ class Peak_Aggregator:
         '''
         self.config = config.load_config()
 
-    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None, reorder: bool = True) -> None:
+    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None, reorder: bool = True, motifs: bool = True, by_attr: str = 'Clusters') -> None:
         '''
         Aggregate the matrix, find markers and annotate enriched motifs by homer
         
@@ -48,6 +49,7 @@ class Peak_Aggregator:
         '''
         self.outdir = '/' + os.path.join(*out_file.split('/')[:-1], 'exported')
         self.motifdir = '/' + os.path.join(*out_file.split('/')[:-1], 'motifs')
+        self.peakdir = '/' + os.path.join(*out_file.split('/')[:-1], 'peaks')
 
         if not 'NPeaks' in ds.ca:
             logging.info('Calculating peak and cell coverage')
@@ -66,14 +68,17 @@ class Peak_Aggregator:
             "SampleID": "tally",
             "TissuePool": "first",
             "Outliers": "mean",
+            "Aneuploid": 'mode',
             "PCW": "mean"
         }
-        cells = ds.col_attrs["Clusters"] >= 0
-        labels = ds.col_attrs["Clusters"][cells]
-        n_labels = len(set(labels))
 
-        logging.info("Aggregating clusters")
-        ds.aggregate(out_file, None, "Clusters", "sum", agg_spec)
+        cells = ds.col_attrs[by_attr] >= 0
+        labels = ds.col_attrs[by_attr][cells]
+        n_labels = len(set(labels))
+        name = out_file.split('/')[-1].split('_')[0]
+
+        logging.info(f"Aggregating by {by_attr}")
+        ds.aggregate(out_file, None, by_attr, "sum", agg_spec)
         with loompy.connect(out_file) as dsout:
 
             if n_labels <= 1:
@@ -91,12 +96,14 @@ class Peak_Aggregator:
             ## Call positive and negative peaks for every cluster
             dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout, bounds=(5,40))
 
-            ## Select markers by residuals
-            markers = Enrichment_by_residuals(dsout)
+            ## Select cluster markers by residuals
+            _ = Enrichment_by_residuals(dsout)
+            dsout.ra.Valid2, dsout.ra.residuals = FeatureSelectionByPearsonResiduals(n_genes=self.config.params.N_peaks_decomp, layer='CPM', mask=np.isin(ds.ra.Chr, ['chrX', 'chrY'])).fit(dsout)
+            markers = np.where(dsout.ra.Valid2)[0]
 
             # Renumber the clusters
             if reorder:
-                logging.info("Renumbering clusters by similarity, and permuting columns")
+                logging.info("Renumbering by similarity, and permuting columns")
 
                 data = dsout[:, :][markers, :].T
                 data[np.where(data<0)] = 0  ## BUG handling. Sometimes values surpass the bit limit in malignant cells
@@ -107,7 +114,13 @@ class Peak_Aggregator:
 
                 # Permute the aggregated file, and renumber
                 dsout.permute(ordering, axis=1)
-                dsout.ca.Clusters = np.arange(n_labels)
+                dsout.ca[by_attr] = np.arange(n_labels)
+
+                # Renumber the original file, and permute
+                d = dict(zip(ordering, np.arange(n_labels)))
+                new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca[by_attr]])
+                ds.ca[by_attr] = new_clusters
+                ds.permute(np.argsort(ds.col_attrs[by_attr]), axis=1)
 
             # Redo the Ward's linkage just to get a tree that corresponds with the new ordering
             data = dsout[:, :][markers, :].T
@@ -116,41 +129,36 @@ class Peak_Aggregator:
             D = pdist(data, 'correlation')
             dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
-            # Renumber the original file, and permute
-            if reorder:
-                d = dict(zip(ordering, np.arange(n_labels)))
-                new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
-                ds.ca.Clusters = new_clusters
-                ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
+            if motifs:
+                ## Run Homer findMotifs to find the top 5 motifs per cluster
+                logging.info(f'Finding enriched motifs among marker peaks')
+                
+                if not os.path.isdir(self.motifdir):
+                    os.mkdir(self.motifdir) 
 
-            ## Run Homer findMotifs to find the top 5 motifs per cluster
-            logging.info(f'Finding enriched motifs among marker peaks')
-            
-            if not os.path.isdir(self.motifdir):
-                os.mkdir(self.motifdir) 
+                piles = []
+                for x in range(dsout.shape[1]):
+                    Valids = dsout.layers['marker_peaks'][:,x]
+                    bed_file = os.path.join(self.motifdir, f'Cluster_{x}.bed')
+                    peaks = BedTool([(dsout.ra['Chr'][x], str(dsout.ra['Start'][x]), str(dsout.ra['End'][x]), str(dsout.ra['ID'][x]), '.', '+') for x in np.where(Valids)[0]]).saveas(bed_file)
+                    piles.append([bed_file, os.path.join(self.motifdir, f'Cluster_{x}')])
 
-            piles = []
-            for x in range(dsout.shape[1]):
-                Valids = dsout.layers['marker_peaks'][:,x]
-                bed_file = os.path.join(self.motifdir, f'Cluster_{x}.bed')
-                peaks = BedTool([(dsout.ra['Chr'][x], str(dsout.ra['Start'][x]), str(dsout.ra['End'][x]), str(dsout.ra['ID'][x]), '.', '+') for x in np.where(Valids)[0]]).saveas(bed_file)
-                piles.append([bed_file, os.path.join(self.motifdir, f'Cluster_{x}')])
+                if os.path.isfile(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
+                    bg_file = os.path.join(self.peakdir, 'Compounded_peaks.bed')
+                else:
+                    bg_file = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
+                
+                for pile in piles:
+                    Homer_find_motifs(bed=pile[0], outdir=pile[1], homer_path=self.config.paths.HOMER, motifs=os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), cpus=mp.cpu_count())
 
-            for pile in piles:
-                Homer_find_motifs(bed=pile[0], outdir=pile[1], homer_path=self.config.paths.HOMER, motifs=os.path.join(chromograph.__path__[0], 'references/human_TFs.motifs'), cpus=mp.cpu_count())
+                dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir, N=self.config.params.N_most_enriched)
 
-            dsout.ca.Enriched_Motifs = retrieve_enrichments(dsout, self.motifdir, N=self.config.params.N_most_enriched)
-
-            # logging.info("Graph skeletonization")
-            # GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
-
-            ## Plot results 
-            name = out_file.split('/')[-1].split('_')[0]
-            if 'UMAP' in ds.ca:
-                logging.info("Plotting UMAP")
-                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
-            logging.info("Plotting TSNE")
-            manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
+                ## Plot results 
+                if 'UMAP' in ds.ca:
+                    logging.info("Plotting UMAP")
+                    manifold(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP.png"), list(dsout.ca.Enriched_Motifs), embedding = 'UMAP')
+                logging.info("Plotting TSNE")
+                manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
 
             ## Plotting neighborhoods and metromap
             cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_neighborhouds.png"))

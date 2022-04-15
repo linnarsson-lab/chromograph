@@ -17,7 +17,6 @@ from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain
 from cytograph.plotting import manifold
-from cytograph.embedding import art_of_tsne
 
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.features.bin_annotation import Bin_annotation
@@ -61,7 +60,7 @@ class Bin_analysis:
         except:
             ds.attrs['bin_size'] = int(int(ds.ra.end[0]) - int(ds.ra.start[0]) + 1)
             self.blayer = '{}kb_bins'.format(int(ds.attrs['bin_size'] / 1000))
-        logging.info(f'Running Chromograph Bin-analysis on {ds.shape[1]} cells with {self.blayer}')
+        logging.info(f'Running Chromograph Bin-analysis on {ds.shape[1]} cells with {ds.shape[0]} bins of size {self.blayer}')
 
         ## Get the output folder
         name = ds.filename.split("/")[-1].split(".")[0].split("_")[0]
@@ -106,58 +105,49 @@ class Bin_analysis:
                 progress.update(self.config.params.batch_size)
             progress.close()
 
-        ## Term-Frequence Inverse-Data-Frequency ##
-        if 'TF-IDF' in self.config.params.Normalization:
-            if 'TF-IDF' not in ds.layers:
-                logging.info(f'Performing TF-IDF')
-                tf_idf = TF_IDF(layer=self.blayer)
-                tf_idf.fit(ds, items=ds.ra.Valid)
-                ds.layers['TF-IDF'] = 'float16'
-                progress = tqdm(total=ds.shape[1])
-                for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.blayer][:,:], selection)
-                    progress.update(self.config.params.batch_size)
-                progress.close()
-                self.blayer = 'TF-IDF'
-                del tf_idf
-                logging.info(f'Finished fitting TF-IDF')
-            self.blayer = 'TF-IDF'
+        ## Faster LSI
+        f_temp = ds.filename + '.tmp'
+        if os.path.isfile(f_temp):
+            os.remove(f_temp)
+        with loompy.new(f_temp) as dst:
+            logging.info(f'Creating temp file for faster LSI')
+            x = np.where(ds.ra.Valid)[0]
+            for (ix, selection, view) in tqdm(ds.scan(layers = [self.blayer], axis=1)):
+                dst.add_columns(view[self.blayer][x,:], col_attrs=view.ca, row_attrs={'loc': ds.ra.loc[x]})
+            dst.ra.Valid = np.ones(dst.shape[0])
 
+            ## Term-Frequence Inverse-Data-Frequency ##
+            logging.info(f'Performing TF-IDF on {dst.shape}')
+            tf_idf = TF_IDF(layer='')
+            tf_idf.fit(dst)
+            dst.layers['TF-IDF'] = 'float16'
+            progress = tqdm(total=dst.shape[1])
+            for (_, selection, view) in dst.scan(axis=1, batch_size=self.config.params.batch_size):
+                dst['TF-IDF'][:,selection] = tf_idf.transform(view[:,:], selection)
+                progress.update(self.config.params.batch_size)
+            progress.close()
+            del tf_idf
+            logging.info(f'Finished fitting TF-IDF')
 
-        if 'PCA' in self.config.params.factorization:
             ## Fit PCA
-            logging.info(f'Fitting PCA to layer {self.blayer}')
-            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
-            pca.fit(ds)
+            logging.info(f'Fitting PCA')
+            pca = PCA(max_n_components = self.config.params.n_factors, layer= '', key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
+            pca.fit(dst)
 
             ## Decompose data
-            ds.ca.LSI_b = pca.transform(ds)
+            ds.ca.LSI_b = pca.transform(dst)
 
             logging.info(f'Finished PCA transformation')
             del pca
 
             ## Get correct embedding and metric
             decomp = ds.ca.LSI_b
-            metric = "euclidean"
-
-        elif 'SVD' in self.config.params.factorization:
-            ## Fit SVD
-            logging.info(f'Fitting SVD to layer {self.blayer}')
-            svd = SVD(max_n_components = self.config.params.n_factors, layer= self.blayer, key_depth= 'NBins', batch_keys = self.config.params.batch_keys)
-            svd.fit(ds)
-
-            ## Decompose data
-            ds.ca.LSI_b = svd.transform(ds)
-
-            logging.info(f'Finished SVD transformation')
-            del svd
-
-            ## Get correct embedding and metric
-            decomp = ds.ca.LSI_b
-            metric = "euclidean"
+        os.remove(f_temp) ## Remove temp file
 
         ## Construct nearest-neighbor graph
-        logging.info(f"Computing balanced KNN (k = {self.config.params.k}) using the '{metric}' metric")
+        metric = self.config.params.f_metric # jaccard js euclidean correlation cosine 
+        logging.info(f"Computing balanced KNN (k = {self.config.params.k}) space using the '{metric}' metric")
+        metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         bnn = BalancedKNN(k=self.config.params.k, metric=metric, maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
         bnn.fit(decomp)
         knn = bnn.kneighbors_graph(mode='distance')
@@ -191,9 +181,9 @@ class Bin_analysis:
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
         if self.UMAP==True:
             logging.info("Generating UMAP from decomposition")
-            ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+            ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, verbose=True).fit_transform(decomp)
             logging.info("Generating 3D UMAP from decomposition")
-            ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+            ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, verbose=True).fit_transform(decomp)
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
@@ -214,10 +204,6 @@ class Bin_analysis:
         Bin_annotation(ds, self.config.paths.ref)
         
         ## Plot results on manifold
-        # if 'UMAP' in ds.ca:
-        #     logging.info("Plotting UMAP")
-        #     manifold(ds, os.path.join(self.outdir, f"{name}_bins_UMAP.png"), embedding = 'UMAP')
-        #     QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_UMAP_QC.png"), embedding = 'UMAP', attrs=['Age', 'Shortname', 'Chemistry', 'Tissue'])
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_bins_TSNE.png"), embedding = 'TSNE')
         QC_plot(ds, os.path.join(self.outdir, f"{name}_bins_TSNE_QC.png"), embedding = 'TSNE', attrs=self.config.params.plot_attrs)

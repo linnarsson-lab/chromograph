@@ -53,7 +53,7 @@ if __name__ == '__main__':
     ## Load punchcard and setup decks for analysis
     deck = PunchcardDeck(config.paths.build)
     for subset in deck.get_leaves():
-        name = subset.name
+        name = subset.longname()
         samples = subset.include
 
         if not name == 'All':
@@ -85,7 +85,10 @@ if __name__ == '__main__':
 
                 ## Get cells passing filters
                 with loompy.connect(file, 'r') as ds:
-                    good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
+                    if ds.ca.Chemistry[0] == 'multiome_atac':
+                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS) & (ds.ca.TotalUMI > config.params.min_umis) & (ds.ca.MT_ratio < config.params.max_fraction_MT_genes) & (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads)
+                    else:
+                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
                     selections.append(good_cells)
 
             ## Get column attributes that should be skipped
@@ -116,7 +119,8 @@ if __name__ == '__main__':
         if 'peak_analysis' in config.steps:
             ## Analyse peak-file
             with loompy.connect(peak_file, 'r+') as ds:
-                peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=False)
+                # peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=False)
+                peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=True)
                 peak_analysis.fit(ds)
 
                 peak_aggregator = Peak_Aggregator()
@@ -139,3 +143,5 @@ if __name__ == '__main__':
             with loompy.connect(binfile, 'r') as ds:
                 Promoter_generator = Generate_promoter(outdir=subset_dir, poisson_pooling=False)
                 GA_file = Promoter_generator.fit(ds)
+
+    logging.info('Done with steps')

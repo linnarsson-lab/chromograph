@@ -64,7 +64,8 @@ def load_config() -> Config:
 			"index": "",
 			"qc": "",
 			"cicero_path": "",
-			"R": ""
+			"R": "",
+			"pythonexe": "/home/camiel/anaconda3/envs/chromo/bin/python"
 		}),
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
@@ -78,23 +79,26 @@ def load_config() -> Config:
 			"Normalization": "TF-IDF", 
 			"factorization": "SVD",  # or "PCA"
 			"peak_factorization": "LSI", # or HPF
+			"feature_selection": "Pearson_Residuals",
 			"n_factors": 40,
 			"HPF_factors": 48,
 			"level": 5000,
 			"max_fragments": 100000,
 			"bin_size": 5000,
-			"peak_size": 400,
-			"fixed_peak_size": True,
-			"bin_quantile": 0.75,
+			"peak_size": False,
+			"bin_quantile": 0.8,
 			"N_peaks_decomp": 20000,
 			"peak_fraction": 0.01,
 			"f_metric": 'euclidean',
 			"UMAP": True,
+			"main_emb": 'UMAP',
+			"min_umis": 1000,
+			"max_fraction_MT_genes": 1,
+			"min_fraction_unspliced_reads": 0.1,
 			# "doublets_action": "remove",
 			# "mask": ("cellcycle", "sex", "ieg", "mt"),
 			"max_doubletFinder_TH": 0.4,
 			"min_fraction_good_cells": 0.4,
-			"max_fraction_MT_genes": 0.05,
 			"min_cells_precluster": 400,
 			"min_cells_cluster": 50,
 			"N_most_enriched": 6,
@@ -102,9 +106,10 @@ def load_config() -> Config:
 			"peak_min_cells": 150,
 			"FR_TSS": 0.2,
 			"reference_assembly": "GRCh38",
-			"Always_iterative": False
+			"Always_iterative": False,
+			"min_split": 15
 		}),
-		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "Karyotype","RNA", "Impute_RNA", "prom", "motifs", "bigwig", "cicero"),
+		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "Karyotype","RNA", "Impute_RNA", "prom", "motifs", "bigwigs", "cicero", 'split'),
 		"execution": Config(**{
 			# "n_cpus": available_cpu_count(),
 			"n_cpus": 26,

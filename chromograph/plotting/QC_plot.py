@@ -72,14 +72,18 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[1].set_xlabel("Log10 fragments")
 
         ## Plot the variance an clustermeans used for feature selection
-        cv = ds.ra.precluster_sd/ds.ra.precluster_mu
-        ax[2].scatter(np.log10(ds.ra.precluster_mu), np.log10(cv), s=1, c='grey', marker='.')
+        if 'preCluster_residuals' in ds.ra:
+            metric = ds.ra.preCluster_residuals
+            ax[2].set_ylabel("Pearson residuals variance across preclusters")
+        else:
+            metric = np.log10((ds.ra.precluster_sd/ds.ra.precluster_mu)+1)
+            ax[2].set_ylabel("Log10(Coefficient of variance)")
+        ax[2].scatter(np.log10(ds.ra.precluster_mu+1), metric, s=1, c='grey', marker='.', lw=0)
         if 'Valid' in ds.ra:
-            ax[2].scatter(np.log10(ds.ra.precluster_mu[np.where(ds.ra.Valid)]), np.log10(cv[np.where(ds.ra.Valid)]), s=1, c='red', marker='.')
+            ax[2].scatter(np.log10(ds.ra.precluster_mu[np.where(ds.ra.Valid)]+1), metric[np.where(ds.ra.Valid)], s=1, c='red', marker='.', lw=0)
             ax[2].set_title("Selection of peaks by variance")
         else:
             ax[2].set_title("Cluster level variance of peaks")
-        ax[2].set_ylabel("Log10(Coefficient of variance)")
         ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
         ## Plot FRIP
@@ -97,7 +101,7 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
         ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']+1), s=1)
         ax[1].set_title("Fragments per cell v. positive bins per cell")
         ax[1].set_ylabel("Log10 Positive Bins")
-        ax[1].set_xlabel("Log10 fragmentss")
+        ax[1].set_xlabel("Log10 fragments")
     
         ## Histogram of Feature Coverage
         ax[2].hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    

@@ -1,10 +1,12 @@
 import numpy as np
-import os
+import os, sys
 import loompy
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from statsmodels.nonparametric.smoothers_lowess import lowess
+from cytograph.pipeline import Tempname
 
+import chromograph
 from chromograph.pipeline.utils import div0
 from chromograph.pipeline import config
 from cytograph.plotting.colors import colorize
@@ -16,6 +18,12 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 logger = logging.getLogger()
+
+def calc_cpu(n_cells):
+    n = np.array([1e2, 1e3, 1e4, 1e5, 5e5, 1e6, 2e6])
+    cpus = [1, 3, 7, 14, 28, 28, 56]
+    idx = (np.abs(n - n_cells)).argmin()
+    return cpus[idx]
 
 class Karyotyper:
     def __init__(self, max_rv = 10, min_fraction:float = .01, window_size: int = 100, smoothing_bandwidth: int = 0, marker: str = 'PTPRC'):
@@ -171,6 +179,9 @@ class Karyotyper:
         ax[i+3].scatter(ds.ca.TSNE[valid,0], ds.ca.TSNE[valid,1], c='blue', s=1)
         ax[i+3].set_title(f'Aneuploidity (P<0.05)')
 
+        for current_ax in ax:
+            current_ax.axis('off')
+            
         bottom = plt.cm.get_cmap('Oranges', 128)
         middle = np.full((50, 4), 0.99)
         middle[:, 3] = 1
@@ -202,3 +213,64 @@ class Karyotyper:
         else:
             name = ds.filename.split('/')[-2]
             fig.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype.png'))
+            fig2.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype_heatmap.png'))
+
+    def generate_punchcards(self, config, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, python_exe=None):
+        loom_file = ds.filename
+        subset = loom_file.split('/')[-1].split('_')[0]
+
+        out_dir = os.path.join(config.paths.build, subset, "exported", 'split')
+
+        with Tempname(out_dir) as exportdir:
+            os.mkdir(exportdir)
+
+            # Calculate split sizes
+            clusters = ds.ca.Aneuploid
+            sizes = np.bincount(clusters)
+            logging.info("Creating punchcard")
+            with open(f'{config.paths.build}/punchcards/{subset}.yaml', 'w') as f:
+                for i in np.unique(clusters):
+                    # Calc cpu and memory
+                    n_cpus = calc_cpu(sizes[i])
+                    memory = 750 if n_cpus == 56 else config.execution.memory
+                    # Write to punchcard
+                    name = 'Aneuploid' if i else 'Euploid'
+                    f.write(f'{name}:\n')
+                    f.write('  include: []\n')
+                    f.write(f'  onlyif: Split == {i}\n')
+                    f.write('  execution:\n')
+                    f.write(f'    n_cpus: {n_cpus}\n')
+                    f.write(f'    memory: {memory}\n')
+                    
+            # create submit file for split
+            workflow = chromograph.__path__[0] + '/pipeline/subset_workflow.py'
+            exdir = os.path.join(config.paths.build, 'submits', 'split')
+            logdir = os.path.join(config.paths.build, 'logs')
+            if not os.path.isdir(exdir):
+                os.mkdir(exdir)
+            if not python_exe:
+                python_exe = os.path.abspath(sys.executable)
+
+            n_cpus = max([calc_cpu(sizes[i]) for i in np.unique(clusters)])
+            file = os.path.join(exdir, f"Split_{subset}.condor")
+            with open(file, "w") as f:
+                names = []
+                for i in np.unique(clusters):
+                    name = chr(i + 65) if i < 26 else chr(i + 39) * 2
+                    names.append(subset + '_' + name)
+                
+                delim = '\n'
+                f.write(f"""
+                        getenv       = true
+                        environment  = "PYTHONPATH=$ENV(CONDA_PREFIX)/lib/python3.7 PYTHONHOME=$ENV(CONDA_PREFIX)"
+                        executable   = {python_exe}
+                        arguments    = "{workflow} $(set)"
+                        log          = {logdir}/$(set).log
+                        output       = {logdir}/$(set).out
+                        error        = {logdir}/$(set).error
+                        request_cpus = {n_cpus}
+                        queue set in (
+                        {delim.join(names)}
+                        )\n
+                        """)
+        return

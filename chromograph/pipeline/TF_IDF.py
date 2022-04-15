@@ -30,7 +30,7 @@ class TF_IDF:
             
             ## Set row totals
             NB = np.sum(view[self.layer][:, :]>0, axis=1)
-            self.IDF[selection] = np.log10(div0(N,NB)+1)
+            self.IDF[selection] = np.log(div0(N,NB)+1)
             progress.update(512)
             
         progress.close()
@@ -40,7 +40,7 @@ class TF_IDF:
 
     def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
         """
-        Calculate the TF-IDF score for array using the previously calculated aggregate statistics
+        Calculate the log-scaled TF-IDF score for array using the previously calculated aggregate statistics
         Args:
             vals (ndarray):		Matrix of shape (n_genes, n_cells)
             cells (ndarray):	Optional indices of the cells that are represented in vals
@@ -51,7 +51,7 @@ class TF_IDF:
         if cells is None:
             cells = slice(None)
         vals = vals.astype("float")
-        vals = np.log10(div0(vals, self.totals[cells]) * self.level + 1)
+        vals = np.log(div0(vals, self.totals[cells]) * self.level + 1)
         
         ## Multiply by Inverse Data Frequency and log scale
         vals = np.nan_to_num(vals*self.IDF[:,None])

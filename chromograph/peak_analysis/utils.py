@@ -140,9 +140,11 @@ def Enrichment_by_residuals(ds:loompy.LoomConnection, theta:int=100, N_markers:i
         mu_other = np.sum(ds[:,:][:,x],axis=1) / np.sum(ds.ca.NCells[x])
         
         ds['log2fc'][:,i] = np.log2(div0(mu_cls+.01, mu_other+.01))
-        
-        q = np.quantile(residuals[:,i], 1-(N_markers/ds.shape[0]))
-        markers = np.array(residuals[:,i]>=q)
+        x = np.argsort(residuals[:,i])[-N_markers:]
+        markers = np.zeros(residuals.shape[0])
+        markers[x] = 1
+        # q = np.quantile(residuals[:,i], 1-(N_markers/ds.shape[0]))
+        # markers = np.array(residuals[:,i]>=q)
         ds['marker_peaks'][:,i] = markers
     
     markers = ds['marker_peaks'].map([np.sum], axis=0)[0] > 0
@@ -241,7 +243,7 @@ def get_conservation_score(ds):
     '''
     BedTool([(ds.ra['Chr'][x], str(ds.ra['Start'][x]), str(ds.ra['End'][x]), str(ds.ra['ID'][x])) for x in range(ds.shape[0])]).saveas('input.bed')
     try:
-        subprocess.call(['bigWigAverageOverBed', '/data/proj/scATAC/ref/hg38.phastCons100way.bw', 'input.bed', 'out.tab'])
+        subprocess.call(['bigWigAverageOverBed', '/datb/sl/camiel/scATAC/ref/hg38.phastCons100way.bw', 'input.bed', 'out.tab'])
         tab = np.loadtxt('out.tab', dtype=str, delimiter='\t')
 
     except:
@@ -252,7 +254,8 @@ def get_conservation_score(ds):
     return np.array(tab[:,-1].astype('float'))
 
     
-def Homer_find_motifs(bed, outdir, homer_path, motifs, cpus=4):
+# def Homer_find_motifs(bed, outdir, homer_path, motifs, bg, cpus=4):
+def Homer_find_motifs(bed, outdir, homer_path, motifs, bg=None, cpus=4):
     """
     Call Homer find motifs to identiy the most enriched motifs per cluster for the top N most enriched peaks.
 
@@ -267,9 +270,12 @@ def Homer_find_motifs(bed, outdir, homer_path, motifs, cpus=4):
     homer = os.path.join(homer_path, 'findMotifsGenome.pl')
 
     ## Call Peaks
-    subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', str(cpus), '-nomotif'], stdout=subprocess.DEVNULL)
-    
-    # ## We only need the narrowPeak file, so clean up the rest
+    if bg:
+        subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', str(cpus), '-nomotif', '-bg', bg], stdout=subprocess.DEVNULL)
+    else:
+        subprocess.run([homer, bed, 'hg38', outdir, '-mknown', motifs, '-p', str(cpus), '-nomotif'], stdout=subprocess.DEVNULL)
+
+    ## We only need the output, do cleanup
     subprocess.run(['rm', bed])
     return f'Completed {outdir}'
 
@@ -284,7 +290,7 @@ def retrieve_enrichments(ds, motif_dir, N=5):
         mat = np.loadtxt(os.path.join(motif_dir, d, 'knownResults.txt'), dtype=str, skiprows=1)
         c_dict[n] = ' '.join([x.split('.')[0] for x in mat[:N,0]])
     
-    motif_markers = np.array([c_dict[x] for x in ds.ca.Clusters])
+    motif_markers = np.array([c_dict[x] for x in range(ds.shape[1])])
     return motif_markers
 
 class iterativeLSI:
@@ -294,46 +300,52 @@ class iterativeLSI:
         '''
         self.config = config.load_config()
 
-    def fit(self, ds: loompy.LoomConnection, skip_TFIDF:bool = False):
+    def fit(self, ds: loompy.LoomConnection):
         '''
         '''
         logging.info(f'Performing Preclustering LSI')
-        if not skip_TFIDF == True:
-            ds.ra.Valid = ds.ra['NCells'] > np.quantile(ds.ra['NCells'], 1 - (20000/ds.shape[0]))
+        mask=np.isin(ds.ra.Chr, ['chrX', 'chrY'])
+        x = np.where(~mask)[0]
+        ds.ra.Valid  = (ds.ra['NCells'] > np.quantile(ds.ra['NCells'][x], 1 - (20000/len(x)))) & (~mask)
+
+        f_temp = ds.filename + '.tmp'
+        if os.path.isfile(f_temp):
+            os.remove(f_temp)
+        with loompy.new(f_temp) as dst:
+            x = np.where(ds.ra.Valid)[0]
+            for (ix, selection, view) in tqdm(ds.scan(layers = [''], axis=1)):
+                ID = 'ID' if 'ID' in ds.ra else 'loc'
+                dst.add_columns(view[''][x,:], col_attrs=view.ca, row_attrs={ID: ds.ra[ID][x]})
+            dst.ra.Valid = np.ones(dst.shape[0])
+
             logging.info(f'Performing TF-IDF')
-            if 'Binary' in ds.layers:
-                tf_idf = TF_IDF(layer='Binary')
-            else:
-                tf_idf = TF_IDF(layer='')
-            tf_idf.fit(ds, items=ds.ra.Valid)
-            ds.layers['TF-IDF'] = 'float16'
+            tf_idf = TF_IDF(layer='')
+            tf_idf.fit(dst)
+            dst.layers['TF-IDF'] = 'float16'
             logging.info(f'Transforming')
-            for (_, selection, view) in ds.scan(axis=1):
-                if 'Binary' in ds.layers:
-                    ds['TF-IDF'][:,selection] = tf_idf.transform(view['Binary'][:,:], selection)
-                else:
-                    ds['TF-IDF'][:,selection] = tf_idf.transform(view[''][:,:], selection)
+            for (_, selection, view) in dst.scan(axis=1):
+                dst['TF-IDF'][:,selection] = tf_idf.transform(view[''][:,:], selection)
             del tf_idf
             logging.info(f'Finished fitting TF-IDF')
 
-        ## Fit PCA
-        logging.info(f'Fitting PCA to layer TF-IDF')
-        pca = PCA(max_n_components = 40, layer= 'TF-IDF', key_depth= 'NPeaks', batch_keys = self.config.params.batch_keys)
-        pca.fit(ds)
+            ## Fit PCA
+            logging.info(f'Fitting PCA to layer TF-IDF')
+            pca = PCA(max_n_components = 40, layer= 'TF-IDF', key_depth= 'NPeaks', batch_keys = self.config.params.batch_keys)
+            pca.fit(dst)
 
-        ## Decompose data
-        ds.ca.LSI = pca.transform(ds)
+            ## Decompose data
+            ds.ca.LSI = pca.transform(dst)
 
-        logging.info(f'Finished PCA transformation')
-        del pca
+            logging.info(f'Finished PCA transformation')
+            del pca
 
-        ## Get correct embedding and metric
-        decomp = ds.ca.LSI
-        metric = "euclidean"
+            ## Get correct embedding and metric
+            decomp = ds.ca.LSI
+        os.remove(f_temp)
 
         ## Construct nearest-neighbor graph
-        logging.info(f"Computing balanced KNN (k = {25}) space using the '{metric}' metric")
-        bnn = BalancedKNN(k=25, metric=metric, maxl=2 * 25, sight_k=2 * 25, n_jobs=-1)
+        logging.info(f"Computing balanced KNN (k = {25})")
+        bnn = BalancedKNN(k=25, metric=self.config.params.f_metric, maxl=2 * 25, sight_k=2 * 25, n_jobs=-1)
         bnn.fit(decomp)
         knn = bnn.kneighbors_graph(mode='distance')
         knn.eliminate_zeros()
@@ -360,10 +372,11 @@ class iterativeLSI:
         del knn, mknn, rnn
 
         ## Perform tSNE
+        metric = self.config.params.f_metric # jaccard js euclidean correlation cosine 
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
 
         logging.info(f"Computing 2D and 3D embeddings from latent space")
-        logging.info(f"Art of tSNE with distance metrid: {metric_f}")
+        logging.info(f"Art of tSNE with distance metric: {metric_f}")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
 
         ## Perform Clustering

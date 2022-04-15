@@ -9,6 +9,7 @@ import logging
 import shutil
 import pybedtools
 from pybedtools import BedTool
+import glob
 import traceback
 import chromograph
 from scipy import sparse
@@ -106,21 +107,25 @@ def reorder_by_IDs(mat: np.ndarray, IDs):
 def bed_downsample(pile, level, verbose: bool = False):
     '''
     '''
-    p = BedTool(pile[1])
-    frag_count = p.count()
-    fraction = level / frag_count
+    try:
+        p = BedTool(pile[1])
+        frag_count = p.count()
+        fraction = level / frag_count
 
-    if fraction < 1:
-        downsamp = p.random_subset(f=fraction)
-        downsamp.saveas(pile[1])
-        if verbose:
-            logging.info(f'Total fragments: {frag_count} in cluster {pile[0]}, downsampled to {downsamp.count()}')
-    else:
-        if verbose:
-            logging.info(f'cluster {pile[0]} was not downsampled')
+        if fraction < 1:
+            downsamp = p.random_subset(f=fraction)
+            downsamp.saveas(pile[1])
+            if verbose:
+                logging.info(f'Total fragments: {frag_count} in cluster {pile[0]}, downsampled to {downsamp.count()}')
+        else:
+            if verbose:
+                logging.info(f'cluster {pile[0]} was not downsampled')
 
-    logging.info(f'Exported cluster {pile[0]}')
-    pybedtools.helpers.cleanup()
+        if verbose:
+            logging.info(f'Exported cluster {pile[0]}')
+        pybedtools.helpers.cleanup()
+    except:
+        pybedtools.helpers.cleanup()
     return
 
 def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks', verbose: bool = False):
@@ -135,33 +140,23 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks
     peaks = BedTool(f_peaks).saveas()  # Connect to peaks file, save temp to prevent io issues
 
     ## Separate cells and get paths to fragment files
-    for x in cells:
+    try:
+        for x in cells:
         
-        s, c = x.split(':')
-        f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
-        f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
-        try:
+            s, c = x.split(':')
+            f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+            f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
             if os.path.exists(f):
                 cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
             else:
                 cBed = BedTool(f2).sort()
-        except:
-            logging.info(f"Can't find {f}")
-            logging.info(traceback.format_exc())
-            Count_dict[x] = []
-        try:
             if ref_type == 'peaks':
                 pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
             elif ref_type == 'genes':
                 pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
-        except:
-            logging.info(f'Problem intersecting {f}')
-            logging.info(traceback.format_exc())
-            Count_dict[x] = []
-            return
-        try:
-            cDict = {}
+            
             ## Extract peak_IDs
+            cDict = {}
             for line in pks:
                 if ref_type == 'peaks':
                     k = line[3]
@@ -172,20 +167,63 @@ def Count_peaks(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str = 'peaks
                     cDict[k] = 1
                 else:
                     cDict[k] += 1
-        except:
-            logging.info(f'Problem counting {f}')
-            logging.info(traceback.format_exc())
-            Count_dict[x] = []
-            return
-        try:
             ## Collect in output dictionary
             Count_dict[x] = cDict
-        except:
-            ## If file can't be found print the path to file
-            Count_dict[x] = []
-            logging.info(f" Problem collecting to main dict {f}")
-            logging.info(traceback.format_exc())
-            return
+    except:
+        pybedtools.helpers.cleanup()
+        return
+
+    # for x in cells:
+        
+    #     s, c = x.split(':')
+    #     f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+    #     f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
+    #     try:
+    #         if os.path.exists(f):
+    #             cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
+    #         else:
+    #             cBed = BedTool(f2).sort()
+    #     except:
+    #         logging.info(f"Can't find {f}")
+    #         logging.info(traceback.format_exc())
+    #         Count_dict[x] = []
+    #     try:
+    #         if ref_type == 'peaks':
+    #             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+    #         elif ref_type == 'genes':
+    #             pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
+    #     except:
+    #         logging.info(f'Problem intersecting {f}')
+    #         logging.info(traceback.format_exc())
+    #         Count_dict[x] = []
+    #         return
+    #     try:
+    #         cDict = {}
+    #         ## Extract peak_IDs
+    #         for line in pks:
+    #             if ref_type == 'peaks':
+    #                 k = line[3]
+    #             elif ref_type == 'genes':
+    #                 k = line.attrs['gene_id']
+    #             ## Add count to dict
+    #             if k not in cDict.keys():
+    #                 cDict[k] = 1
+    #             else:
+    #                 cDict[k] += 1
+    #     except:
+    #         logging.info(f'Problem counting {f}')
+    #         logging.info(traceback.format_exc())
+    #         Count_dict[x] = []
+    #         return
+    #     try:
+    #         ## Collect in output dictionary
+    #         Count_dict[x] = cDict
+    #     except:
+    #         ## If file can't be found print the path to file
+    #         Count_dict[x] = []
+    #         logging.info(f" Problem collecting to main dict {f}")
+    #         logging.info(traceback.format_exc())
+    #         return
     if verbose:
         logging.info(f'Completed job {id}')
     pkl.dump(Count_dict, open(os.path.join(peak_dir, f'{id}.pkl'), 'wb'))
@@ -206,41 +244,75 @@ def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str =
     mat = sparse.lil_matrix((peaks.count(),len(cells)), dtype='int8')
 
     ## Separate cells and get paths to fragment files
-    for i, x in enumerate(cells):
-        s, c = x.split(':')
-        f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
-        f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
-        try:
+    try:
+        for i, x in enumerate(cells):
+            s, c = x.split(':')
+            f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+            f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
             if os.path.exists(f):
                 cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
             else:
                 cBed = BedTool(f2).sort()
-        except:
-            logging.info(f"Can't find {f}")
-            logging.info(traceback.format_exc())
-        try:
             if ref_type == 'peaks':
                 pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+                for line in pks:
+                    k = line[3]
+                    mat[peak_dict[k],i] += 1
             elif ref_type == 'genes':
                 pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
-        except:
-            logging.info(f'Problem intersecting {f}')
-            logging.info(traceback.format_exc())
-            return
-        try:
-            ## Extract peak_IDs
-            for line in pks:
-                if ref_type == 'peaks':
-                    k = line[3]
-                elif ref_type == 'genes':
+                for line in pks:
                     k = line.attrs['gene_id']
-                ## Add count to dict
-                mat[peak_dict[k],i] += 1
+                    mat[peak_dict[k],i] += 1
+
+            # ## Extract peak_IDs
+            # for line in pks:
+            #     if ref_type == 'peaks':
+            #         k = line[3]
+            #     elif ref_type == 'genes':
+            #         k = line.attrs['gene_id']
+            #     ## Add count to dict
+            #     mat[peak_dict[k],i] += 1
+    except Exception as e:
+        logging.info(f'{id} failed!')
+        logging.info(e)
+        pybedtools.helpers.cleanup()
+        return
+
+    # for i, x in enumerate(cells):
+    #     s, c = x.split(':')
+    #     f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
+    #     f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
+    #     try:
+    #         if os.path.exists(f):
+    #             cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
+    #         else:
+    #             cBed = BedTool(f2).sort()
+    #     except:
+    #         logging.info(f"Can't find {f}")
+    #         logging.info(traceback.format_exc())
+    #     try:
+    #         if ref_type == 'peaks':
+    #             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
+    #         elif ref_type == 'genes':
+    #             pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
+    #     except:
+    #         logging.info(f'Problem intersecting {f}')
+    #         logging.info(traceback.format_exc())
+    #         return
+    #     try:
+    #         ## Extract peak_IDs
+    #         for line in pks:
+    #             if ref_type == 'peaks':
+    #                 k = line[3]
+    #             elif ref_type == 'genes':
+    #                 k = line.attrs['gene_id']
+    #             ## Add count to dict
+    #             mat[peak_dict[k],i] += 1
                 
-        except:
-            logging.info(f'Problem counting {f}')
-            logging.info(traceback.format_exc())
-            return
+    #     except:
+    #         logging.info(f'Problem counting {f}')
+    #         logging.info(traceback.format_exc())
+    #         return
     if verbose:
         logging.info(f'Completed job {id}')
 
@@ -248,16 +320,15 @@ def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str =
     pybedtools.helpers.cleanup()
     return mat.tocsc()
 
-def export_bigwig(cells, sample_dir, peak_dir, cluster):
+def export_bigwig(cells, sample_dir, peak_dir, cluster, verbose=False):
     '''
     Calculates coverage for a cluster and exports as a bigwig file
     '''
-    files = np.array([os.path.join(sample_dir, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
+    files = [glob.glob(os.path.join(sample_dir, x[0], 'fragments', f'{x[1]}*.tsv.gz')) for x in cells]
+    files = [x for s in files for x in s]
 
-    ## Check if all files exist
-    ex = np.array([os.path.exists(x) for x in files])
-    files = files[ex]
-
+    if verbose:
+        logging.info(f'Found {len(files)} files')
     fmerge = os.path.join(peak_dir, f'fragments_{cluster}.tsv.gz')
     with open(fmerge, 'wb') as out:
         for f in files:
@@ -267,6 +338,8 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster):
     ## Downsample
     bed_downsample([cluster, fmerge], 2.5e7)
    
+    if verbose:
+        logging.info('Bed downsampled')
     ## Unzip and sort
     f_unzip = f'{fmerge.split(".")[0]}.tsv'
     f_sort = f'{fmerge.split(".")[0]}_sorted.bed'
@@ -274,18 +347,24 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster):
     os.system(f'sort -k 1,1 -k2,2n {f_unzip} > {f_sort}')
     os.system(f'rm {f_unzip}')
 
+    if verbose:
+        logging.info('Bed sorted')
     ## Calculate coverage and scale to CPM
     cov = 1e6 / BedTool(f_sort).count()
     f_bg = f'{f_sort.split(".")[0]}.bdg'
     f_genome = os.path.join(chromograph.__path__[0], 'references/male.GRCh38.chrom.sizes')
     os.system(f'bedtools genomecov -i {f_sort} -g {f_genome} -scale {cov} -bg > {f_bg}')
     
+    if verbose:
+        logging.info('Bedgraph created')
     ## Convert to bigwig
     outfile = os.path.join(peak_dir, f'cluster_{str(cluster)}.bw')
     pybedtools.contrib.bigwig.bedgraph_to_bigwig(BedTool(f_bg), genome='hg38', output=outfile)
     
     ## Clean up
     os.system(f'rm {f_bg} {f_sort}')
+    if verbose:
+        logging.info(f'finished {cluster}')
     return
 
 def homer_motif_call(homer, f, motifs, out_file):

@@ -24,13 +24,13 @@ from cytograph.embedding import art_of_tsne
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.plotting import manifold
 
-# sys.path.append('/home/camiel/chromograph/')
 from chromograph.plotting.QC_plot import QC_plot
 from chromograph.pipeline import config
 from chromograph.pipeline.utils import *
 from chromograph.pipeline.TF_IDF import TF_IDF
 from chromograph.pipeline.PCA import PCA
 from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
+from chromograph.peak_analysis.feature_selection_by_PearsonResiduals import FeatureSelectionByPearsonResiduals
 from chromograph.peak_analysis.utils import *
 
 from pynndescent import NNDescent
@@ -65,15 +65,16 @@ class Peak_analysis:
     
     def fit(self, ds: loompy.LoomConnection) -> None:
         logging.info(f"Running Peak_analysis on {ds.shape[1]} cells with {ds.shape[0]} peaks")
-        name = ds.filename.split("/")[-1].split(".")[0].split("_")[0]
+        name = '_'.join(ds.filename.split("/")[-1].split(".")[0].split("_")[:-1])
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         
         ## nonzero (nnz) counts per peak
         logging.info('Calculating peak and cell coverage')
         ds.ra['NCells'] = ds.map([np.count_nonzero], axis=0)[0]
-        ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
-        ds.ca['FRIP'] = div0(ds.ca.NPeaks, ds.ca.passed_filters)
+        if not 'NPeaks' in ds.ca:
+            ds.ca['NPeaks'] = ds.map([np.count_nonzero], axis=1)[0]
+            ds.ca['FRIP'] = div0(ds.ca.NPeaks, ds.ca.passed_filters)
 
         ## Select peaks for manifold learning based on variance between pre-clusters
         logging.info('Select Peaks for manifold learning by variance in preclusters')
@@ -105,13 +106,15 @@ class Peak_analysis:
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
             logging.info('Calculating variance')
             (ds.ra.precluster_mu, ds.ra.precluster_sd) = dsout['CPM'].map((np.mean, np.std), axis=0)
-            logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks for clustering')
+            logging.info(f'Selecting {self.config.params.N_peaks_decomp} peaks using {self.config.params.feature_selection} for clustering')
             dsout.ra.Valid = ((ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction) & (ds.ra.NCells < np.quantile(ds.ra.NCells, 0.99))
-            fs = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM', mask=np.isin(ds.ra.Chr, ['chrX', 'chrY']))
-            ds.ra.Valid = fs.fit(dsout)
+            if self.config.params.feature_selection == 'Pearson_Residuals':
+                ds.ra.Valid, ds.ra.preCluster_residuals = FeatureSelectionByPearsonResiduals(n_genes=self.config.params.N_peaks_decomp, layer='CPM', mask=np.isin(ds.ra.Chr, ['chrX', 'chrY'])).fit(dsout)
+            elif self.config.params.feature_selection == 'Variance':
+                ds.ra.Valid = FeatureSelectionByVariance(n_genes=self.config.params.N_peaks_decomp, layer='CPM', mask=np.isin(ds.ra.Chr, ['chrX', 'chrY'])).fit(dsout)
         ## Delete temporary file
         os.remove(temporary_aggregate)
-            
+        
         ## HPF for manifold learning
         if self.config.params.peak_factorization == 'HPF':
             logging.info(f'Performing HPF, layer = {self.layer}')
@@ -155,38 +158,49 @@ class Peak_analysis:
 
         ## Term-Frequence Inverse-Data-Frequency ##
         if self.config.params.peak_factorization == 'LSI':
-            logging.info(f'Performing TF-IDF')
-            tf_idf = TF_IDF(layer=self.layer)
-            tf_idf.fit(ds, items=ds.ra.Valid)
-            ds.layers['TF-IDF'] = 'float16'
-            progress = tqdm(total=ds.shape[1])
-            for (_, selection, view) in ds.scan(axis=1, batch_size=self.config.params.batch_size):
-                ds['TF-IDF'][:,selection] = tf_idf.transform(view[self.layer][:,:], selection)
-                progress.update(self.config.params.batch_size)
-            progress.close()
-            self.layer = 'TF-IDF'
-            del tf_idf
-            logging.info(f'Finished fitting TF-IDF')
+            ## Faster LSI
+            f_temp = ds.filename + '.tmp'
+            if os.path.isfile(f_temp):
+                os.remove(f_temp)
+            logging.info(f'Making temp file')
+            with loompy.new(f_temp) as dst:
+                x = np.where(ds.ra.Valid)[0]
+                for (ix, selection, view) in tqdm(ds.scan(layers = [''], axis=1)):
+                    dst.add_columns(view[''][x,:], col_attrs=view.ca, row_attrs={'ID': ds.ra.ID[x]})
+                dst.ra.Valid = np.ones(dst.shape[0])
 
-            ## Fit PCA
-            logging.info(f'Fitting PCA to layer {self.layer}')
-            pca = PCA(max_n_components = self.config.params.n_factors, layer= self.layer, key_depth= self.depth_key, batch_keys = self.config.params.batch_keys)
-            pca.fit(ds)
+                ## Term-Frequence Inverse-Data-Frequency ##
+                logging.info(f'Performing TF-IDF')
+                tf_idf = TF_IDF(layer='')
+                tf_idf.fit(dst)
+                dst.layers['TF-IDF'] = 'float16'
+                progress = tqdm(total=dst.shape[1])
+                for (_, selection, view) in dst.scan(axis=1, batch_size=self.config.params.batch_size):
+                    dst['TF-IDF'][:,selection] = tf_idf.transform(view[:,:], selection)
+                    progress.update(self.config.params.batch_size)
+                progress.close()
+                del tf_idf
+                logging.info(f'Finished fitting TF-IDF')
 
-            ## Decompose data
-            ds.ca.LSI = pca.transform(ds)
+                ## Fit PCA
+                logging.info(f'Fitting PCA')
+                pca = PCA(max_n_components = self.config.params.n_factors, layer= '', key_depth= self.depth_key, batch_keys = self.config.params.batch_keys)
+                pca.fit(dst)
 
-            logging.info(f'Finished PCA transformation')
-            del pca
+                ## Decompose data
+                ds.ca.LSI = pca.transform(dst)
 
-            ## Get correct embedding and metric
-            decomp = ds.ca.LSI
-            metric = "euclidean"
+                logging.info(f'Finished PCA transformation')
+                del pca
 
-        metric = self.config.params.f_metric # js euclidean correlation
+                ## Get correct embedding and metric
+                decomp = ds.ca.LSI
+            os.remove(f_temp)
 
         ## Construct nearest-neighbor graph
+        metric = self.config.params.f_metric # jaccard js euclidean correlation cosine 
         logging.info(f"Computing balanced KNN (k = {self.config.params.k}) space using the '{metric}' metric")
+        metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         bnn = BalancedKNN(k=self.config.params.k, metric=metric, maxl=2 * self.config.params.k, sight_k=2 * self.config.params.k, n_jobs=-1)
         bnn.fit(decomp)
         knn = bnn.kneighbors_graph(mode='distance')
@@ -225,21 +239,18 @@ class Peak_analysis:
 
         ## Perform tSNE and UMAP
         logging.info(f"Computing 2D and 3D embeddings from latent space")
-        metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
-        # # metric_f = 'euclidean' # Use if js isn't working
-
         logging.info(f"Art of tSNE with distance metrid: {metric_f}")
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
         
         if self.do_UMAP:
             logging.info(f'Generating UMAP from decomposition using metric {metric_f}')
-            ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+            ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, verbose=True).fit_transform(decomp)
             logging.info(f'Generating 3D UMAP from decomposition using metric {metric_f}')
-            ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25, init='random', verbose=True).fit_transform(decomp)
+            ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, verbose=True).fit_transform(decomp)
 
         ## Perform Clustering
         logging.info("Performing Polished Louvain clustering")
-        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_cluster)
+        pl = PolishedLouvain(outliers=False, graph="RNN", embedding=self.config.params.main_emb, resolution = self.config.params.resolution, min_cells=self.config.params.min_cells_cluster)
         labels = pl.fit_predict(ds)
         ds.ca.ClustersModularity = labels + min(labels)
         ds.ca.OutliersModularity = (labels == -1).astype('int')
@@ -248,12 +259,12 @@ class Peak_analysis:
 
         logging.info("Performing Louvain Polished Surprise clustering")
         try:
-            ps = PolishedSurprise(graph="RNN", embedding="TSNE", min_cells=self.config.params.min_cells_cluster)
+            ps = PolishedSurprise(graph="RNN", embedding=self.config.params.main_emb, min_cells=self.config.params.min_cells_cluster)
+            labels = ps.fit_predict(ds)
+            ds.ca.ClustersSurprise = labels + min(labels)
+            ds.ca.OutliersSurprise = (labels == -1).astype('int')
         except:
             logging.info('Error in polished surprise')
-        labels = ps.fit_predict(ds)
-        ds.ca.ClustersSurprise = labels + min(labels)
-        ds.ca.OutliersSurprise = (labels == -1).astype('int')
         logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
         
 
@@ -261,6 +272,7 @@ class Peak_analysis:
         if 'UMAP' in ds.ca:
             logging.info("Plotting UMAP")
             manifold(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP.png"), embedding = 'UMAP')
+            QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_UMAP_QC.png"), embedding = 'UMAP', attrs=self.config.params.plot_attrs)
         logging.info("Plotting TSNE")
         manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), embedding = 'TSNE')
         QC_plot(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE_QC.png"), embedding = 'TSNE', attrs=self.config.params.plot_attrs)
