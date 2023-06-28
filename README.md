@@ -8,14 +8,6 @@
 5. Gene Activity: Aggregation, marker identification and graph skeletonization
 6. Motifs: Motif scoring based on HOCOMOCO and aggregation/normalization by cluster
 
-## To do:
-* Peak / gene enrichment statistics
-* Lineage inference
-* Feature selection methods
-* Motif enrichments
-* GWAS integration
-* Enhancer prediction
-
 
 ## Installation instruction
 
