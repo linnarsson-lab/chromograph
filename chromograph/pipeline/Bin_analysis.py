@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
 from cytograph.embedding import art_of_tsne
-from cytograph.clustering import PolishedLouvain
+from cytograph.clustering import UnpolishedLouvain, PolishedLouvain
 from cytograph.plotting import manifold
 
 from chromograph.plotting.QC_plot import QC_plot
@@ -33,6 +33,7 @@ import sklearn.metrics
 from scipy.spatial import distance
 import community
 import networkx as nx
+from sknetwork.clustering import Louvain
 from scipy import sparse
 from typing import *
 from tqdm import tqdm
@@ -178,27 +179,24 @@ class Bin_analysis:
         logging.info(f"Computing 2D and 3D embeddings from latent space")
         metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
         logging.info(f"  Art of tSNE with {metric} distance metric")
-        ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+        ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f, exaggeration=2))
+        ds.ca.TSNE_bin = ds.ca.TSNE  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+        
         if self.UMAP==True:
             logging.info("Generating UMAP from decomposition")
             ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, verbose=True).fit_transform(decomp)
             logging.info("Generating 3D UMAP from decomposition")
             ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, verbose=True).fit_transform(decomp)
+            ds.ca.UMAP_bin, ds.ca.UMAP3D_bin = ds.ca.UMAP, ds.ca.UMAP3D
 
-        ## Perform Clustering
-        logging.info("Performing Polished Louvain clustering")
-        if name == 'All':
-            mn = self.config.params.min_cells_precluster
-        else:
-            mn = 10
-        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = self.config.params.resolution, min_cells=mn)
+        logging.info(f'Performing unpolished louvain')
+        pl = UnpolishedLouvain(graph=self.config.params.graph, embedding='TSNE', min_cells=self.config.params.min_cells_precluster)
         labels = pl.fit_predict(ds)
-        ds.ca.ClustersModularity = labels + min(labels)
-        ds.ca.OutliersModularity = (labels == -1).astype('int')
-        ds.ca.Clusters = labels + min(labels) ## Will be overwritten
+        ds.ca.Clusters = labels + min(labels)
         ds.ca.preClusters = ds.ca.Clusters
         ds.ca.Outliers = (labels == -1).astype('int')
-        
+        logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
+
         ## Annotate bins
         logging.info(f"Annotating Bins")
         Bin_annotation(ds, self.config.paths.ref)
@@ -210,4 +208,7 @@ class Bin_analysis:
 
         if name == 'All':
             logging.info(f'Plotting sample distribution')
-            sample_distribution_plot(ds, os.path.join(self.outdir, f"{name}_cell_counts.png"))
+            try:
+                sample_distribution_plot(ds, os.path.join(self.outdir, f"{name}_cell_counts.png"))
+            except:
+                logging.info(f'Sample distribution plot failed')

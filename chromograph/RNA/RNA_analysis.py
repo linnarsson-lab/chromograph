@@ -25,9 +25,9 @@ from chromograph.plotting.sample_distribution_plot import sample_distribution_pl
 import cytograph as cg
 import cytograph.plotting as cgplot
 from cytograph.species import Species
-from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
-from cytograph.enrichment import Trinarizer
+from cytograph.enrichment import Trinarizer, Enrichment
+from cytograph.visualization.plot_overview import PlotOverview
 
 import logging
 logger = logging.getLogger()
@@ -84,7 +84,7 @@ class RNA_analysis():
                     dsout.ca.CellID = rna_barcodes_to_atac(dsout,n=ndigit)
 
                 match = {k:v for v, k in enumerate(ds.ca.CellID)}
-                if len(ds.ca['CellID'][0].split('-'))> 1:
+                if (len(ds.ca['CellID'][0].split('-'))> 1) & (len(dsout.ca['CellID'][0].split('-'))==0):
                     new_order = np.array([match[x + '-1'] for x in dsout.ca['CellID']])
                 else:
                     new_order = np.array([match[x] for x in dsout.ca['CellID']])
@@ -98,6 +98,7 @@ class RNA_analysis():
 
                 logging.info('ordering file')
                 dsout.permute(np.argsort(dsout.col_attrs["Clusters"]), axis=1)
+
             logging.info(f'Finished creating file')  
             
         
@@ -173,13 +174,15 @@ class RNA_analysis():
 
                 with loompy.connect(self.Imputed_file) as dsi:
                     logging.info(dsi.shape)
+                    logging.info(f'Transferring data and normalizing')
 
                     ## Tranfer RNA data
                     for layer in dsr.layers:
                         if layer not in dsi.layers:
-                            dsi[layer] = "uint16"
-                        s = dsr[layer].shape
-                        dsi[layer][:,:s[1]] = dsr[layer][:,:]
+                            dsi[layer] = "float32"
+                        s = dsr[layer].shape[1]
+                        for (_, indexes, view) in tqdm(dsr.scan(axis=0)):
+                            dsi[layer][indexes,:s] = div0(view[layer][:,:], dsr.ca.TotalUMI) * 5000
 
                     ## Transfer column attributes
                     logging.info(f'Transfer attributes')
@@ -189,11 +192,11 @@ class RNA_analysis():
             with loompy.connect(self.Imputed_file) as dsi:
 
                 if len(np.where(dsi.ca.Chemistry!='multiome_atac')[0]) > 0:
+                    logging.info(f'Generating anchor net')
                     anchors = np.where(dsi.ca.Chemistry=='multiome_atac')[0]
                     id_to_anchor = {i: a for i,a in enumerate(anchors)}
                     queries = np.where(dsi.ca.Chemistry!='multiome_atac')[0]
                     id_to_query = {i: a for i,a in enumerate(queries)}
-
                     index = NNDescent(dsi.ca.LSI[anchors])
 
                     X = index.query(dsi.ca.LSI[queries],10)
@@ -246,6 +249,8 @@ class RNA_analysis():
                         progress.update(512)
                     progress.close()
 
+                    dsi.ca['NGenes'] = dsi.map([np.count_nonzero], axis=1)[0]
+
                 logging.info(f"Inferring cell cycle")
                 species = Species.detect(dsi)
                 CellCycleAnnotator(species).annotate(dsi, layer='')
@@ -288,16 +293,21 @@ class RNA_analysis():
 
             with loompy.connect(self.RNA_agg) as dsout:
                 dsout.ca.NCells = np.bincount(labels, minlength=n_labels)[dsout.ca.Clusters]
-
                 dsout.ca.Clusters_peaks = dsout.ca.Clusters
                 dsout.ca.Clusters = np.arange(n_labels)
                 d = {k:v for k, v in zip(dsout.ca.Clusters_peaks, dsout.ca.Clusters)}
                 ds.ca.Clusters_peaks = ds.ca.Clusters
                 ds.ca.Clusters = [d[x] for x in ds.ca.Clusters]
 
+                logging.info("Computing nonzero fractions")
+                enr = Enrichment()
+                # dsout.layers["enrichment"] = enr.fit(dsout, ds)
+                dsout.layers["nonzeros"] = enr.cluster_nonzeros(ds)
+            
                 logging.info("Computing cluster gene enrichment scores")
                 fe = FeatureSelectionByMultilevelEnrichment(mask=Species.detect(ds).mask(dsout, ("cellcycle", "sex", "ieg", "mt")), layer=layer)
-                markers = fe.fit(ds)
+                ds.ra.Selected = fe.fit(ds)
+                markers = ds.ra.Selected == 1
                 dsout.layers["enrichment"] = fe.enrichment
 
                 # Reorder the genes, markers first, ordered by enrichment in clusters
@@ -313,8 +323,8 @@ class RNA_analysis():
                 dsout.permute(gene_order, axis=0)
         
                 logging.info(f'Trinarizing')
-                trinaries = Trinarizer(0.2).fit(ds)
-                dsout['trinaries'] = trinaries[:,dsout.ca.Clusters]
+                trinaries = Trinarizer(0.2).fit(dsout)
+                dsout['trinaries'] = trinaries
 
                 logging.info(f'Annotating')
                 AutoAnnotator(self.config.paths.autoannotation, ds=dsout).annotate(dsout)
@@ -346,7 +356,10 @@ class RNA_analysis():
 
                 annot = np.repeat('', dsout.shape[1]).astype('U128')
                 annot[dsagg.ca.Clusters] = dsagg.ca.MarkerGenes
-                dsout.ca.MarkerGenes = annot      
+                dsout.ca.MarkerGenes = annot     
+
+                ## Transfer the linkage to RNA file
+                dsagg.attrs.linkage = dsout.attrs.linkage 
                 
         with loompy.connect(self.peak_file) as ds:
             with loompy.connect(self.peak_agg) as dsagg:
@@ -363,21 +376,28 @@ class RNA_analysis():
 
         with loompy.connect(f1) as ds:
             with loompy.connect(self.RNA_agg) as dsout:
-                if "pooled" in ds.layers:
-                    cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_TFs_heatmap_pooled.pdf"), layer="pooled")
-                    cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_markers_heatmap_pooled.pdf"), layer="pooled")
-                else:
-                    cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_TFs_heatmap.pdf"), layer="")
-                    cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_markers_heatmap.pdf"), layer="")
+                if ds.ca.Clusters.max() <= 500:
+                    if "pooled" in ds.layers:
+                        cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_TFs_heatmap_pooled.pdf"), layer="pooled")
+                        cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_markers_heatmap_pooled.pdf"), layer="pooled")
+                    else:
+                        cgplot.TF_heatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_TFs_heatmap.pdf"), layer="")
+                        cgplot.markerheatmap(ds, dsout, os.path.join(self.outdir, f"{self.name}_RNA_markers_heatmap.pdf"), layer="")
                 
                 if not 'CellCycle' in ds.ca:
                     layer = 'pooled' if 'pooled' in ds.ca else ''
                     species = Species.detect(ds)
                     CellCycleAnnotator(species).annotate(ds, layer=layer)
                 cgplot.cell_cycle(ds, os.path.join(self.outdir, f"{self.name}_cellcycle.png"))
-
                 cgplot.attrs_on_TSNE(ds = ds,
 									out_file=os.path.join(self.outdir, f"{self.name}_RNA_QC.png"), 
 									attrs=["DoubletFinderFlag", "DoubletFinderScore", "TotalUMI", "NGenes", "unspliced_ratio", "MT_ratio"], 
 									plot_title=["Doublet Flag", "Doublet Score", "UMI counts", "Number of genes", "Unspliced / Total UMI", "Mitochondrial / Total UMI"])
+
+                if not 'subregions' in ds.ca:
+                    ds.ca.subregions = ds.ca.regions
+                ov = PlotOverview(out_file=os.path.join(self.outdir, f"{self.name}_overview.png"))
+                ov.fit(ds, dsout, save=True)
+
+
 

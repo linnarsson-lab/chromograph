@@ -35,6 +35,7 @@ class motif_aggregator():
         self.peak_file = os.path.join(self.subset_dir, f'{self.name}_peaks.agg.loom')
         self.peak_cells = os.path.join(self.subset_dir, f'{self.name}_peaks.loom')
         self.motifdir = os.path.join(self.subset_dir, f'motifs/')
+        self.outdir = os.path.join(self.subset_dir, f'exported/')
         self.motif_file = os.path.join(self.subset_dir, f'{self.name}_motifs.agg.loom')
         self.RNA_file = os.path.join(self.subset_dir, f'{self.name}_RNA.agg.loom')
         self.RNA_cells = os.path.join(self.subset_dir, f'{self.name}_RNA.loom')
@@ -115,8 +116,7 @@ class motif_aggregator():
                 if not os.path.isfile(self.RNA_file):
                     with loompy.connect(self.RNA_cells) as dsr:
                         logging.info(f'Aggregting RNA file first')
-                        cg.pipeline.Aggregator(mask=cg.species.Species.detect(dsr).mask(dsr, 
-                                                ("cellcycle", "sex", "ieg", "mt"))).aggregate(dsr, out_file=self.RNA_file)
+                        cg.pipeline.Aggregator(config=cg.pipeline.config.load_config(), mask=cg.species.Species.detect(dsr).mask(dsr, ("cellcycle", "sex", "ieg", "mt"))).aggregate(dsr, out_file=self.RNA_file)
             else:
                 logging.info('No RNA file')
             
@@ -131,14 +131,19 @@ class motif_aggregator():
                     x = np.where(np.isin(ds.ra.TF, valid_genes))[0]
                     
                     X = ds['-log_pval'][:,:]
-                    select = np.array([np.where(dsa.ra.Gene==TF)[0] for TF in ds.ra.TF[x]])
+                    select = np.array([np.where(dsa.ra.Gene==TF)[0][0] for TF in ds.ra.TF[x]])
                     trinaries = np.ones(ds.shape)
                     v = np.ones((len(x),ds.shape[1]))
                     v[:,dsa.ca.Clusters] = dsa['trinaries'][:,:][select,:].reshape((len(x),dsa.shape[1]))
                     trinaries[x,:] = v
                         
-                    ds['-log_pval_trinaries'] = X * trinaries
+                    # ds['-log_pval_trinaries'] = X * trinaries
+                    ds['-log_pval_filtered'] = X
+                    ds['-log_pval_filtered'][trinaries<.5] = 0
+
+                    x = np.argsort(ds['-log_pval_filtered'][:,:], 0)[-5:,:][::-1,:]
+                    ds.ca.Motifs_filtered  = ['|'.join(x) for x in ds.ra.TF[x].T]
 
             # Motif_heatmap(ds, self.motif_plot, N=5)
             with loompy.connect(self.RNA_file) as dsr:
-                motif_plot(ds, dsr, self.motif_plot, N=5)
+                motif_plot(ds, dsr, self.motif_plot, N=3)

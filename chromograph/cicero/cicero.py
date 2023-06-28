@@ -15,6 +15,7 @@ import numpy as np
 import scipy.stats as stats
 import scipy
 from scipy.spatial.distance import pdist, cdist
+from sklearn.linear_model import LinearRegression
 
 from chromograph.preprocessing.utils import *
 from pybedtools import BedTool
@@ -23,6 +24,11 @@ from inverse_covariance import QuicGraphLasso
 import pandas as pd
 import igraph as ig
 import pickle as pkl
+from numba import jit
+
+@jit(nogil=True, nopython=True)
+def mat_mult(X,Y):
+    return X @ Y
 
 def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
@@ -57,6 +63,7 @@ def find_distance_parameter(ds: loompy.LoomConnection,
     mat = ds['CPM'][window_range,:]
     mat -= mat.mean(axis=1).reshape(mat.shape[0],1)
     mat /= mat.std(axis=1).reshape(mat.shape[0],1)
+    mat = np.nan_to_num(mat)
     
     found = False
     starting_max = 2
@@ -200,6 +207,7 @@ def Calculate_Grahpical_Lasso(ds: loompy.LoomConnection,
     mat = ds['CPM'][win_range,:]
     mat -= mat.mean(axis=1).reshape(mat.shape[0],1)
     mat /= mat.std(axis=1).reshape(mat.shape[0],1)
+    mat = np.nan_to_num(mat)
     
     ## Compute the rho matrix
     rho = rho_matrix(dist_mat, dist_param, s)
@@ -320,12 +328,11 @@ def find_ccan_cutoff(matrix, tolerance_digits):
     return np.round((top+bottom)/2, tolerance_digits)
 
 def generate_ccans(ds, matrix,
-                   peaks:np.array,
                    coaccess_cutoff_override: int = None,
                    tolerance_digits: int = 2):
     
     if coaccess_cutoff_override != None:
-        assert (coaccess_cutoff_override <= 1) & (coaccess_cutoff_override >= 0), "Cutoff value must be between 0 and 1"
+        assert((coaccess_cutoff_override <= 1) & (coaccess_cutoff_override >= 0), "Cutoff value must be between 0 and 1")
         
     if coaccess_cutoff_override != None:
         coaccess_cutoff = coaccess_cutoff_override
@@ -393,9 +400,10 @@ def save_connections(ds, df, outdir):
             file.write('\t'.join(new_line))
             file.write('\n')
 
-def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
-    logging.info(f'Starting Gene activity calculation')
-    out_file = '/' + os.path.join(*ds.filename.split("/")[:-1], f'{ds.filename.split("/")[-2]}_GA.loom')
+def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5, out_file:str = None):
+    # logging.info(f'Starting Gene activity calculation')
+    if not out_file:
+        out_file = '/' + os.path.join(*ds.filename.split("/")[:-1], f'{ds.filename.split("/")[-2]}_GA.loom')
     
     ## Check if position coords already exist
     if not 'pos' in ds.ra:
@@ -419,7 +427,7 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
 
     ## Generate the promoter connectivity matrix
     logging.info(f'Getting matrices')
-    promoter_conn_matrix = sparse.csr_matrix((weights[valids], (sources[valids],targets[valids])), shape=matrix.shape, dtype='float')
+    promoter_conn_matrix = sparse.csr_matrix((weights[valids], (sources[valids],targets[valids])), shape=matrix.shape, dtype='float32')
     promoter_conn_matrix[targets[valids], sources[valids]] = weights[valids]
     promoter_conn_matrix.setdiag(1)
     promoter_conn_matrix = promoter_conn_matrix[TSS_pos,:]
@@ -436,6 +444,8 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
     scaled_site_weights = total_linked_site_weights @ promoter_conn_matrix[:,distal_peaks]
     scaled_site_weights[scaled_site_weights>1] = 1
 
+    NPeaks = np.sum(scaled_site_weights > 0, axis=1)
+
     ## Check if file already exists
     if os.path.isfile(out_file):
         os.remove(out_file)
@@ -443,6 +453,7 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
     logging.info(f'Generating file')   
     
     rows = {k: ds.ra[k][TSS_pos] for k in ds.ra}
+    rows['NPeaks'] = NPeaks
     M = len(TSS_pos)
     
     empty_mat = sparse.csr_matrix((M,ds.shape[1]), dtype=np.float32)
@@ -455,21 +466,42 @@ def generate_Gene_Activity(ds, matrix, dist_thresh:int=2.5e5):
             dsout.col_graphs[k] = ds.col_graphs[k]
         
         ## Generate Gene Accessibility Scores
-        logging.info(f'Generating gene accessibility scores')
+        logging.info(f'Generating gene activity scores')
         progress = tqdm(total = ds.shape[1])
+        scaled_site_weights = scaled_site_weights.T
         for (ix, selection, view) in ds.scan(axis=1):
-            X = view[''][:,:][distal_peaks,:].T @ scaled_site_weights.T
+            # X = view[''][:,:][distal_peaks,:].T @ scaled_site_weights.T
+            X = mat_mult(view[:,:][distal_peaks,:].astype('float32').T, scaled_site_weights)
             dsout[:,selection] = X.T
             progress.update(512)
         progress.close()
 
-        knn = dsout.col_graphs['KNN'].astype("bool")
+        ## Normalize
+        logging.info(f'Normalizing data by coverage')
+        total_peaks = dsout.ca.NPeaks
+        total_activity = dsout[''].map([np.sum], axis=1)[0]
+
+        ## Derive size factors from regression
+        reg = LinearRegression().fit(total_peaks[:,None], total_activity[:,None])
+        fitted = reg.predict(total_peaks[:,None])
+        size_factors = np.log(fitted) / np.mean(np.log(fitted))
+        size_factors = size_factors.flatten()
+        
+        dsout["norm"] = 'float32'
+        progress = tqdm(total = dsout.shape[0])
+        for (_, indexes, view) in dsout.scan(axis=0, layers=[""], what=["layers"]):
+            dsout["norm"][indexes.min(): indexes.max() + 1, :] = view[:, :] / size_factors
+            progress.update(512)
+        progress.close()
         
         ## Start pooling over the network
         logging.info(f'Start pooling over network')
+        knn = dsout.col_graphs['KNN'].astype("bool")
         dsout["pooled"] = 'float32'
         progress = tqdm(total = dsout.shape[0])
-        for (_, indexes, view) in dsout.scan(axis=0, layers=[""], what=["layers"]):
-            dsout["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T 
+        for (_, indexes, view) in dsout.scan(axis=0, layers=["norm"], what=["layers"]):
+            dsout["pooled"][indexes.min(): indexes.max() + 1, :] = view["norm"][:, :] @ knn.T
             progress.update(512)
         progress.close()
+
+        logging.info(f'Finished generating gene activity scores')

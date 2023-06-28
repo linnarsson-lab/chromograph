@@ -26,7 +26,7 @@ def calc_cpu(n_cells):
     return cpus[idx]
 
 class Karyotyper:
-    def __init__(self, max_rv = 10, min_fraction:float = .01, window_size: int = 100, smoothing_bandwidth: int = 0, marker: str = 'PTPRC'):
+    def __init__(self, max_rv = 5, min_fraction:float = .05, window_size: int = 100, smoothing_bandwidth: int = 0, marker: str = 'PTPRC'):
         self.config = config.load_config()
         self.max_rv = max_rv
         self.min_fraction = min_fraction
@@ -136,7 +136,7 @@ class Karyotyper:
             yratio_smooth = None
             
             
-        sig_std = np.percentile(np.std(self.yratio[valid_clusters], axis=1), 95)
+        sig_std = np.percentile(np.std(self.yratio[valid_clusters], axis=1), 99)
         aneuploid = np.std(self.yratio, axis=1) > sig_std
         valid = np.isin(ds.ca.Clusters, np.where(aneuploid)[0])
         ds.ca.Aneuploid = valid
@@ -150,19 +150,20 @@ class Karyotyper:
         fig, ax = plt.subplots(2,4, figsize=(16,8))
         ax = ax.flatten()
 
+        XY = ds.ca[self.config.params.main_emb]
+
         for i, marker in enumerate(markers):
 
             markerpeaks = np.where(dsagg.ra['Gene Name'] == marker)[0]
-
             X = np.sum(ds[markerpeaks,:], axis=0)
 
-            ax[i].scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1], c='lightgray', s=1)
-            ax[i].scatter(ds.ca.TSNE[X>0,0], ds.ca.TSNE[X>0,1], c=X[X>0], cmap = 'viridis', s=.5)
+            ax[i].scatter(XY[:,0], XY[:,1], c='lightgray', s=1)
+            ax[i].scatter(XY[X>0,0], XY[X>0,1], c=X[X>0], cmap = 'YlOrRd', s=1)
             ax[i].set_title(marker)
 
         names, labels = np.unique(ds.ca.Clusters, return_inverse=True)
         colors = colorize(names)
-        ax[i+1].scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1], c=colors[labels], s=.5)
+        ax[i+1].scatter(XY[:,0], XY[:,1], c=colors[labels], s=.5)
         ax[i+1].set_title(f'{ds.shape[1]} Cells')
 
         markerpeaks = np.where(dsagg.ra['Gene Name'] == reference_marker)[0]
@@ -170,14 +171,14 @@ class Karyotyper:
         valid_clusters = np.where(X > 3)[0]
         valid = np.isin(ds.ca.Clusters, valid_clusters)
 
-        ax[i+2].scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1], c='lightgray', s=1)
-        ax[i+2].scatter(ds.ca.TSNE[valid,0], ds.ca.TSNE[valid,1], c='red', s=1)
+        ax[i+2].scatter(XY[:,0], XY[:,1], c='lightgray', s=1)
+        ax[i+2].scatter(XY[valid,0], XY[valid,1], c='red', s=1)
         ax[i+2].set_title(f'Reference clusters')
 
         valid = np.where(ds.ca.Aneuploid)[0]
-        ax[i+3].scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1], c='lightgray', s=1)
-        ax[i+3].scatter(ds.ca.TSNE[valid,0], ds.ca.TSNE[valid,1], c='blue', s=1)
-        ax[i+3].set_title(f'Aneuploidity (P<0.05)')
+        ax[i+3].scatter(XY[:,0], XY[:,1], c='lightgray', s=1)
+        ax[i+3].scatter(XY[valid,0], XY[valid,1], c='blue', s=1)
+        ax[i+3].set_title(f'Aneuploidity (P<0.01)')
 
         for current_ax in ax:
             current_ax.axis('off')
@@ -201,9 +202,10 @@ class Karyotyper:
         labels, xpoint = [],[]
         for k in self.chr_starts:
             pos = np.where(self.chromosomes==k)[0]
-            midpoint = int((pos[-1]+pos[0])/2)
-            xpoint.append(midpoint)
-            labels.append(k.strip('chr'))
+            if len(pos)>0:
+                midpoint = int((pos[-1]+pos[0])/2)
+                xpoint.append(midpoint)
+                labels.append(k.strip('chr'))
         ax2.set_xticks(ticks=xpoint)
         ax2.set_xticklabels(labels=np.array(labels))
         ax2.set_aspect('auto')
@@ -212,10 +214,11 @@ class Karyotyper:
             fig.savefig(out_file)
         else:
             name = ds.filename.split('/')[-2]
-            fig.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype.png'))
-            fig2.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype_heatmap.png'))
+            fig.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype.png'), dpi=300)
+            fig2.savefig(os.path.join(self.config.paths.build, name, 'exported', 'Karyotype_heatmap.png'), dpi=300)
 
     def generate_punchcards(self, config, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, python_exe=None):
+        ds.ca.Split = ds.ca.Aneuploid
         loom_file = ds.filename
         subset = loom_file.split('/')[-1].split('_')[0]
 
@@ -237,7 +240,7 @@ class Karyotyper:
                     name = 'Aneuploid' if i else 'Euploid'
                     f.write(f'{name}:\n')
                     f.write('  include: []\n')
-                    f.write(f'  onlyif: Split == {i}\n')
+                    f.write(f'  onlyif: Aneuploid == {i}\n')
                     f.write('  execution:\n')
                     f.write(f'    n_cpus: {n_cpus}\n')
                     f.write(f'    memory: {memory}\n')
@@ -256,7 +259,7 @@ class Karyotyper:
             with open(file, "w") as f:
                 names = []
                 for i in np.unique(clusters):
-                    name = chr(i + 65) if i < 26 else chr(i + 39) * 2
+                    name = 'Aneuploid' if i else 'Euploid'
                     names.append(subset + '_' + name)
                 
                 delim = '\n'

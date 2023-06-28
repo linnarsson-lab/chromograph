@@ -1,52 +1,23 @@
 #import
 import loompy
-import os
-import sys
+import os, sys, gzip
 import numpy as np
 from tqdm import tqdm
 from typing import *
 import subprocess
-
-import chromograph
-from chromograph.pipeline.utils import *
 
 import fisher
 import scipy.stats as stats
 from statsmodels.sandbox.stats.multicomp import multipletests
 from kneed import KneeLocator
 
-import numpy as np
 import pandas as pd
-import os
-import sys
-import collections
 import matplotlib.pyplot as plt
-import gzip
-import loompy
-import scipy.sparse as sparse
 import urllib.request
-import pybedtools
 import warnings
-import logging
-from tqdm import tqdm
 from numba.core.errors import NumbaPerformanceWarning
 import multiprocessing as mp
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
-
-from cytograph.decomposition import HPF
-from scipy.stats import poisson
-from cytograph.manifold import BalancedKNN
-from cytograph.metrics import jensen_shannon_distance
-from cytograph.embedding import art_of_tsne
-from cytograph.clustering import PolishedLouvain, PolishedSurprise
-from cytograph.plotting import manifold
-
-from chromograph.plotting.QC_plot import QC_plot
-from chromograph.pipeline import config
-from chromograph.pipeline.utils import *
-from chromograph.pipeline.TF_IDF import TF_IDF
-from chromograph.pipeline.PCA import PCA
-from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
 
 from pynndescent import NNDescent
 from umap import UMAP
@@ -57,7 +28,24 @@ from harmony import harmonize
 import community
 import networkx as nx
 from scipy import sparse
-from typing import *
+from pybedtools import BedTool
+
+from cytograph.decomposition import HPF
+from scipy.stats import poisson
+from cytograph.manifold import BalancedKNN
+from cytograph.metrics import jensen_shannon_distance
+from cytograph.embedding import art_of_tsne
+from cytograph.clustering import UnpolishedLouvain, PolishedLouvain
+from cytograph.plotting import manifold
+
+import chromograph
+from chromograph.pipeline.utils import *
+from chromograph.plotting.QC_plot import QC_plot
+from chromograph.pipeline import config
+from chromograph.pipeline.utils import *
+from chromograph.pipeline.TF_IDF import TF_IDF
+from chromograph.pipeline.PCA import PCA
+from chromograph.peak_analysis.feature_selection_by_variance import FeatureSelectionByVariance
 
 import logging
 logger = logging.getLogger()
@@ -82,33 +70,39 @@ def FisherDifferentialPeaks(ds: loompy.LoomConnection, sig_thres: float = 0.05, 
     enrichment = np.zeros(ds.shape)
     q_values = np.zeros(ds.shape)
     log2fc = np.zeros(ds.shape)
-    Total = np.sum(ds.ca.NCells)
     
-    ds.ra.mu = np.mean(ds['CPM'][:,:], axis=1)
+    # ds.ra.mu = np.mean(ds['CPM'][:,:], axis=1)
 
     logging.info(f'Performing Fisher exact tests')
     for label in tqdm(ds.ca.Clusters):
+        Total = np.sum(ds.ca.NCells)
         n_cells = ds.ca.NCells[ds.ca.Clusters == label]
+
+        # c = np.zeros((ds.shape[0],4))
+        # c[:,0] = np.array(ds[:,np.where(ds.ca.Clusters==label)[0]]).astype('int').flatten()
+        # c[:,1] = ds.ra.NCells - c[:,0]
+        # c[:,2] = n_cells - c[:,0]
+        # c[:,3] = Total - n_cells - c[:,1]
+        # c = c.astype(np.uint)
 
         c = np.zeros((ds.shape[0],4))
         c[:,0] = np.array(ds[:,np.where(ds.ca.Clusters==label)[0]]).astype('int').flatten()
-        c[:,1] = ds.ra.NCells - c[:,0]
-        c[:,2] = n_cells - c[:,0]
-        c[:,3] = Total - n_cells - c[:,1]
+        c[:,1] = n_cells - c[:,0]
+        c[:,2] = ds.ra.NCells - c[:,0]
+        c[:,3] = Total - n_cells - c[:,2]
         c = c.astype(np.uint)
 
         _, p, _ = fisher.pvalue_npy(c[:, 0], c[:, 1], c[:, 2], c[:, 3])
-        odds = div0(c[:, 0] * c[:, 3], c[:, 1] * c[:, 2])
-
         _ , q, _, _ =  multipletests(p, sig_thres, method=mtc_method)
-
-        log2fc = np.log2((ds['CPM'][:,label]+1)/(ds.ra.mu+1))
-
-        q[log2fc < fc_thresh] = 1
+        not_i = np.where(np.arange(ds.shape[1]) != label)[0]
+        ctr = np.mean(ds['CPM'][:,not_i], 1)
+        fc = np.log2(div0(ds['CPM'][:,label], ctr))        
+        odds = div0(c[:, 0] * c[:, 3], c[:, 1] * c[:, 2])
+        # q[fc < fc_thresh] = 1
 
         enrichment[:,ds.ca.Clusters == label] = odds.reshape((ds.shape[0],1))
         q_values[:,ds.ca.Clusters == label] = np.array(q).reshape((ds.shape[0],1))
-        log2fc[:,ds.ca.Clusters == label] = log2fc
+        log2fc[:,ds.ca.Clusters == label] = fc[:,np.newaxis]
 
     return enrichment, q_values, log2fc
 
@@ -127,7 +121,7 @@ def Enrichment_by_residuals(ds:loompy.LoomConnection, theta:int=100, N_markers:i
     expected = ds.ca.totals[:,None] @ ds.ra.totals[None,:] / Overall_total
     expected = expected.T
     
-    residuals = div0((data-expected), np.sqrt(expected + np.power(expected, 2)/theta))
+    residuals = div0((data-expected), np.sqrt(expected + np.power(expected, 2)/theta)) ## Clip in case of single-cell!
     ds['residuals'] = residuals
     ds['log2fc'] = 'float16'
     ds['marker_peaks'] = 'int8'
@@ -143,8 +137,6 @@ def Enrichment_by_residuals(ds:loompy.LoomConnection, theta:int=100, N_markers:i
         x = np.argsort(residuals[:,i])[-N_markers:]
         markers = np.zeros(residuals.shape[0])
         markers[x] = 1
-        # q = np.quantile(residuals[:,i], 1-(N_markers/ds.shape[0]))
-        # markers = np.array(residuals[:,i]>=q)
         ds['marker_peaks'][:,i] = markers
     
     markers = ds['marker_peaks'].map([np.sum], axis=0)[0] > 0
@@ -231,7 +223,7 @@ def KneeBinarization(dsagg: loompy.LoomConnection, bins: int = 200, mode: str = 
 
     return peaks, CPM_thres
 
-def get_conservation_score(ds):
+def get_conservation_score(ds, phastcon='/datb/sl/camiel/scATAC/ref/hg38.phastCons100way.bw'):
     '''
     Overlays peaks of PeakxCell matrix with phastcon100way reference to estimate estimate evolutionaryconservation.
     
@@ -243,7 +235,7 @@ def get_conservation_score(ds):
     '''
     BedTool([(ds.ra['Chr'][x], str(ds.ra['Start'][x]), str(ds.ra['End'][x]), str(ds.ra['ID'][x])) for x in range(ds.shape[0])]).saveas('input.bed')
     try:
-        subprocess.call(['bigWigAverageOverBed', '/datb/sl/camiel/scATAC/ref/hg38.phastCons100way.bw', 'input.bed', 'out.tab'])
+        subprocess.call(['bigWigAverageOverBed', phastcon, 'input.bed', 'out.tab'])
         tab = np.loadtxt('out.tab', dtype=str, delimiter='\t')
 
     except:
@@ -254,7 +246,6 @@ def get_conservation_score(ds):
     return np.array(tab[:,-1].astype('float'))
 
     
-# def Homer_find_motifs(bed, outdir, homer_path, motifs, bg, cpus=4):
 def Homer_find_motifs(bed, outdir, homer_path, motifs, bg=None, cpus=4):
     """
     Call Homer find motifs to identiy the most enriched motifs per cluster for the top N most enriched peaks.
@@ -380,16 +371,15 @@ class iterativeLSI:
         ds.ca.TSNE = np.array(art_of_tsne(decomp, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
 
         ## Perform Clustering
-        logging.info("Performing Polished Louvain clustering")
-        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = 1, min_cells=50)
+
+        logging.info("Performing unpolished Louvain clustering")
+        pl = UnpolishedLouvain(graph=self.config.params.graph, embedding="TSNE", min_cells=self.config.params.min_cells_cluster)
         labels = pl.fit_predict(ds)
-        ds.ca.ClustersModularity = labels + min(labels)
-        ds.ca.OutliersModularity = (labels == -1).astype('int')
         ds.ca.preClusters = labels + min(labels)
         ds.ca.Outliers = (labels == -1).astype('int')
         logging.info(f"Found {ds.ca.preClusters.max() + 1} clusters")
 
-def select_preclusters(ds, min_cells=50, min_clusters=25, Always_iterative=False):
+def select_preclusters(ds, min_cells=50, min_clusters=15, Always_iterative=False):
     '''
     '''
     cnt = Counter(ds.ca.preClusters)
@@ -412,3 +402,50 @@ def select_preclusters(ds, min_cells=50, min_clusters=25, Always_iterative=False
         valid_clusters = [k for k,v in cnt.items() if v >= min_cells]
         
     return set(valid_clusters)
+
+def add_graphs(ds, decomp, metric, k):
+    ## Construct nearest-neighbor graph
+    logging.info(f"Computing balanced KNN (k = {k}) space using the '{metric}' metric")
+    metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
+    bnn = BalancedKNN(k=k, metric=metric, maxl=2 * k, sight_k=2 * k, n_jobs=-1)
+    bnn.fit(decomp)
+    knn = bnn.kneighbors_graph(mode='distance')
+    knn.eliminate_zeros()
+    mknn = knn.minimum(knn.transpose())
+    # Convert distances to similarities
+    logging.info(f'Converting distances to similarities knn shape.')
+    max_d = knn.data.max()
+    knn.data = (max_d - knn.data) / max_d
+    mknn.data = (max_d - mknn.data) / max_d
+    ds.col_graphs.KNN = knn
+    ds.col_graphs.MKNN = mknn
+    mknn = mknn.tocoo()
+    mknn.setdiag(0)
+    # Compute the effective resolution
+    logging.info(f'Computing resolution')
+    d = 1 - knn.data
+    radius = np.percentile(d, 90)
+    logging.info(f"  90th percentile radius: {radius:.02}")
+    ds.attrs.radius = radius
+    inside = mknn.data > 1 - radius
+    rnn = sparse.coo_matrix((mknn.data[inside], (mknn.row[inside], mknn.col[inside])), shape=mknn.shape)
+    ds.col_graphs.RNN = rnn
+    return
+
+def isolate_enhancers(ds, reference):
+    '''
+    '''
+    peak_list = BedTool([(ds.ra['Chr'][x], str(ds.ra['Start'][x]), str(ds.ra['End'][x]), str(ds.ra['ID'][x])) for x in range(len(ds.ra['Chr']))]).saveas()
+    enhancers = BedTool(reference)
+    peak_list = peak_list.intersect(enhancers, wa=True)
+    enh_peaks = set([x[3] for x in peak_list])
+    Valid = [x in enh_peaks for x in ds.ra.ID]
+    
+    return np.array(Valid)
+
+def save_as_bed(peaks, f):
+    peaks = np.array([x.split(':') for x in peaks])
+    loc = np.array([x[1].split('-') for x in peaks])
+    ID = np.array([f'{c}:{l[0]}-{l[1]}' for c,l in zip(peaks[:,0],loc)])
+    peaks = np.hstack([peaks[:,0][:,np.newaxis],loc,ID[:,np.newaxis]])
+    np.savetxt(f, peaks, delimiter='\t', fmt='%s')

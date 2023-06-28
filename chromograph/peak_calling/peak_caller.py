@@ -16,9 +16,10 @@ from pybedtools import BedTool
 import MACS2
 import shutil
 import multiprocessing as mp
-from joblib import parallel_backend
-from joblib import Parallel, delayed
+from collections import Counter
 import scipy.sparse as sparse
+
+from cytograph.clustering import UnpolishedLouvain
 
 ## Import chromograph
 import chromograph
@@ -74,6 +75,10 @@ class Peak_caller:
             if not os.path.isdir(self.peakdir):
                 os.mkdir(self.peakdir)   
 
+            ## Check if location for peaks and compounded fragments exists
+            if not os.path.isdir(self.outdir):
+                os.mkdir(self.outdir)   
+
             ## Check if Compounded peaks already exists
             if not os.path.exists(os.path.join(self.peakdir, 'Compounded_peaks.bed')):
                 path_precomp = os.path.join(self.config.paths.build, 'All', 'peaks', 'Compounded_peaks.bed')
@@ -90,7 +95,7 @@ class Peak_caller:
                         shutil.copyfile(os.path.join(self.config.paths.build, 'All', 'peaks', 'motif_annotation.txt'), os.path.join(self.peakdir, 'motif_annotation.txt'))
                 
                 else:
-                    logging.info(f'No precomputed peak list. Calling peaks. Fixed with: {self.config.params.peak_size}')
+                    logging.info(f'No precomputed peak list. Calling peaks. Fixed width: {self.config.params.peak_size}')
                     logging.info(f'Saving peaks to folder {self.peakdir}')
 
                     chunks = []
@@ -98,16 +103,31 @@ class Peak_caller:
                         cluster_select = 'preClusters'
                     else:
                         cluster_select = 'Clusters'
-                    for i in np.unique(ds.ca[cluster_select]):
-                        cells = [x.split(':') for x in ds.ca['CellID'][ds.ca[cluster_select] == i]]
+                    if ds.shape[1] > 2000:
+                        if np.min([v for k,v in Counter(ds.ca[cluster_select]).items()]) < self.config.params.peak_min_cells:
+                            logging.info(f'Some clusters too small, recalculate preClusters')
+                            pl = UnpolishedLouvain(graph='KNN', embedding= self.config.params.main_emb, min_cells=self.config.params.peak_min_cells)
+                            ds.ca['preClusters'] = pl.fit_predict(ds)
+                            cluster_select = 'preClusters'
+                        for i in np.unique(ds.ca[cluster_select]):
+                            cells = [x.split(':') for x in ds.ca['CellID'][ds.ca[cluster_select] == i]]
+                            files = np.array([os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
+                            X = np.random.choice(len(files), size=int(len(files)/2), replace=False)
+                            r1 = np.zeros(len(files)).astype(bool)
+                            r1[X] = True
+
+                            if len(cells) > self.config.params.peak_min_cells:
+                                chunks.append([f'{i}A', files[r1]])
+                                chunks.append([f'{i}B', files[~r1]])
+                    else:
+                        logging.info(f'Too little cells, not  splitting')
+                        cells = [x.split(':') for x in ds.ca['CellID']]
                         files = np.array([os.path.join(self.config.paths.samples, x[0], 'fragments', f'{x[1]}.tsv.gz') for x in cells])
                         X = np.random.choice(len(files), size=int(len(files)/2), replace=False)
                         r1 = np.zeros(len(files)).astype(bool)
                         r1[X] = True
-
-                        if len(cells) > self.config.params.peak_min_cells:
-                            chunks.append([f'{i}A', files[r1]])
-                            chunks.append([f'{i}B', files[~r1]])
+                        chunks.append([f'1A', files[r1]])
+                        chunks.append([f'1B', files[~r1]])
 
                     logging.info(f'Total chunks: {len(chunks)}')
                     piles = [[ck[0], os.path.join(self.peakdir, f'cluster_{ck[0]}.tsv.gz')] for ck in chunks]
@@ -131,8 +151,6 @@ class Peak_caller:
 
                     logging.info(f'Start calling peaks with {mp.cpu_count()} cpus')
                     with mp.get_context().Pool(min(mp.cpu_count(), len(piles)), maxtasksperchild=1) as pool:
-                    # logging.info(f'Start calling peaks')
-                    # with mp.get_context().Pool(8, maxtasksperchild=1) as pool:
                         for pile in piles:
                             pool.apply_async(call_MACS, args=(pile, self.peakdir, self.config.paths.MACS,))
                         pool.close()
@@ -149,15 +167,49 @@ class Peak_caller:
                         peaksize = self.config.params.peak_size
                         if peaksize%2 != 0:
                             peaksize += 1
-                        logging.info(f'Creating compounded set with fixed size: {peaksize}')
+                        logging.info(f'Creating compounded set with fixed width: {peaksize}')
                         g_path = os.path.join(chromograph.__path__[0], 'references/male.GRCh38.chrom.sizes')
                         peaks = []
 
                         ## Get valid peaks from pseudo-replicates
-                        for i in np.unique(ds.ca[cluster_select]):
-                            files = glob.glob(os.path.join(self.peakdir, f'cluster_{i}*summits.bed'))
+                        if ds.shape[1] > 5000:
+                            for i in np.unique(ds.ca[cluster_select]):
+                                files = glob.glob(os.path.join(self.peakdir, f'cluster_{i}*summits.bed'))
+                                bd = [BedTool(f).slop(b=int(peaksize/2), g=g_path) for f in files]
+                                inter = bd[0].intersect(bd[1], wo=True)
+
+                                centers, chr = [], []
+                                for x in inter:
+                                    m1 = np.floor(int(int(x[1]) + int(x[2]))/2)
+                                    m2 = np.floor(int(int(x[6]) + int(x[7]))/2)
+                                    centers.append(np.floor((m1+m2)/2).astype(int))
+                                    chr.append(x[0])
+                                peaks.append(BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)]))
+                            summits = peaks[0].cat(*peaks[1:])
+                            clustered = summits.cluster(d=peaksize).saveas(os.path.join(self.peakdir, 'clustered_peaks.bed'))
+
+                            n_cls = len(np.unique([int(x[3]) for x in clustered]))
+                            sums, n = np.zeros(n_cls), np.zeros(n_cls)
+                            chr = {}
+                            for x in clustered:
+                                id = int(x[3]) -1
+                                sums[id] += int(x[1])
+                                n[id] += 1
+                                if id not in chr:
+                                    chr[id] = x[0]
+                                    
+                            centers = np.floor(sums/n).astype(int)
+                            chr = [chr[i] for i in range(n_cls)]
+
+                            peaks_all = BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)])
+                            peaks_all = peaks_all.slop(b=int(peaksize/2), g=g_path)
+                        else:
+                            logging.info('No clustering of peaks')
+                            files = glob.glob(os.path.join(self.peakdir, f'cluster_*summits.bed'))
+                            logging.info(files)
                             bd = [BedTool(f).slop(b=int(peaksize/2), g=g_path) for f in files]
                             inter = bd[0].intersect(bd[1], wo=True)
+                            logging.info(f'Found overlapping peaks')
 
                             centers, chr = [], []
                             for x in inter:
@@ -165,25 +217,8 @@ class Peak_caller:
                                 m2 = np.floor(int(int(x[6]) + int(x[7]))/2)
                                 centers.append(np.floor((m1+m2)/2).astype(int))
                                 chr.append(x[0])
-                            peaks.append(BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)]))
-                        summits = peaks[0].cat(*peaks[1:])
-                        clustered = summits.cluster(d=peaksize).saveas(os.path.join(self.peakdir, 'clustered_peaks.bed'))
-
-                        n_cls = len(np.unique([int(x[3]) for x in clustered]))
-                        sums, n = np.zeros(n_cls), np.zeros(n_cls)
-                        chr = {}
-                        for x in clustered:
-                            id = int(x[3]) -1
-                            sums[id] += int(x[1])
-                            n[id] += 1
-                            if id not in chr:
-                                chr[id] = x[0]
-                                
-                        centers = np.floor(sums/n).astype(int)
-                        chr = [chr[i] for i in range(n_cls)]
-
-                        peaks_all = BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)])
-                        peaks_all = peaks_all.slop(b=int(peaksize/2), g=g_path)
+                            peaks_all = BedTool([[c, str(x), str(x+1)] for c, x in zip(chr, centers)])
+                            peaks_all = peaks_all.slop(b=int(peaksize/2), g=g_path)
 
                     ## Generate variable-width peak-set
                     else:

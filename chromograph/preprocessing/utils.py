@@ -24,6 +24,10 @@ import itertools
 import multiprocessing as mp
 
 import chromograph
+from chromograph.pipeline.TF_IDF import TF_IDF
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
 
 def get_chrom_sizes(ref: str):
     '''
@@ -408,4 +412,48 @@ def Count_bins(id, cells, sample_dir, chrom_bins, verbose: bool = False):
     ## Cleanup
     pybedtools.helpers.cleanup()
     pkl.dump(mat.tocsc(), open(os.path.join(sample_dir, f'{id}.pkl'), 'wb'))
-    return 
+    return
+
+def add_TSNE(ds):
+    ## Use only Q25 top bins
+    logging.info('Adding TSNE')
+    logging.info(f'Calculating row wise nonzero rate')
+    NCells = ds.map([np.count_nonzero], axis=0)[0]
+    q = np.quantile(NCells, .75)
+    logging.info(f'Using only bins present in more than {q} out of {ds.shape[1]} cells')
+    valid = NCells > q
+
+    f_temp = ds.filename + '.tmp'
+    if os.path.isfile(f_temp):
+        os.remove(f_temp)
+    logging.info(f'Making temp file')
+
+    with loompy.new(f_temp) as dst:
+        x = np.where(valid)[0]
+        for (ix, selection, view) in tqdm(ds.scan(layers = [''], axis=1)):
+            dst.add_columns(view[''][x,:], col_attrs=view.ca, row_attrs={'ID': ds.ra.ID[x]})
+        dst.ra.Valid = np.ones(dst.shape[0])
+
+        ## Term-Frequence Inverse-Data-Frequency ##
+        logging.info(f'Performing TF-IDF')
+        tf_idf = TF_IDF(layer='')
+        tf_idf.fit(dst)
+        dst.layers['TF-IDF'] = 'float16'
+        progress = tqdm(total=dst.shape[1])
+        for (_, selection, view) in dst.scan(axis=1, batch_size=512):
+            dst['TF-IDF'][:,selection] = tf_idf.transform(view[:,:], selection)
+            progress.update(512)
+        progress.close()
+        logging.info(f'Finished fitting TF-IDF')
+
+        ## Fit PCA
+        logging.info(f'Fitting PCA')
+        pca = PCA(n_components=40).fit_transform(dst['TF_IDF'][:,:].T)
+        dst.ca.PCA = pca
+
+        ## Add TSNE
+        xy = TSNE(angle=.5, perplexity=30, verbose=False).fit_transform(dst.ca.PCA)
+        ds.ca.TSNE = xy
+
+    os.remove(dst)
+    return

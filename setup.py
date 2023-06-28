@@ -11,7 +11,7 @@ setup(
 		'loompy',
 		'numpy',
 		'scikit-learn',
-		'scipy==1.4.1',
+		'scipy',
 		'matplotlib',
 		'networkx',
 		'python-louvain',  # is imported as "community"
@@ -19,7 +19,7 @@ setup(
 		'pyyaml',
 		'statsmodels',  # for multiple testing
 		'numpy-groupies==0.9.6',
-		#'numba=0.49.1', ## Version is important, others throw errors
+		#'numba=0.51', ## Version is important, others throw errors (previous 0.49.1)
 		'tqdm',
 		'umap-learn==0.4.6',  # imported as "umap"
 		'torch',

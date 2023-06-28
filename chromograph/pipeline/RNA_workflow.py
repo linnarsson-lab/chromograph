@@ -33,8 +33,8 @@ from chromograph.plotting.QC_plot import QC_plot
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
 from cytograph.clustering import PolishedLouvain
-from cytograph.aggregator import Aggregator
-
+from cytograph.pipeline import Aggregator
+from cytograph.species import Species
 
 ## Setup logger and load config
 config = config.load_config()
@@ -44,18 +44,11 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%H:%M:%S')
 
-current_set = sys.argv[1]
+name = sys.argv[1]
 
 if __name__ == '__main__':
 
     logging.info(f'Starting post-RNA workflow')
-
-    ## Load punchcard and setup decks for analysis
-    deck = PunchcardDeck(config.paths.build)
-
-    subset = deck.get_subset(current_set)
-    name = subset.name
-    samples = subset.include
 
     logging.info(f'Performing the following steps: {config.steps} for build {config.paths.build}')
     ## Check if directory exists
@@ -76,11 +69,12 @@ if __name__ == '__main__':
         os.mkdir(plot_dir)
 
     if 'RNA' in config.steps:
-        if os.path.exists(RNA_agg):
-            logging.info(f'RNA aggregate file already exists')
-        else:
-            with loompy.connect(RNA_file) as ds:
-				Aggregator(config=config, mask=Species.detect(ds).mask(ds, ("cellcycle", "sex", "ieg", "mt"))).aggregate(ds, out_file=RNA_agg)
+        with loompy.connect(RNA_file) as ds:
+            if os.path.exists(RNA_agg):
+                logging.info(f'RNA aggregate file already exists')
+            else:
+                with loompy.connect(RNA_file) as ds:
+                    Aggregator(mask=Species.detect(ds).mask(ds, ("cellcycle", "sex", "ieg", "mt"))).aggregate(ds, out_file=RNA_agg)
 
     if 'prom' in config.steps:
         ## Generate promoter file
@@ -104,16 +98,9 @@ if __name__ == '__main__':
         ## Call peaks
         with loompy.connect(RNA_file, 'r+') as ds:
 
-            if not os.path.isfile(os.path.join(config.paths.build, 'All', 'All_peaks.loom')):
-                if not 'preClusters' in ds.ca:
-                    cls, n = np.unique(ds.ca.Clusters, return_counts=True)
-                    if min(n) < config.params.min_cells_precluster:
-                        logging.info('performing broad clustering for peak calling')
-                        pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE", resolution = config.params.resolution, min_cells=config.params.min_cells_precluster)
-                        ds.ca.preClusters = pl.fit_predict(ds)
-
-            peak_caller = Peak_caller(outdir=subset_dir)
-            peak_caller.fit(ds)
+            if not os.path.isfile(peak_file):
+                peak_caller = Peak_caller(outdir=subset_dir)
+                peak_caller.fit(ds)
 
     ## Analyse peak-file
     if 'peak_analysis' in config.steps:
@@ -148,11 +135,14 @@ if __name__ == '__main__':
     if 'bigwig' in config.steps:
         ## Export bigwigs by cluster
         with loompy.connect(peak_file, 'r') as ds:
-            logging.info(f'Exporting bigwigs for {name}')
+            bw_dir = os.path.join(subset_dir, 'bigwigs')
+            if not os.path.isdir(bw_dir):
+                os.mkdir(bw_dir)
+            logging.info(f'Exporting bigwigs to {bw_dir}')
             with mp.get_context().Pool(20) as pool:
                 for cluster in np.unique(ds.ca.Clusters):
                     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
-                    pool.apply_async(export_bigwig, args=(cells, config.paths.samples, os.path.join(subset_dir, 'peaks'), cluster,))
+                    pool.apply_async(export_bigwig, args=(cells, config.paths.samples, bw_dir, cluster,))
                 pool.close()
                 pool.join()
         logging.info(f'Finished saving bigwigs')

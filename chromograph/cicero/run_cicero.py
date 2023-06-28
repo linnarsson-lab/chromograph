@@ -16,8 +16,8 @@ logging.basicConfig(
     datefmt='%H:%M:%S')
 
 f = sys.argv[1]
-fagg = sys.argv[2]
-generate_GA = bool(sys.argv[3])
+fagg = f.split('.')[0] + '.agg.loom'
+generate_GA = bool(sys.argv[2])
 
 with loompy.connect(f) as ds:
    with loompy.connect(fagg) as dsagg:

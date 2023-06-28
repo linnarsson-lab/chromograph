@@ -16,8 +16,8 @@ class generate_Coaccessibilty_networks():
         self.peak_agg = dsagg.filename
         self.name = ds.filename.split('/')[-2]
         self.out_dir = '/' + os.path.join(*ds.filename.split('/')[:-1], 'exported')
-        self.cicero_dir = '/' + os.path.join(*ds.filename.split('/')[:-1], 'exported')
-        self.pkl_file = os.path.join(self.out_dir, 'coaccess_matrix.pkl')
+        self.cicero_dir = '/' + os.path.join(*ds.filename.split('/')[:-1], 'cicero')
+        self.pkl_file = os.path.join(self.cicero_dir, 'coaccess_matrix.pkl')
         self.generate_GA = generate_GA
 
     def fit(self):
@@ -41,9 +41,9 @@ class generate_Coaccessibilty_networks():
             matrix = Compute_Coacces(dsagg, alpha=alpha)
 
             ## Find local regions of coaccessibility
-            df, filtered_matrix = generate_ccans(dsagg, matrix, dsagg.ra.ID)
+            df, filtered_matrix = generate_ccans(dsagg, matrix)
             pkl.dump(filtered_matrix, open(self.pkl_file, 'wb'))
-            save_connections(dsagg, df, self.out_dir)
+            save_connections(dsagg, df, self.cicero_dir)
 
             ## Generate the Gene Activity matrix
             if self.generate_GA:

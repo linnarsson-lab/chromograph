@@ -5,7 +5,8 @@ from sklearn.neighbors import NearestNeighbors
 from matplotlib.collections import LineCollection
 
 ## Import from cytograph
-from cytograph.plotting.colors import colorize
+import cytograph.visualization.colors as colors
+from cytograph.visualization.scatter import *
 
 def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", attrs: list = None) -> None:
     '''
@@ -23,135 +24,159 @@ def QC_plot(ds: loompy.LoomConnection, out_file: str, embedding: str = "TSNE", a
     
     n_cells = ds.shape[1]
     has_edges = False
-    if "RNN" in ds.col_graphs:
-        g = ds.col_graphs.RNN
-        has_edges = True
-    elif "MKNN" in ds.col_graphs:
-        g = ds.col_graphs.MKNN
-        has_edges = True
-    if embedding in ds.ca:
-        pos = ds.ca[embedding]
-    else:
-        raise ValueError("Embedding not found in the file")
+    xy = ds.ca[embedding]
     labels = ds.ca["Clusters"]
     if "Outliers" in ds.col_attrs:
         outliers = ds.col_attrs["Outliers"]
     else:
         outliers = np.zeros(ds.shape[1])
-        
+
+    if 'Class' in ds.ca:
+        if attrs != None:
+            if not 'Class' in attrs:
+                attrs.append('Class')
+
     if attrs == None:
-        n_axes = 6
+        n_axes = 8
     else:
         attrs = [x for x in attrs if x in ds.ca]
-        n_axes = 6 + len(attrs)
+        n_axes = 8 + len(attrs)
         
-    nrows = int(np.ceil(n_axes/2))
+    nrows = int(np.ceil(n_axes/3))
         
     # Compute a good size for the markers, based on local density
     min_pts = 50
     eps_pct = 60
     nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
-    nn.fit(pos)
+    nn.fit(xy)
     knn = nn.kneighbors_graph(mode='distance')
     k_radius = knn.max(axis=1).toarray()
-    epsilon = (2500 / (pos.max() - pos.min())) * np.percentile(k_radius, eps_pct)
+    epsilon = (1000 / (xy.max() - xy.min())) * np.percentile(k_radius, eps_pct)
     
-    fig, ax = plt.subplots(nrows, 2, figsize = (20, 10*nrows))
-    ax = ax.flatten()
+    plt.figure(figsize = (30, 10*nrows))
     
     ## Histogram of features per cell    
     if 'Chr' in ds.ra:
-        ax[0].hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
-        ax[0].set_title("Number of positive peaks per cell")
-        ax[0].set_ylabel("Number of Cells")
-        ax[0].set_xlabel("Number of positive peaks")
+        plt.subplot(nrows, 3, 1)
+        plt.hist(ds.ca['NPeaks'], bins=100, alpha=0.5)
+        plt.title("Number of positive peaks per cell")
+        plt.ylabel("Number of Cells")
+        plt.xlabel("Number of positive peaks")
 
-        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NPeaks']+1), s=1)
-        ax[1].set_title("Fragments per cell v. positive peaks per cell")
-        ax[1].set_ylabel("Log10 Positive peaks")
-        ax[1].set_xlabel("Log10 fragments")
+        ax = plt.subplot(nrows, 3, 2)
+        x,y = np.log10(ds.ca['passed_filters']+1), np.log10(ds.ca['NPeaks']+1)
+        m, b = np.polyfit(x, y, 1)
+        plt.scatter(x,y, s=1)
+        plt.plot(x, m*x + b, color="black", lw=0.75, linestyle='--')
+        plt.title(f"Fragments per cell v. positive peaks per cell")
+        plt.ylabel("Log10 Positive peaks")
+        plt.xlabel("Log10 fragments")
 
         ## Plot the variance an clustermeans used for feature selection
         if 'preCluster_residuals' in ds.ra:
             metric = ds.ra.preCluster_residuals
-            ax[2].set_ylabel("Pearson residuals variance across preclusters")
+            ylab = "Pearson residuals variance across preclusters"
         else:
-            metric = np.log10((ds.ra.precluster_sd/ds.ra.precluster_mu)+1)
-            ax[2].set_ylabel("Log10(Coefficient of variance)")
-        ax[2].scatter(np.log10(ds.ra.precluster_mu+1), metric, s=1, c='grey', marker='.', lw=0)
+            metric = np.log10((ds.ra.preCluster_sd/ds.ra.preCluster_mu)+1)
+            ylab = "Log10(Coefficient of variance)"
+        plt.subplot(nrows, 3, 3)
+        plt.scatter(np.log10(ds.ra.preCluster_mu+1), metric, s=1, c='grey', marker='.', lw=0)
         if 'Valid' in ds.ra:
-            ax[2].scatter(np.log10(ds.ra.precluster_mu[np.where(ds.ra.Valid)]+1), metric[np.where(ds.ra.Valid)], s=1, c='red', marker='.', lw=0)
-            ax[2].set_title("Selection of peaks by variance")
+            plt.scatter(np.log10(ds.ra.preCluster_mu[np.where(ds.ra.Valid)]+1), metric[np.where(ds.ra.Valid)], s=1, c='red', marker='.', lw=0)
+            plt.title("Selection of variable peaks")
         else:
-            ax[2].set_title("Cluster level variance of peaks")
-        ax[2].set_xlabel("Log10(Mean peak count (CPM) across preclusters)")
+            plt.title("Cluster level variance of peaks")
+        plt.ylabel(ylab)
+        plt.xlabel("Log10(Mean peak count (CPM) across preclusters)")
 
         ## Plot FRIP
-        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRIP, marker='.', lw=0, s=epsilon)
-        fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
-        ax[3].set_title('Fraction of fragments in peaks')
-        ax[3].axis("off")
+        plt.subplot(nrows, 3, 4)
+        scattern(xy, cmap='viridis', c=ds.ca.FRIP, s=epsilon)
+        plt.colorbar(shrink=.5)
+        plt.title('Fraction of fragments in peaks')
+        plt.axis("off")
 
     else:
-        ax[0].hist(ds.ca['NBins'], bins=100, alpha=0.5)
-        ax[0].set_title("Number of positive bins per cell")
-        ax[0].set_ylabel("Number of Cells")
-        ax[0].set_xlabel("Number of positive bins")
+        plt.subplot(nrows, 3, 1)
+        plt.hist(ds.ca['NBins'], bins=100, alpha=0.5)
+        plt.title("Number of positive bins per cell")
+        plt.ylabel("Number of Cells")
+        plt.xlabel("Number of positive bins")
     
-        ax[1].scatter(np.log10(ds.ca['passed_filters']), np.log10(ds.ca['NBins']+1), s=1)
-        ax[1].set_title("Fragments per cell v. positive bins per cell")
-        ax[1].set_ylabel("Log10 Positive Bins")
-        ax[1].set_xlabel("Log10 fragments")
+        plt.subplot(nrows, 3, 2)
+        x,y = np.log10(ds.ca['passed_filters']+1), np.log10(ds.ca['NBins']+1)
+        m, b = np.polyfit(x, y, 1)
+        plt.scatter(x,y, s=1)
+        plt.plot(x, m*x + b, color="black", lw=0.75, linestyle='--')
+        plt.title("Fragments per cell v. positive bins per cell")
+        plt.ylabel("Log10 Positive Bins")
+        plt.xlabel("Log10 fragments")
     
         ## Histogram of Feature Coverage
-        ax[2].hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
+        plt.subplot(nrows, 3, 3)
+        plt.hist(np.log10(ds.ra['NCells']+1), bins=100, alpha=0.5, range=(0, np.log10(ds.shape[1])+0.5))    
         ## Plot min and max coverage
-        ax[2].axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
-        ax[2].axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
-        ax[2].set_title("Coverage")
-        ax[2].set_ylabel("Number of features")
-        ax[2].set_xlabel("Log10 Coverage")
+        plt.axvline(np.log10(np.min(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+        plt.axvline(np.log10(np.max(ds.ra['NCells'][ds.ra['Valid']==1])+1), color="r")
+        plt.title("Coverage")
+        plt.ylabel("Number of features")
+        plt.xlabel("Log10 Coverage")
 
         ## Plot TSS fraction
-        im2 = ax[3].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=ds.ca.FRtss, marker='.', lw=0, s=epsilon)
-        fig.colorbar(im2, ax=ax[3], orientation='vertical', shrink=.5)
-        ax[3].set_title('TSS fraction')
-        ax[3].axis("off")
+        plt.subplot(nrows, 3, 4)
+        scattern(xy, cmap='viridis', c=ds.ca.FRtss, s=epsilon)
+        plt.colorbar(shrink=.5)
+        plt.title('TSS fraction')
+        plt.axis("off")
     
     ## Plot Age
-    if 'PseudoAge' in ds.ca:
-        age = ds.ca.PseudoAge
-        ax[4].set_title('PseudoAge')
-    else:
-        age = ds.ca.Age
-        ax[4].set_title('Age')
-        
-    im = ax[4].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='gnuplot', c=age, vmin = np.quantile(age, .01), vmax = np.quantile(age, .99), marker='.', lw=0, s=epsilon)
-    fig.colorbar(im, ax=ax[4], orientation='vertical', shrink=.5)
-    ax[4].axis("off")
-
+    age = 'PseudoAge' if 'PseudoAge' in ds.ca else 'Age'
+    plt.subplot(nrows, 3, 5)
+    scattern(xy, c=ds.ca[age], cmap=colors.Colorizer("age").cmap, vmin=5, vmax=14, s=epsilon)
+    plt.title(age)
+    plt.colorbar(label="Age (p.c.w.)", shrink=.5)
+    plt.axis("off")
+    
     ## Plot the number of fragments per cell
-    im = ax[5].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], cmap='viridis', c=np.log10(ds.ca['passed_filters']), marker='.', lw=0, s=epsilon)
-    fig.colorbar(im, ax=ax[5], orientation='vertical', shrink=.5)
-    ax[5].set_title('Log10 fragments')
-    ax[5].axis("off")
+    plt.subplot(nrows, 3, 6)
+    scattern(xy, c=np.log10(ds.ca['passed_filters']), cmap='viridis', s=epsilon)
+    plt.colorbar(label='Log10 fragments', shrink=.5)
+    plt.title('Log10 fragments')
+    plt.axis("off")
+    
+    ## Regions
+    plt.subplot(nrows, 3, 7)
+    labels = ds.ca.regions
+    try:
+        scatterc(xy, c=labels, colors='regions', s=epsilon)
+    except:
+        scatterc(xy, c=labels, colors='tube', s=epsilon)
+    plt.title('Regions')
+    plt.axis("off")
+    
+    ## Sex
+    if 'SEX' not in ds.ca:
+        try:
+            ds.ca.Y = np.sum(ds[np.where(ds.ra.Chr == 'chrY')[0],:], axis=0) / ds.ca.passed_filters
+        except:
+            ds.ca.Y = np.sum(ds[np.where(ds.ra.chrom == 'chrY')[0],:], axis=0) / ds.ca.passed_filters
+        SEX = 'F' if np.median(ds.ca.Y) < .0005 else 'M'
+        ds.ca.SEX = np.repeat(SEX, ds.shape[1])
+    plt.subplot(nrows, 3, 8)
+    labels = ds.ca.SEX
+    scatterc(xy, c=labels, colors='sex', s=epsilon)
+    plt.title('Sex')
+    plt.axis("off")
 
     ## Plot the attributes on the embedding
     if attrs is not None:
         for n, attr in enumerate(attrs):
-            x = n + 6
+            x = n + 9
             
-            ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c='lightgrey', marker='.', lw=0, s=epsilon)
+            plt.subplot(nrows, 3, x)
+            labels = ds.ca[attr]
+            scatterc(xy, c=labels, colors='tube', s=epsilon)
+            plt.title(attr)
+            plt.axis("off")
             
-            names, labels = np.unique(ds.ca[attr], return_inverse=True)
-            colors = colorize(names)
-            ax[x].scatter(ds.ca[embedding][:,0],ds.ca[embedding][:,1], c=colors[labels], marker='.', lw=0, s=epsilon)
-
-            def h(c):
-                return plt.Line2D([], [], color=c, ls="", marker="o")
-            ax[x].legend(handles=[h(colors[i]) for i in range(len(names))], labels=list(names), loc='lower left', markerscale=1, frameon=False, fontsize=10)
-            ax[x].set_title(f'{attr}')
-            ax[x].axis("off")
-            
-    
-    fig.savefig(out_file, format="png", dpi=300, bbox_inches='tight')
+    plt.savefig(out_file, format="png", dpi=300, bbox_inches='tight')

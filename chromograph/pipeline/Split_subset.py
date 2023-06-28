@@ -22,7 +22,7 @@ def calc_cpu(n_cells):
     return cpus[idx]
 
 
-def split_subset(config, subset: str, method: str = 'coverage', thresh: float = None, python_exe=None) -> None:
+def split_subset(config, subset: str, method: str = 'coverage', thresh: float = None, python_exe=None, min_RNA:int=None) -> None:
 
     loom_file = os.path.join(config.paths.build, subset, subset + "_peaks.loom")
     out_dir = os.path.join(config.paths.build, subset, "exported", method)
@@ -30,7 +30,6 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir)
     with Tempname(out_dir) as exportdir:
-        os.mkdir(exportdir)
         with loompy.connect(loom_file) as ds:
 
             if method == 'dendrogram':
@@ -48,6 +47,7 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
                 ds.ca.Split = clusters
                 names, labels = np.unique(ds.ca.Split, return_inverse=True)
 
+                os.mkdir(exportdir)
                 plt.figure(None, (16, 16))
                 colors = colorize(names)
                 plt.scatter(ds.ca[config.params.main_emb][:, 0], ds.ca[config.params.main_emb][:, 1], c=colors[labels], s=5)
@@ -105,16 +105,24 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
                 ## Get counts of partitions and stop if one partition is too small
                 p1 = np.sum(clusters==0)
                 p2 = np.sum(clusters==1)
-                min_cells = 5 * config.params.min_cells_cluster
+                min_cells = 10 * config.params.min_cells_cluster
                 if (p1 < min_cells) or (p2 < min_cells):
-                    logging.info(f"Not enough cells in partitions ({p1}, {p2}")
+                    logging.info(f"Not enough cells in partitions ({p1}, {p2})")
                     return False, []
+
+                if min_RNA:
+                    r1 = len(np.where((ds.ca.Chemistry=='multiome_atac')&(clusters==0))[0]) / p1
+                    r2 = len(np.where((ds.ca.Chemistry=='multiome_atac')&(clusters==1))[0]) / p2
+                    if (r1 < min_RNA) or (r2 < min_RNA):
+                        logging.info(f"Fraction multiome cells in partitions too low ({r1}, {r2})")
+                        return False, []                    
 
                 # Otherwise save split attribute and plot
                 ds.ca.Split = clusters
                 logging.info(f"Partition is separable: {cov:.5f}.")
                 logging.info(f"Plotting partition")
                 names, labels = np.unique(ds.ca.Split, return_inverse=True)
+                sizes = np.bincount(ds.ca.Split)
 
                 plt.figure(None, (16, 16))
                 colors = colorize(names)
@@ -122,9 +130,10 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
                 plt.axis('off')
                 def h(c):
                     return plt.Line2D([], [], color=c, ls="", marker="o")
-                plt.legend(handles=[h(colors[i]) for i in range(len(names))], labels=list(names), loc='lower left', markerscale=1, frameon=False, fontsize=10)
+                plt.legend(handles=[h(colors[i]) for i in range(len(names))], labels=list([str(name) + ':' + str(n) for name, n in zip(names, sizes)]), loc='lower left', markerscale=1, frameon=False, fontsize=10)
                 plt.title(f"Coverage: {cov:.5f}", fontsize=20)
 
+                os.mkdir(exportdir)
                 plt.savefig(os.path.join(exportdir, "Split.png"), dpi=150)
                 plt.close()
 

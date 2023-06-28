@@ -34,6 +34,7 @@ from chromograph.features.Generate_promoter import Generate_promoter
 from chromograph.features.GA_Aggregator import GA_Aggregator
 from chromograph.motifs.motif_compounder import Motif_compounder
 from chromograph.motifs.motif_aggregation import motif_aggregator
+from chromograph.CNV.Karyotyper import Karyotyper
 
 ## Import punchcards
 from cytograph.pipeline.punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
@@ -51,8 +52,6 @@ current_set = sys.argv[1]
 if __name__ == '__main__':
 
     logging.info(f'Starting subset workflow')
-    bsize = f'{int(config.params.bin_size/1000)}kb'
-
     ## Load punchcard and setup decks for analysis
     deck = PunchcardDeck(config.paths.build)
 
@@ -60,14 +59,18 @@ if __name__ == '__main__':
     name = subset.longname()
 
     ## Decide how to select data
-    if deck.get_subset(current_set).onlyif:
-        select_by = 'Split'
+    if subset.onlyif:
+        select_by, operator, condition = subset.onlyif.split(' ')
         parent = '_'.join(subset.longname().split('_')[:-1])
         main_peaks = os.path.join(os.path.join(config.paths.build, parent, f'{parent}_peaks.loom'))
-    elif deck.get_subset(current_set).include[0][0].isdigit():
-        select_by = 'Samples'
-        samples = subset.include
-        main_peaks = os.path.join(os.path.join(config.paths.build, 'All', 'All_peaks.loom'))
+    elif len(subset.include) > 0:
+        if subset.include[0][0].isdigit():
+            select_by = 'Samples'
+            samples = subset.include
+            main_peaks = os.path.join(os.path.join(config.paths.build, 'All', 'All_peaks.loom'))
+        else:
+            select_by = 'Annotation'
+            main_peaks = os.path.join(os.path.join(config.paths.build, 'All', 'All_peaks.loom'))
     else:
         select_by = 'Annotation'
         main_peaks = os.path.join(os.path.join(config.paths.build, 'All', 'All_peaks.loom'))
@@ -91,9 +94,17 @@ if __name__ == '__main__':
         with loompy.connect(main_peaks, 'r') as ds_main:
             if select_by == 'Split':
                 select = int(deck.get_subset(current_set).onlyif[-1])
-                selection = np.array([x == select for x in ds_main.ca.Split])            
+                selection = np.array([x == select for x in ds_main.ca.Split])      
             elif select_by == 'Samples':
                 selection = np.array([x.split('10X')[-1] in samples for x in ds_main.ca.Name])
+            else:
+                select = np.array(condition.split(',')).astype(ds_main.ca[select_by].dtype)
+                if operator == '!=':
+                    selection = np.array([x != select for x in ds_main.ca[select_by]]).flatten()
+                elif operator == '==':
+                    selection = np.array([x == select for x in ds_main.ca[select_by]]).flatten()
+                elif operator == 'in':
+                    selection = np.isin(ds_main.ca[select_by], select)
             logging.info(f'Cells collected: {np.sum(selection)}')
         loompy.combine_faster([main_peaks], peak_file, selections=[selection])
         
@@ -107,22 +118,33 @@ if __name__ == '__main__':
     ## Analyse peak-file
     if 'peak_analysis' in config.steps:
 
-        if not name == 'All':
-            with loompy.connect(peak_file) as ds:
-                peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
-                peak_analysis.fit(ds)
+        with loompy.connect(peak_file) as ds:
+            peak_analysis = Peak_analysis(outdir=subset_dir, do_UMAP=config.params.UMAP)
+            peak_analysis.fit(ds)
 
-                peak_aggregator = Peak_Aggregator()
+            peak_aggregator = Peak_Aggregator()
+            if name == 'All':
+                peak_aggregator.fit(ds, peak_agg, motifs=True)
+            else:
                 peak_aggregator.fit(ds, peak_agg, motifs=False)
+
+    if 'Karyotype' in config.steps:
+        with loompy.connect(peak_file) as ds:
+            with loompy.connect(peak_agg, 'r') as dsagg:
+                Karyotyper = Karyotyper()
+                Karyotyper.fit(ds, dsagg)
+                Karyotyper.plot(ds, dsagg)
+                Karyotyper.generate_punchcards(config, ds, dsagg, python_exe=config.paths.pythonexe)
+
 
     if 'RNA' in config.steps:
         ## Generate RNA imputation file and annotation
         with loompy.connect(peak_file) as ds:
 
-            if len(np.where(ds.ca.Chemistry=='multiome_atac')[0]) > 0:
+            if len(np.where(ds.ca.Chemistry=='multiome_atac')[0]) > 100:
                 RNA_imputer = RNA_analysis(ds, outdir=subset_dir)
                 RNA_imputer.generate_RNA_file(config.paths.RNA) ## Generate RNA file
-                imputed = True if 'Impute_RNA' in config.steps else False
+                imputed = True if ('Impute_RNA' in config.steps) & (len(np.where(ds.ca.Chemistry=='multiome_atac')[0]) < ds.shape[1]) else False
                 if 'Impute_RNA' in config.steps:
                     RNA_imputer.Impute_RNA() ## Impute RNA on non-RNA samples
                 RNA_imputer.annotate(imputed=imputed) ## Aggregate and annotate clusters
@@ -167,23 +189,33 @@ if __name__ == '__main__':
         ## Export bigwigs by cluster
         with loompy.connect(peak_file, 'r') as ds:
             logging.info(f'Exporting bigwigs for {name}')
-            with mp.get_context().Pool(20) as pool:
+            with mp.get_context().Pool(min(mp.cpu_count(),5)) as pool:
                 for cluster in np.unique(ds.ca.Clusters):
                     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
                     pool.apply_async(export_bigwig, args=(cells, config.paths.samples, bigwig_dir, cluster,))
                 pool.close()
                 pool.join()
+            # for cluster in np.unique(ds.ca.Clusters):
+            #     cells = [x.split(':') for x in ds.ca['CellID'][ds.ca['Clusters'] == cluster]]
+            #     export_bigwig(cells, config.paths.samples, bigwig_dir, cluster)
+
+        with loompy.connect(self.peak_agg) as ds:
+            if 'ClusterName' in ds.ca:
+                for i in range(ds.shape[1]):
+                    f = os.path.join(bigwig_dir, f'cluster_{i}.bw')
+                    f2 = os.path.join(bigwig_dir, f"{ds.ca.ClusterName[i].replace(' ', '_').strip('.')}.bw")
+                    os.rename(f,f2)
+        subprocess.call(['rm', '-rf', 'tmp*'])
         logging.info(f'Finished saving bigwigs')
 
     if 'split' in config.steps:
         if not 'Karyotype' in config.steps:
             with loompy.connect(peak_agg) as ds:
                 n_clusters = ds.shape[1]
-            
-            is_split = False
-            # if config.params.min_split < n_clusters:
-            # is_split, split_job = split_subset(config, subset=name, python_exe=os.path.abspath(sys.executable))
-            is_split, split_job = split_subset(config, subset=name, python_exe=config.paths.pythonexe)
+                method = 'dendrogram' if (n_clusters>100) else 'coverage'
+                logging.info(f'Split using {method}')
+
+            is_split, split_job = split_subset(config, subset=name, python_exe=config.paths.pythonexe, min_RNA=config.params.min_RNA)
             if is_split:
                 logging.info(f'Splitted {name}')
             else:

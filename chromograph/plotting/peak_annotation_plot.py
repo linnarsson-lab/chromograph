@@ -48,6 +48,6 @@ def plot_peak_annotation_wheel(annotation, out_file):
     ax.legend(wedges, labels,
               title="Regions",
               loc="center left",
-              bbox_to_anchor=(1, 0, 0.5, 1))
+              bbox_to_anchor=(1, 0, 0.5, 1), frameon=False)
 
-    plt.savefig(out_file)
+    plt.savefig(out_file, dpi=300, bbox_inches='tight')

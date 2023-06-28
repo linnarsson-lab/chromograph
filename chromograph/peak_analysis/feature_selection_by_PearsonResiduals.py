@@ -4,9 +4,8 @@ import logging
 from chromograph.pipeline.utils import div0
 
 class FeatureSelectionByPearsonResiduals:
-    def __init__(self, n_genes: int, layer: str = "", mask: np.ndarray = None) -> None:
+    def __init__(self, n_genes: int, mask: np.ndarray = None) -> None:
         self.n_genes = n_genes
-        self.layer = layer
         self.mask = mask
 
     def fit(self, ds: loompy.LoomConnection, theta:int=100) -> np.ndarray:
@@ -31,8 +30,10 @@ class FeatureSelectionByPearsonResiduals:
     
         if "Valid" in ds.ra:
             valid = ds.ra.Valid == 1
+            logging.info(f'Picking from {np.sum(valid)} features')
         else:
             valid = np.ones(ds.shape[0], dtype='bool')
+            logging.info(f'No list of valid features given. Use all minus masked chromosomes.')
         if self.mask is not None:
             valid = np.logical_and(valid, np.logical_not(self.mask))
         valid = valid.astype('int')

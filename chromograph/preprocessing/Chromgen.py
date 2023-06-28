@@ -19,6 +19,7 @@ import gc
 import multiprocessing as mp
 
 from chromograph.pipeline import config
+from chromograph.plotting.sample_QC_plot import sample_QC_plots
 from chromograph.preprocessing.utils import *
 from chromograph.features.feature_count import *
 from chromograph.preprocessing.doublet_finder import doublet_finder
@@ -43,34 +44,34 @@ class Chromgen:
         pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
     
-    def fragments_to_count(self, ff, outdir, meta, bsize, chromosomes):
-        '''
-        '''
-        ## Read Fragments and generate size bins
-        logging.info("Read fragments into dict")
-        frag_dict = read_fragments(ff)
+    # def fragments_to_count(self, ff, outdir, meta, bsize, chromosomes):
+    #     '''
+    #     '''
+    #     ## Read Fragments and generate size bins
+    #     logging.info("Read fragments into dict")
+    #     frag_dict = read_fragments(ff)
 
-        ## Split fragments to seperate files for fast indexing
-        logging.info(f"Saving fragments to separate folder for fast indexing")
-        fdir = os.path.join(outdir, 'fragments')
-        if not os.path.isdir(fdir):
-            os.mkdir(fdir)
-        if  len(os.listdir(fdir)) < len(meta['barcode']):
-            i = 0
-            for x in meta['barcode']:
-                f = os.path.join(fdir, f'{x}.tsv.gz')
-                if not os.path.exists(f):
-                    frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
-                i += 1
-                if i%1000 == 0:
-                    logging.info(f'Finished separating fragments for {i} cells')
+    #     ## Split fragments to seperate files for fast indexing
+    #     logging.info(f"Saving fragments to separate folder for fast indexing")
+    #     fdir = os.path.join(outdir, 'fragments')
+    #     if not os.path.isdir(fdir):
+    #         os.mkdir(fdir)
+    #     if  len(os.listdir(fdir)) < len(meta['barcode']):
+    #         i = 0
+    #         for x in meta['barcode']:
+    #             f = os.path.join(fdir, f'{x}.tsv.gz')
+    #             if not os.path.exists(f):
+    #                 frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
+    #             i += 1
+    #             if i%1000 == 0:
+    #                 logging.info(f'Finished separating fragments for {i} cells')
 
-        ## Count fragments inside bins
-        logging.info("Count fragments overlapping with bins")
-        Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
-        logging.info("Finished counting fragments")
+    #     ## Count fragments inside bins
+    #     logging.info("Count fragments overlapping with bins")
+    #     Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
+    #     logging.info("Finished counting fragments")
 
-        return Count_dict
+    #     return Count_dict
 
     def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_fragments: bool = False) -> None:
         ''''
@@ -128,9 +129,8 @@ class Chromgen:
         else:
             with open(fs, "r") as f:
                 summary = json.load(f)
+                summary = {k: str(v) for k,v in summary.items()}
 
-                for k,v in summary.items():
-                    summary[k] = str(v)
             if summary['reference_genomes'] in ["['GRCh38']", "hg38-final3"]:
                 summary['reference_assembly'] = 'GRCh38'
         summary['bin_size'] = bsize
@@ -264,6 +264,7 @@ class Chromgen:
         
         ## Add Y-chromosomal percentage as column attribute
         with loompy.connect(self.loom, 'r+') as ds:
+            ds.ca.FRtss = ds.ca.TSS_fragments / ds.ca.passed_filters
             ds.ca.Y = np.sum(ds[np.where(ds.ra.chrom == 'chrY')[0],:], axis=0) / ds.ca.passed_filters
             SEX = 'F' if np.median(ds.ca.Y) < .0005 else 'M'
             ds.ca.SEX = np.repeat(SEX, ds.shape[1])
@@ -281,6 +282,7 @@ class Chromgen:
             logging.info(f'Transferring doublet score from RNA file')
             with loompy.connect(self.loom) as ds:
                 with loompy.connect(self.RNA_file) as dsr:
+                    logging.info(f"Shape of RNA file: {dsr.shape}")
 
                     if not 'DoubletFinderScore' in dsr.ca:
                         logging.info(f'ERROR: NO DOUBLETFINDERSCORE IN RNA!')
@@ -311,6 +313,13 @@ class Chromgen:
                     ds.ca['unspliced_ratio'] = unspliced_ratio
                     ds.ca['MT_ratio'] = MT_ratio
                     ds.ca['TSNE'] = tsne
+
+        ## Plot QC
+        with loompy.connect(self.loom) as ds:
+            logging.info(f'Generating ATAC QC plots')
+            if not 'TSNE' in ds.ca:
+                add_TSNE(ds)
+            sample_QC_plots(ds, ff, os.path.join(self.config.paths.qc, f'{sample}_QC_atac.png'))
 
         logging.info(f'Finished processing {sample}')
 

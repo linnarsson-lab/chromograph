@@ -29,8 +29,8 @@ def call_MACS(data, pf, macs_path):
     tmpdir = tempfile.mkdtemp(dir = os.getcwd())
 
     ## Call Peaks
-    # cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {fpeaks}'
-    cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 37 --ext 73 --qval 1e-2 -B --SPMR -n {fpeaks} --tempdir {tmpdir}'  ## ENCODE standard
+    cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 100 --ext 200 --qval 5e-2 -B --SPMR -n {fpeaks}  --tempdir {tmpdir}' ## Recommended by MACS team for use with ATAC data to find where Tn5 cuts
+    # cmd = f'{macs_path} callpeak -t {fbed} -f BEDPE -g hs --nomodel --shift 37 --ext 73 --qval 5e-2 -B --SPMR -n {fpeaks} --tempdir {tmpdir}'  ## ENCODE standard
     os.system(cmd)
     
     ## We only need the narrowPeak file, so clean up the rest

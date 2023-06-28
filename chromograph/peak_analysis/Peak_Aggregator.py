@@ -8,7 +8,6 @@ from typing import *
 import multiprocessing as mp
 import pybedtools
 from pybedtools import BedTool
-import multiprocessing as mp
 
 from chromograph.pipeline import config
 from chromograph.peak_analysis.utils import *
@@ -38,7 +37,7 @@ class Peak_Aggregator:
         '''
         self.config = config.load_config()
 
-    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None, reorder: bool = True, motifs: bool = True, by_attr: str = 'Clusters') -> None:
+    def fit(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None, reorder: bool = True, motifs: bool = False, by_attr: str = 'Clusters') -> None:
         '''
         Aggregate the matrix, find markers and annotate enriched motifs by homer
         
@@ -72,6 +71,9 @@ class Peak_Aggregator:
             "PCW": "mean"
         }
 
+        if 'ClusterName' in ds.ca:
+            agg_spec['ClusterName'] = 'first'
+
         cells = ds.col_attrs[by_attr] >= 0
         labels = ds.col_attrs[by_attr][cells]
         n_labels = len(set(labels))
@@ -94,12 +96,14 @@ class Peak_Aggregator:
             dsout.layers['CPM'] = div0(dsout[''][:,:], dsout.ca.Total * 1e-6)
 
             ## Call positive and negative peaks for every cluster
-            dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout, bounds=(5,40))
+            # dsout['binary'], dsout.ca['CPM_thres'] = KneeBinarization(dsout, bounds=(5,40))
 
             ## Select cluster markers by residuals
             _ = Enrichment_by_residuals(dsout)
-            dsout.ra.Valid2, dsout.ra.residuals = FeatureSelectionByPearsonResiduals(n_genes=self.config.params.N_peaks_decomp, layer='CPM', mask=np.isin(ds.ra.Chr, ['chrX', 'chrY'])).fit(dsout)
-            markers = np.where(dsout.ra.Valid2)[0]
+            if not 'Valid' in dsout.ra:
+                dsout.ra.Valid = ((ds.ra.NCells / ds.shape[1]) > self.config.params.peak_fraction) & (ds.ra.NCells < np.quantile(ds.ra.NCells, 0.99))
+                dsout.ra.Valid, dsout.ra.residuals = FeatureSelectionByPearsonResiduals(n_genes=self.config.params.N_peaks_decomp, mask=np.isin(ds.ra.Chr, ['chrX', 'chrY'])).fit(dsout)
+            markers = np.where(dsout.ra.Valid)[0]
 
             # Renumber the clusters
             if reorder:
@@ -129,8 +133,8 @@ class Peak_Aggregator:
             D = pdist(data, 'correlation')
             dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
+            ## Run Homer findMotifs to find the top 5 motifs per cluster
             if motifs:
-                ## Run Homer findMotifs to find the top 5 motifs per cluster
                 logging.info(f'Finding enriched motifs among marker peaks')
                 
                 if not os.path.isdir(self.motifdir):
@@ -161,7 +165,8 @@ class Peak_Aggregator:
                 manifold(ds, os.path.join(self.outdir, f"{name}_peaks_TSNE.png"), list(dsout.ca.Enriched_Motifs), embedding = 'TSNE')
 
             ## Plotting neighborhoods and metromap
-            cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_neighborhouds.png"))
+            if 'KNN' in ds.col_graphs:
+                cgplot.radius_characteristics(ds, os.path.join(self.outdir, f"{name}_neighborhouds.png"))
             # cgplot.metromap(ds, dsout, os.path.join(self.outdir, f"{name}_metromap.png"), embedding = 'TSNE')
 
             return

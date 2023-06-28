@@ -70,28 +70,29 @@ def load_config() -> Config:
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
 			"skip_attrs": [],
-			"plot_attrs": ['SEX', 'Shortname', 'Chemistry', 'Tissue'],
+			"plot_attrs": ['Shortname', 'Chemistry'],
 			"k": 25,
 			"batch_size": 512,
-			"poisson_pooling": True,
 			"k_pooling": 10,
 			"resolution": 1,
 			"Normalization": "TF-IDF", 
 			"factorization": "SVD",  # or "PCA"
 			"peak_factorization": "LSI", # or HPF
+			"graph": "KNN",
 			"feature_selection": "Pearson_Residuals",
+			"clusterer": "unpolished", # unpolished, polished, sknetwork
 			"n_factors": 40,
 			"HPF_factors": 48,
 			"level": 5000,
 			"max_fragments": 100000,
 			"bin_size": 5000,
-			"peak_size": False,
+			"peak_size": 400,
 			"bin_quantile": 0.8,
 			"N_peaks_decomp": 20000,
-			"peak_fraction": 0.01,
+			"peak_fraction": 0.01,  ## Or 0.005
 			"f_metric": 'euclidean',
 			"UMAP": True,
-			"main_emb": 'UMAP',
+			"main_emb": 'TSNE',
 			"min_umis": 1000,
 			"max_fraction_MT_genes": 1,
 			"min_fraction_unspliced_reads": 0.1,
@@ -102,12 +103,13 @@ def load_config() -> Config:
 			"min_cells_precluster": 400,
 			"min_cells_cluster": 50,
 			"N_most_enriched": 6,
-			"peak_depth": 2.5e7,
+			"peak_depth": 5e7,
 			"peak_min_cells": 150,
 			"FR_TSS": 0.2,
 			"reference_assembly": "GRCh38",
-			"Always_iterative": False,
-			"min_split": 15
+			"Always_iterative": True,
+			"min_split": 15,
+			"min_RNA": .1
 		}),
 		"steps": ("bin_analysis", "peak_calling", "peak_analysis", "Karyotype","RNA", "Impute_RNA", "prom", "motifs", "bigwigs", "cicero", 'split'),
 		"execution": Config(**{

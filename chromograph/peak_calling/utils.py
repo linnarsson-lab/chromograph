@@ -13,6 +13,7 @@ import glob
 import traceback
 import chromograph
 from scipy import sparse
+import tempfile
 
 logger = logging.getLogger()
 logging.basicConfig(
@@ -264,55 +265,12 @@ def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str =
                     k = line.attrs['gene_id']
                     mat[peak_dict[k],i] += 1
 
-            # ## Extract peak_IDs
-            # for line in pks:
-            #     if ref_type == 'peaks':
-            #         k = line[3]
-            #     elif ref_type == 'genes':
-            #         k = line.attrs['gene_id']
-            #     ## Add count to dict
-            #     mat[peak_dict[k],i] += 1
     except Exception as e:
         logging.info(f'{id} failed!')
         logging.info(e)
         pybedtools.helpers.cleanup()
         return
 
-    # for i, x in enumerate(cells):
-    #     s, c = x.split(':')
-    #     f = os.path.join(sample_dir, s, 'fragments', f'{c}.tsv.gz')
-    #     f2 = os.path.join(sample_dir, s, 'fragments', f'{c}-1.tsv.gz')
-    #     try:
-    #         if os.path.exists(f):
-    #             cBed = BedTool(f).sort() # Connect to fragment file, make sure it's sorted to prevent 'invalid interval error'
-    #         else:
-    #             cBed = BedTool(f2).sort()
-    #     except:
-    #         logging.info(f"Can't find {f}")
-    #         logging.info(traceback.format_exc())
-    #     try:
-    #         if ref_type == 'peaks':
-    #             pks = peaks.intersect(cBed, wa=True) # Get peaks that overlap with fragment file
-    #         elif ref_type == 'genes':
-    #             pks = peaks.intersect(cBed, wa=True, wb=True) # Get genes that overlap with fragment file
-    #     except:
-    #         logging.info(f'Problem intersecting {f}')
-    #         logging.info(traceback.format_exc())
-    #         return
-    #     try:
-    #         ## Extract peak_IDs
-    #         for line in pks:
-    #             if ref_type == 'peaks':
-    #                 k = line[3]
-    #             elif ref_type == 'genes':
-    #                 k = line.attrs['gene_id']
-    #             ## Add count to dict
-    #             mat[peak_dict[k],i] += 1
-                
-    #     except:
-    #         logging.info(f'Problem counting {f}')
-    #         logging.info(traceback.format_exc())
-    #         return
     if verbose:
         logging.info(f'Completed job {id}')
 
@@ -320,9 +278,12 @@ def Count_peaks_matrix(id, cells, sample_dir, peak_dir, f_peaks, ref_type: str =
     pybedtools.helpers.cleanup()
     return mat.tocsc()
 
-def export_bigwig(cells, sample_dir, peak_dir, cluster, verbose=False):
+def export_bigwig(cells, sample_dir, peak_dir, cluster, downsample_level=None, verbose=False):
     '''
     Calculates coverage for a cluster and exports as a bigwig file
+
+    Args:
+        Cells               Numpy array ()
     '''
     files = [glob.glob(os.path.join(sample_dir, x[0], 'fragments', f'{x[1]}*.tsv.gz')) for x in cells]
     files = [x for s in files for x in s]
@@ -335,16 +296,21 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster, verbose=False):
             with open(f, 'rb') as file:
                 shutil.copyfileobj(file, out)
     
-    ## Downsample
-    bed_downsample([cluster, fmerge], 2.5e7)
-   
     if verbose:
-        logging.info('Bed downsampled')
+        logging.info('Fragments aggregated')
+
+    ## Downsample
+    if downsample_level:
+        if verbose:
+            logging.info(f'Downsample')
+        bed_downsample([cluster, fmerge], downsample_level)
+   
+    tmp_dir = tempfile.mkdtemp(dir = os.getcwd())
     ## Unzip and sort
     f_unzip = f'{fmerge.split(".")[0]}.tsv'
     f_sort = f'{fmerge.split(".")[0]}_sorted.bed'
     os.system(f'gunzip {fmerge}')
-    os.system(f'sort -k 1,1 -k2,2n {f_unzip} > {f_sort}')
+    os.system(f'sort -k 1,1 -k2,2n {f_unzip} -T {tmp_dir} > {f_sort}')
     os.system(f'rm {f_unzip}')
 
     if verbose:
@@ -362,7 +328,7 @@ def export_bigwig(cells, sample_dir, peak_dir, cluster, verbose=False):
     pybedtools.contrib.bigwig.bedgraph_to_bigwig(BedTool(f_bg), genome='hg38', output=outfile)
     
     ## Clean up
-    os.system(f'rm {f_bg} {f_sort}')
+    os.system(f'rm -rf {f_bg} {f_sort} {tmp_dir}')
     if verbose:
         logging.info(f'finished {cluster}')
     return
@@ -463,7 +429,7 @@ def generate_peak_matrix(id, cells, sample_dir, peak_dir, annot, verbose=True):
             counts.data = np.nan_to_num(counts.data, copy=False)
 
             ## Create binary matrix
-            matrix = sparse.csc_matrix((np.ones(counts.nnz), counts.nonzero()), shape=counts.shape)
+            matrix = sparse.csc_matrix((np.ones(counts.nnz), counts.nonzero()), shape=counts.shape, dtype='float32')
 
             if verbose:
                 logging.info(f'Matrix has shape {matrix.shape} with {matrix.nnz} elements')

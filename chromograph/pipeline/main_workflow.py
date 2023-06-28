@@ -86,9 +86,12 @@ if __name__ == '__main__':
                 ## Get cells passing filters
                 with loompy.connect(file, 'r') as ds:
                     if ds.ca.Chemistry[0] == 'multiome_atac':
-                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS) & (ds.ca.TotalUMI > config.params.min_umis) & (ds.ca.MT_ratio < config.params.max_fraction_MT_genes) & (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads)
+                        good_cells = ((ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & 
+                        (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS) & (ds.ca.TotalUMI > config.params.min_umis) & 
+                        (ds.ca.MT_ratio < config.params.max_fraction_MT_genes) & (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads))
                     else:
-                        good_cells = (ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS)
+                        good_cells = ((ds.ca.DoubletFinderFlag == 0) & (ds.ca.passed_filters > config.params.level) & (ds.ca.passed_filters < config.params.max_fragments) & 
+                        (ds.ca.TSS_fragments/ds.ca.passed_filters > config.params.FR_TSS))
                     selections.append(good_cells)
 
             ## Get column attributes that should be skipped
@@ -107,6 +110,8 @@ if __name__ == '__main__':
 
             ## Run primary Clustering and embedding
             with loompy.connect(binfile, 'r+') as ds:
+                ds.ca.Donor = ds.ca.Shortname
+                ds.ca.regions = ds.ca.Tissue
                 bin_analysis = Bin_analysis(outdir=subset_dir, do_UMAP=False)
                 bin_analysis.fit(ds)
 
@@ -125,6 +130,7 @@ if __name__ == '__main__':
 
                 peak_aggregator = Peak_Aggregator()
                 peak_aggregator.fit(ds, peak_agg)
+                ds.ca.Clusters_main = ds.ca.Clusters
 
                 logging.info(f'Transferring column attributes and column graphs back to bin file')
                 with loompy.connect(binfile) as dsb:
@@ -136,6 +142,7 @@ if __name__ == '__main__':
                     Karyotyper = Karyotyper()
                     Karyotyper.fit(ds, dsagg)
                     Karyotyper.plot(ds, dsagg)
+                    Karyotyper.generate_punchcards(config, ds, dsagg, python_exe=config.paths.pythonexe)
 
         if 'prom' in config.steps:
             ## Generate promoter file
@@ -144,4 +151,4 @@ if __name__ == '__main__':
                 Promoter_generator = Generate_promoter(outdir=subset_dir, poisson_pooling=False)
                 GA_file = Promoter_generator.fit(ds)
 
-    logging.info('Done with steps')
+        logging.info('Done with steps')
