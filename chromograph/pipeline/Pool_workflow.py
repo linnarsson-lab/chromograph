@@ -38,9 +38,9 @@ if __name__ == '__main__':
 
     f_pool = f'{config.paths.build}/Pool/Pool_peaks.loom'
     PW = Pool_Splits(deck=PunchcardDeck(config.paths.build), config=config)
-    # PW.collect_cells()
-    # PW.Pool_RNA()
-    # PW.Aggregate_motifs()
+    PW.collect_cells()
+    PW.Pool_RNA()
+    PW.Aggregate_motifs()
     PW.export_bigwigs()
 
     logging.info(f'Finished steps')
