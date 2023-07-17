@@ -11,6 +11,8 @@
 
 ## Installation instruction
 
+We have only used this on a linux system. Most likely this will not work correctly on windows.
+
 Create a new environments:
 ```
 conda create --name chromo python=3.7
@@ -95,7 +97,7 @@ punchcards/Root.yaml:
 All:
  include: ['your samples']
 ```
-You can now run the main_workflow from chromograph.pipeline to create a new build. This will generate a new folder 'All' containing Loom files, a peaks folder (with the consensus peak set and individuals peaksets from the broad subsets) and the 'exported' folder with plots. Depending on the size of the dataset this can take a long time (many hours).
+You can now run the main_workflow from chromograph.pipeline to create a new build. This will generate a new folder 'All' containing Loom files, a peaks folder (with the consensus peak set and individuals peaksets from the broad subsets) and the 'exported' folder with plots. Depending on the size of the dataset this can take a long time (many hours). Additionally some steps here can take a lot of working memory, so it might not work on a desktop computer if you want to analyze large datasets (e.g. > 100k cells).
 
 ```
 python ~/chromograph/chromograph/pipeline/main_workflow.py
