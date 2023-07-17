@@ -12,6 +12,7 @@
 ## Installation instruction
 
 We have only used this on a linux system. Most likely this will not work correctly on windows.
+Installation should take around 10 minutes.
 
 Create a new environments:
 ```
