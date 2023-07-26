@@ -1,4 +1,4 @@
-Metadata-Version: 1.0
+Metadata-Version: 2.1
 Name: chromograph
 Version: 0.0.1
 Summary: Pipeline for single-cell ATAC-seq analysis
@@ -6,5 +6,3 @@ Home-page: https://github.com/linnarsson-lab/chromograph
 Author: Linnarsson Lab
 Author-email: camiel.mannens@ki.se
 License: MIT
-Description: UNKNOWN
-Platform: UNKNOWN

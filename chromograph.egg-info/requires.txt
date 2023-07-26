@@ -1,7 +1,7 @@
 loompy
 numpy
 scikit-learn
-scipy==1.4.1
+scipy
 matplotlib
 networkx
 python-louvain

@@ -2,7 +2,7 @@
 
 import numpy as np
 import os
-import sys
+import yaml
 import pybedtools
 from pybedtools import BedTool
 import collections
@@ -43,37 +43,8 @@ class Chromgen:
         self.RNA_file = ''
         pybedtools.helpers.set_bedtools_path(self.config.paths.bedtools)
         logging.info("Chromgen initialised")
-    
-    # def fragments_to_count(self, ff, outdir, meta, bsize, chromosomes):
-    #     '''
-    #     '''
-    #     ## Read Fragments and generate size bins
-    #     logging.info("Read fragments into dict")
-    #     frag_dict = read_fragments(ff)
 
-    #     ## Split fragments to seperate files for fast indexing
-    #     logging.info(f"Saving fragments to separate folder for fast indexing")
-    #     fdir = os.path.join(outdir, 'fragments')
-    #     if not os.path.isdir(fdir):
-    #         os.mkdir(fdir)
-    #     if  len(os.listdir(fdir)) < len(meta['barcode']):
-    #         i = 0
-    #         for x in meta['barcode']:
-    #             f = os.path.join(fdir, f'{x}.tsv.gz')
-    #             if not os.path.exists(f):
-    #                 frags = BedTool(frag_dict[x]).filter(lambda x: x[0] in chromosomes.keys()).saveas(f)
-    #             i += 1
-    #             if i%1000 == 0:
-    #                 logging.info(f'Finished separating fragments for {i} cells')
-
-    #     ## Count fragments inside bins
-    #     logging.info("Count fragments overlapping with bins")
-    #     Count_dict = count_bins(frag_dict, meta['barcode'], bsize)
-    #     logging.info("Finished counting fragments")
-
-    #     return Count_dict
-
-    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_fragments: bool = False) -> None:
+    def fit(self, indir: str, bsize: int = 5000, outdir: str = None, genome_size: str = None, blacklist: str = None, min_fragments: bool = False, path_meta: str = None) -> None:
         ''''
         Create a .loom file from 10X Genomics cellranger output with reads binned
         Args:
@@ -82,6 +53,8 @@ class Chromgen:
             outdir (str):	output folder wher the new loom file should be saved (default to indir)
             genome_size (str):	path to file containing chromosome sizes, usually derived from encode (i.e. 'hg19.chrom.sizes.tsv')
             blacklist (str):	path to bedfile containing blacklisted region (i.e. 'blacklist_hg19.bed')
+            path_meta (str):    If a defined meta data file (.yaml format) should be used instead of the default database define path here (None for sangerDB), 
+                                at minimum use a file defining the sample name
         Returns:
             path (str):		Full path to the created loom file.
         Remarks:
@@ -169,8 +142,13 @@ class Chromgen:
             meta['CellID'] = np.array([x.split('-')[0] for x in meta['CellID']])
     
         ## Retrieve sample metadata from SangerDB
-        logging.info(f'Retrieve metadata from {[self.config.paths.metadata, sample]}')
-        m = load_sample_metadata(self.config.paths.metadata, sample)
+        if not path_meta:
+            logging.info(f'Retrieve metadata from {[self.config.paths.metadata, sample]}')
+            m = load_sample_metadata(self.config.paths.metadata, sample)
+        else:
+            logging.info(f'Retrieve metadata from {path_meta}')
+            with open(path_meta, 'r') as file:
+                m = yaml.load(file, Loader=yaml.FullLoader)
         for k,v in m.items():
             meta[k] = np.array([v] * len(meta['barcode']))
 
